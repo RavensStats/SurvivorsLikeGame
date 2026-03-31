@@ -38,22 +38,27 @@ public class EnemyAttack : MonoBehaviour {
         switch (type) {
             case AttackType.Melee:
                 // Only hits if touching or very close
-                if (dist < 1.5f) DamagePlayer(damage);
+                if (dist < 1.5f) {
+                    GetComponent<EnemyAnimator>()?.TriggerAttack();
+                    DamagePlayer(damage);
+                }
                 break;
 
             case AttackType.Projectile:
                 // Fires a simple bullet toward player
                 if (bulletPrefab) {
+                    GetComponent<EnemyAnimator>()?.TriggerAttack();
                     Vector3 dir = (SurvivorMasterScript.Instance.player.position - transform.position).normalized;
                     GameObject b = Instantiate(bulletPrefab, transform.position, Quaternion.identity);
                     b.GetComponent<Rigidbody2D>().linearVelocity = dir * bulletSpeed;
-                    b.AddComponent<EnemyBullet>().damage = damage; // Simple helper to carry damage
+                    b.AddComponent<EnemyBullet>().damage = damage;
                 }
                 break;
 
             case AttackType.AOE:
                 // Hits everything in a circle
                 if (dist <= aoeRadius) {
+                    GetComponent<EnemyAnimator>()?.TriggerAttack();
                     if (aoeVisualPrefab) Instantiate(aoeVisualPrefab, transform.position, Quaternion.identity);
                     DamagePlayer(damage);
                 }

@@ -114,7 +114,7 @@ public class XpGem : MonoBehaviour {
         Sprite s = Resources.Load<Sprite>($"Sprites/Gems/{tier}");
         if (s != null) sr.sprite = s;
         else Debug.LogWarning($"[XpGem] Sprite not found at Resources/Sprites/Gems/{tier}");
-        sr.sortingOrder = 2;
+        sr.sortingOrder = 4; // above POI (1), below enemies (5)
 
         XpGem gem = go.AddComponent<XpGem>();
         gem.tier = tier;

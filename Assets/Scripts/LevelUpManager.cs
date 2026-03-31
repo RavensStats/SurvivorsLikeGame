@@ -225,7 +225,38 @@ public class LevelUpManager : MonoBehaviour {
     // ─────────────────────────────────────────────────────────────────────────
 
     List<UpgradeOption> GetRandomOptions(int count) {
-        var pool   = new List<UpgradeOption>(UpgradePool);
+        var pool = new List<UpgradeOption>(UpgradePool);
+
+        // Also offer weapon/passive cards from WeaponSystem.cardPool that
+        // the player does not already own.
+        var ws = WeaponSystem.Instance;
+        if (ws != null) {
+            foreach (var item in ws.cardPool) {
+                bool alreadyOwned = ws.activeWeapons.Exists(w => w.itemName == item.itemName)
+                                 || ws.passiveItems.Exists(p => p.itemName == item.itemName);
+                if (alreadyOwned) continue;
+
+                var captured = item; // capture for lambda
+                string label = item.isWeapon ? "WPN" : "ITM";
+                Color col    = item.rarity == Rarity.Legendary ? new Color(1f, 0.8f, 0f)
+                             : item.rarity == Rarity.Epic      ? new Color(0.7f, 0.3f, 1f)
+                             : item.rarity == Rarity.Rare      ? new Color(0.3f, 0.7f, 1f)
+                             : Color.white;
+                pool.Add(new UpgradeOption {
+                    id          = "item_" + item.itemName,
+                    title       = item.itemName,
+                    description = item.description,
+                    iconLabel   = label,
+                    iconColor   = col,
+                    onSelect    = () => {
+                        if (captured.isWeapon) ws.activeWeapons.Add(captured);
+                        else                   ws.passiveItems.Add(captured);
+                        ws.CheckSynergies();
+                    }
+                });
+            }
+        }
+
         var chosen = new List<UpgradeOption>();
         count = Mathf.Min(count, pool.Count);
         while (chosen.Count < count && pool.Count > 0) {

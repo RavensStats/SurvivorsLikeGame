@@ -130,7 +130,21 @@ public class EnemySpawner : MonoBehaviour {
 
     // ── Single enemy creation ──────────────────────────────────────────────────
     void SpawnEnemy(EnemySpawnConfig cfg, Vector3 pos, float hp, float damage) {
-        // Build the enemy GameObject from scratch
+        // Apply biome multipliers at the spawn position
+        float biomeHPMult     = 1f;
+        float biomeDmgMult    = 1f;
+        float biomeSpeedMult  = 1f;
+        if (worldGen != null && worldGen.biomes != null && worldGen.biomes.Count > 0) {
+            float noise = Mathf.PerlinNoise(
+                (pos.x / WorldGenerator.ChunkSize + 1000f) * worldGen.biomeNoiseScale,
+                (pos.y / WorldGenerator.ChunkSize + 1000f) * worldGen.biomeNoiseScale);
+            int biomeIdx = Mathf.Clamp(Mathf.FloorToInt(noise * worldGen.biomes.Count), 0, worldGen.biomes.Count - 1);
+            BiomeData b   = worldGen.biomes[biomeIdx];
+            // Guard against 0: Inspector-created BiomeData may serialize 0 for unset fields
+            biomeHPMult    = b.enemyDamageMultiplier  > 0f ? b.enemyDamageMultiplier  : 1f;
+            biomeDmgMult   = b.enemyDamageMultiplier  > 0f ? b.enemyDamageMultiplier  : 1f;
+            biomeSpeedMult = b.enemySpeedMultiplier   > 0f ? b.enemySpeedMultiplier   : 1f;
+        }
         GameObject go = new GameObject($"Enemy_{cfg.enemyTypeName}");
         go.transform.position = pos;
         go.transform.localScale = Vector3.one * 10f;
@@ -138,7 +152,7 @@ public class EnemySpawner : MonoBehaviour {
 
         // SpriteRenderer (needed by EnemyAnimator)
         SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-        sr.sortingOrder = 1;
+        sr.sortingOrder = 5; // above POI (1), gems (4), below player (6)
 
         // Rigidbody2D — kinematic so the code drives position directly
         Rigidbody2D rb = go.AddComponent<Rigidbody2D>();
@@ -153,13 +167,13 @@ public class EnemySpawner : MonoBehaviour {
         // EnemyEntity
         EnemyEntity entity  = go.AddComponent<EnemyEntity>();
         entity.behavior     = cfg.behavior;
-        entity.hp           = hp;
-        entity.moveSpeed    = cfg.moveSpeed;
+        entity.hp           = hp * biomeHPMult;
+        entity.moveSpeed    = cfg.moveSpeed * biomeSpeedMult;
 
         // EnemyAttack
         EnemyAttack attack      = go.AddComponent<EnemyAttack>();
         attack.type             = AttackType.Melee;
-        attack.damage           = damage;
+        attack.damage           = damage * biomeDmgMult;
         attack.attackInterval   = cfg.attackInterval;
 
         // EnemyAnimator — load sprites if a folder exists

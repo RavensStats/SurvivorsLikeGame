@@ -678,7 +678,17 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cbf08a2998beefe45bcfdd5aaf11220e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WeaponSystem
-  activeWeapons: []
+  activeWeapons:
+  - itemName: 
+    description: 
+    tags: []
+    rarity: 0
+    isWeapon: 0
+    baseDamage: 0
+    cooldown: 0
+    pierceCount: 0
+    trait: 0
+    projectilePrefab: {fileID: 0}
   passiveItems: []
   cardPool: []
   recipes: []
@@ -793,7 +803,7 @@ MonoBehaviour:
     hp: 50
     moveSpeed: 3.5
     damage: 10
-    attackRange: 1.5
+    attackRange: 3
     attackInterval: 1.5
     countPerWave: 3
     spawnInterval: 0.4

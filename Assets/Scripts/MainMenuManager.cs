@@ -489,7 +489,7 @@ public class MainMenuManager : MonoBehaviour {
             sms.ResetRunStats();
             RunUpgrades.Reset();
             if (sms.player != null)
-                XpGem.SpawnStartingGems(sms.player.position, 30);
+                XpGem.SpawnStartingGems(sms.player.position, 3);
         }
 
         // Start spawner again
@@ -636,9 +636,8 @@ public class MainMenuManager : MonoBehaviour {
         SurvivorMasterScript sms = SurvivorMasterScript.Instance;
         if (sms != null) {
             sms.ResetRunStats();
-            //TESTING 30, replace with 5 for production
             if (sms.player != null)
-                XpGem.SpawnStartingGems(sms.player.position, 30);
+                XpGem.SpawnStartingGems(sms.player.position, 3);
         }
         // Start enemy spawner
         EnemySpawner spawner = Object.FindFirstObjectByType<EnemySpawner>();

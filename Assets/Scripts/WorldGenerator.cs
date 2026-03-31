@@ -70,6 +70,53 @@ public class WorldGenerator : MonoBehaviour {
         float noise = Mathf.PerlinNoise((c.x + 1000) * biomeNoiseScale, (c.y + 1000) * biomeNoiseScale);
         int biomeIndex = Mathf.Clamp(Mathf.FloorToInt(noise * biomes.Count), 0, biomes.Count - 1);
         sr.color = biomes[biomeIndex].groundColor;
+
+        // 5% chance to place a POI on this chunk
+        if (Random.value < 0.05f) SpawnPOI(p + new Vector3(15f, 15f, 0f));
+    }
+
+    void SpawnPOI(Vector3 pos) {
+        // Only the three POI types that have implemented logic get spawned
+        POIType[] implemented = { POIType.Graveyard, POIType.HealingSpring, POIType.ManaWell };
+        POIType chosen = implemented[Random.Range(0, implemented.Length)];
+
+        GameObject poi = new GameObject($"POI_{chosen}");
+        poi.transform.position = pos;
+        poi.transform.SetParent(transform, true);
+
+        // Visual indicator: small colored circle using SpriteRenderer
+        SpriteRenderer sr = poi.AddComponent<SpriteRenderer>();
+        sr.sprite       = MakeCircleSprite(32);
+        sr.sortingOrder = 1; // below floor objects; gameplay (enemies/gems/player) render above
+        sr.color = chosen == POIType.Graveyard     ? new Color(0.5f, 0.2f, 0.7f, 0.9f)
+                 : chosen == POIType.HealingSpring ? new Color(0.2f, 0.9f, 0.4f, 0.9f)
+                 : /* ManaWell */                    new Color(0.2f, 0.5f, 1.0f, 0.9f);
+        poi.transform.localScale = Vector3.one * 12f; // 100% bigger than original 6f
+
+        // Trigger collider so the player activates it on contact
+        CircleCollider2D col = poi.AddComponent<CircleCollider2D>();
+        col.isTrigger = true;
+        col.radius    = 0.5f;
+
+        POIInstance inst = poi.AddComponent<POIInstance>();
+        inst.type = chosen;
+    }
+
+    // Procedurally build a white filled-circle sprite of the given diameter in pixels.
+    static Sprite MakeCircleSprite(int diameter) {
+        Texture2D tex = new Texture2D(diameter, diameter, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        float r = diameter * 0.5f;
+        for (int y = 0; y < diameter; y++) {
+            for (int x = 0; x < diameter; x++) {
+                float dx = x - r + 0.5f;
+                float dy = y - r + 0.5f;
+                float a  = Mathf.Clamp01(r - Mathf.Sqrt(dx * dx + dy * dy)); // anti-aliased edge
+                tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
+            }
+        }
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, diameter, diameter), new Vector2(0.5f, 0.5f), diameter);
     }
 }
 

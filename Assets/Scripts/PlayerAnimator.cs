@@ -42,6 +42,7 @@ public class PlayerAnimator : MonoBehaviour {
     void Awake() {
         sr = GetComponent<SpriteRenderer>();
         rb = GetComponent<Rigidbody2D>();
+        sr.sortingOrder = 6; // above POI (1), gems (4), enemies (5)
     }
 
     void Start() {
