@@ -120,11 +120,7 @@ public class PlayerAnimator : MonoBehaviour {
 
     // ── Public trigger ─────────────────────────────────────────────────────────
     public void TriggerFireball() {
-        if (state == AnimState.Death) return;
-        state = AnimState.Fireball;
-        currentFrame = 0;
-        frameTimer = 0f;
-        // Return to walk after fireball finishes (handled via frame loop completion)
+        // Attack animations disabled — player stays in walk/idle animation while firing
     }
 
     // ── Direction helper ───────────────────────────────────────────────────────

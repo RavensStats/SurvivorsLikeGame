@@ -255,6 +255,26 @@ public class LevelUpManager : MonoBehaviour {
                     }
                 });
             }
+
+            // Offer level-up cards for owned weapons that scale with level.
+            foreach (var owned in ws.activeWeapons) {
+                if (owned.fireMode == FireMode.Default) continue;
+                int nextLevel = owned.level + 1;
+                var captured = owned;
+                string modeLabel = owned.fireMode == FireMode.NearestN ? "nearest" : "random";
+                Color col = owned.rarity == Rarity.Legendary ? new Color(1f, 0.8f, 0f)
+                          : owned.rarity == Rarity.Epic      ? new Color(0.7f, 0.3f, 1f)
+                          : owned.rarity == Rarity.Rare      ? new Color(0.3f, 0.7f, 1f)
+                          : new Color(0.9f, 0.9f, 0.4f);
+                pool.Add(new UpgradeOption {
+                    id          = "levelup_" + owned.itemName,
+                    title       = owned.itemName + $" Lv.{nextLevel}",
+                    description = $"Now targets {nextLevel} {modeLabel} enem{(nextLevel == 1 ? "y" : "ies")} per attack.",
+                    iconLabel   = "LV+",
+                    iconColor   = col,
+                    onSelect    = () => captured.level++
+                });
+            }
         }
 
         var chosen = new List<UpgradeOption>();

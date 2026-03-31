@@ -94,17 +94,29 @@ public class EnemyEntity : MonoBehaviour {
         if (b != null && b.isHunterBonusUnlocked) d *= 1.15f; // Bestiary Bonus applied
         hp -= d; if (hp <= 0) Die();
     }
+
+    public void ApplyKnockback(Vector2 knockDir, float force) {
+        if (isDead || force <= 0f) return;
+        StartCoroutine(KnockbackRoutine(knockDir, force));
+    }
+    System.Collections.IEnumerator KnockbackRoutine(Vector2 knockDir, float force) {
+        float duration = 0.12f; float elapsed = 0f;
+        while (elapsed < duration && !isDead) {
+            transform.position += (Vector3)(knockDir * force * 10f * Time.deltaTime);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+    }
     void Die() {
         isDead = true;
         SurvivorMasterScript.Instance.RegisterKill(behavior);
         SurvivorMasterScript.Instance.Grid.Remove(this);
         XpGem.Spawn(transform.position);
 
-        // 15% chance to drop 1 gold, rare enemies drop 2-5
-        if (Random.value < 0.15f) {
+        // 10% chance to drop gold
+        if (Random.value < 0.10f) {
             int goldDrop = Random.Range(1, 3);
-            SurvivorMasterScript.GlobalGold          += goldDrop;
-            SurvivorMasterScript.Instance.totalGoldGained += goldDrop;
+            GoldCoin.Spawn(transform.position, goldDrop);
         }
 
         Destroy(gameObject, 0.15f); // brief delay for death frame to show

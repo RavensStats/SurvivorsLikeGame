@@ -24,8 +24,8 @@ public class XpGem : MonoBehaviour {
     static readonly float[] WeightsEnd   = {  1f,  2f,  5f, 12f, 20f, 30f, 20f, 10f };
 
     const int   MaxRatchets       = 14;
-    const float MergeRadius       = 10f;
-    const float MergeCheckDelay   = 60f;
+    const float MergeRadius       = 50f;
+    const float MergeCheckDelay   = 30f;
     const float CollectRadius     = 2.0f;  
     const float StartingGemRadius = 10.0f;  
 
@@ -65,7 +65,7 @@ public class XpGem : MonoBehaviour {
 
     public static void Spawn(Vector3 pos) => SpawnTier(PickTier(), pos);
 
-    public static void SpawnStartingGems(Vector3 centre, int count = 3) {
+    public static void SpawnStartingGems(Vector3 centre, int count) {
         for (int i = 0; i < count; i++) {
             float angle = i * (360f / count) + Random.Range(-15f, 15f);
             float rad   = angle * Mathf.Deg2Rad;
@@ -142,38 +142,28 @@ public class XpGem : MonoBehaviour {
         yield return new WaitForSeconds(MergeCheckDelay);
         while (this != null && gameObject != null) {
             TryMerge();
-            yield return new WaitForSeconds(0.5f);
+            yield return new WaitForSeconds(MergeCheckDelay);
         }
     }
 
+    static readonly HashSet<XpGem> merging = new HashSet<XpGem>();
+
     void TryMerge() {
         if (tier >= 8) return;
-
-        // Collect all live same-tier gems within range (using the registry, no Physics2D)
-        var same = new List<XpGem>();
-        foreach (XpGem g in AllGems) {
-            if (g == null) continue;
-            if (g.tier == tier && Vector3.Distance(transform.position, g.transform.position) <= MergeRadius)
-                same.Add(g);
+        if (!AllGems.Contains(this)) return;
+        foreach (XpGem other in AllGems) {
+            if (other == this || other == null || other.tier != tier) continue;
+            if (merging.Contains(this) || merging.Contains(other)) continue;
+            if (Vector3.Distance(transform.position, other.transform.position) <= MergeRadius) {
+                merging.Add(this);
+                merging.Add(other);
+                Vector3 mid = (transform.position + other.transform.position) * 0.5f;
+                int newTier = Mathf.Min(tier + 1, 8);
+                Destroy(other.gameObject);
+                Destroy(gameObject);
+                SpawnTier(newTier, mid);
+                return;
+            }
         }
-
-        if (same.Count < 2) return; // need at least this + 1 partner
-
-        // Lowest InstanceID is the one initiator — prevents double-merge races
-        XpGem initiator = same[0];
-        foreach (XpGem g in same)
-            if (g.GetInstanceID() < initiator.GetInstanceID()) initiator = g;
-        if (initiator != this) return;
-
-        XpGem partner = null;
-        foreach (XpGem g in same)
-            if (g != this) { partner = g; break; }
-        if (partner == null) return;
-
-        Vector3 mid = (transform.position + partner.transform.position) * 0.5f;
-        int newTier = tier + 1;
-        Destroy(partner.gameObject);
-        Destroy(gameObject);
-        SpawnTier(newTier, mid);
     }
 }

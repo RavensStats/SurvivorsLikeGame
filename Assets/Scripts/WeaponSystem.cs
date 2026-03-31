@@ -10,6 +10,9 @@ public class WeaponSystem : MonoBehaviour {
     public List<EvolutionRecipe> recipes;
     private Dictionary<string, float> cooldowns = new Dictionary<string, float>();
 
+    // Always use the live player position so projectiles spawn/query at the right spot.
+    Vector3 PlayerPos => SurvivorMasterScript.Instance.player?.position ?? transform.position;
+
     void Awake() => Instance = this;
 
     void Update() {
@@ -23,13 +26,59 @@ public class WeaponSystem : MonoBehaviour {
 
     void Fire(ItemData w) {
         if (w.projectilePrefab == null) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab assigned."); return; }
-        var targets = SurvivorMasterScript.Instance.Grid.GetNearby(transform.position);
-        Vector2 dir = targets.Count > 0 ? (targets[0].transform.position - transform.position).normalized : Random.insideUnitCircle.normalized;
-        GameObject proj = Instantiate(w.projectilePrefab, transform.position, Quaternion.identity);
-        proj.GetComponent<ProjectileLogic>().Setup(w, dir);
+        switch (w.fireMode) {
+            case FireMode.NearestN:      FireNearestN(w);      break;
+            case FireMode.RandomInRange: FireRandomInRange(w); break;
+            default:                     FireDefault(w);       break;
+        }
+    }
 
-        // Trigger attack animation on the player animator
-        SurvivorMasterScript.Instance.player?.GetComponent<PlayerAnimator>()?.TriggerFireball();
+    void FireDefault(ItemData w) {
+        Vector3 pos = PlayerPos;
+        var targets = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
+        Vector2 dir = targets.Count > 0 ? (targets[0].transform.position - pos).normalized : Random.insideUnitCircle.normalized;
+        Instantiate(w.projectilePrefab, pos, Quaternion.identity).GetComponent<ProjectileLogic>().Setup(w, dir);
+    }
+
+    // Fires one projectile at each of the N nearest enemies (N = weapon level).
+    void FireNearestN(ItemData w) {
+        Vector3 pos = PlayerPos;
+        var targets = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
+        targets.RemoveAll(e => e == null || e.isDead);
+        // Deduplicate — SpatialGrid's 3x3 cell scan can include the same entity twice
+        // if it sits on a shared boundary during an UpdateEntity call.
+        targets = targets.Distinct().ToList();
+        targets.Sort((a, b) =>
+            (a.transform.position - pos).sqrMagnitude
+            .CompareTo((b.transform.position - pos).sqrMagnitude));
+        int count = Mathf.Min(w.level, targets.Count);
+        if (count == 0) {
+            Instantiate(w.projectilePrefab, pos, Quaternion.identity)
+                .GetComponent<ProjectileLogic>().Setup(w, Random.insideUnitCircle.normalized);
+            return;
+        }
+        for (int i = 0; i < count; i++) {
+            Vector2 dir = (targets[i].transform.position - pos).normalized;
+            Instantiate(w.projectilePrefab, pos, Quaternion.identity).GetComponent<ProjectileLogic>().Setup(w, dir);
+        }
+    }
+
+    // Fires one projectile at each of up to N random enemies within w.range (N = weapon level).
+    void FireRandomInRange(ItemData w) {
+        Vector3 pos = PlayerPos;
+        var targets = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
+        targets.RemoveAll(e => e == null || e.isDead);
+        float rangeSq = w.range * w.range;
+        targets = targets.Where(e => (e.transform.position - pos).sqrMagnitude <= rangeSq).ToList();
+        for (int i = targets.Count - 1; i > 0; i--) {
+            int j = Random.Range(0, i + 1);
+            var tmp = targets[i]; targets[i] = targets[j]; targets[j] = tmp;
+        }
+        int count = Mathf.Min(w.level, targets.Count);
+        for (int i = 0; i < count; i++) {
+            Vector2 dir = (targets[i].transform.position - pos).normalized;
+            Instantiate(w.projectilePrefab, pos, Quaternion.identity).GetComponent<ProjectileLogic>().Setup(w, dir);
+        }
     }
 
     public void CheckSynergies() {
@@ -74,7 +123,7 @@ public class WeaponSystem : MonoBehaviour {
         float damagePerTick = 8f;
         float elapsed = 0f;
         while (elapsed < duration) {
-            var nearby = SurvivorMasterScript.Instance.Grid.GetNearby(transform.position);
+            var nearby = SurvivorMasterScript.Instance.Grid.GetNearby(PlayerPos);
             foreach (var e in nearby)
                 if (e != null) e.TakeDamage(damagePerTick);
             yield return new WaitForSeconds(tickInterval);
@@ -94,19 +143,6 @@ public class WeaponSystem : MonoBehaviour {
                 if (cooldowns[k] > 0.1f) cooldowns[k] = 0f;
             elapsed += Time.deltaTime;
             yield return null;
-        }
-    }
-}
-
-public class ProjectileLogic : MonoBehaviour {
-    private ItemData d; private Vector2 dir; private int p;
-    public void Setup(ItemData item, Vector2 direction) { d = item; dir = direction; p = item.pierceCount; Destroy(gameObject, 5f); }
-    void Update() => transform.Translate(dir * 12f * Time.deltaTime);
-    void OnTriggerEnter2D(Collider2D other) {
-        if (other.CompareTag("Enemy")) {
-            other.GetComponent<EnemyEntity>().TakeDamage(d.baseDamage);
-            if (d.trait == WeaponTrait.Bouncy) dir = Random.insideUnitCircle.normalized;
-            p--; if (p <= 0 && d.trait != WeaponTrait.Bouncy) Destroy(gameObject);
         }
     }
 }

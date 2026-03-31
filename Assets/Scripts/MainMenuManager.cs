@@ -636,6 +636,12 @@ public class MainMenuManager : MonoBehaviour {
         SurvivorMasterScript sms = SurvivorMasterScript.Instance;
         if (sms != null) {
             sms.ResetRunStats();
+            // Set the character class so starting weapons and ultimates work correctly.
+            if (System.Enum.TryParse<CharacterClass>(chosen, true, out CharacterClass cls))
+                sms.currentClass = cls;
+            // Assign the class-specific starting weapon now that the class is known.
+            if (ZenithDatabaseLoader.Instance != null)
+                ZenithDatabaseLoader.Instance.AssignStartingWeapon();
             if (sms.player != null)
                 XpGem.SpawnStartingGems(sms.player.position, 3);
         }

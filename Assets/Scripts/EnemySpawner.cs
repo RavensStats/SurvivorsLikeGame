@@ -159,10 +159,20 @@ public class EnemySpawner : MonoBehaviour {
         rb.bodyType    = RigidbodyType2D.Kinematic;
         rb.gravityScale = 0f;
 
-        // CircleCollider2D — needed for weapon projectile OnTriggerEnter2D
+        // CircleCollider2D — non-trigger so the projectile's trigger collider detects it
+        // (two trigger/kinematic combos don't reliably fire OnTriggerEnter2D)
         CircleCollider2D col = go.AddComponent<CircleCollider2D>();
-        col.isTrigger = true;
-        col.radius    = 0.5f;
+        col.isTrigger = false;
+        col.radius    = 0.08f; // world radius = 0.08 × scale(10) = 0.8u
+
+        // Prevent physical de-penetration forces from pushing the player.
+        // The enemy moves via transform.position directly (bypasses physics),
+        // but Unity still resolves overlapping non-trigger vs Dynamic colliders.
+        var playerTransform = SurvivorMasterScript.Instance?.player;
+        if (playerTransform != null) {
+            foreach (var pc in playerTransform.GetComponents<Collider2D>())
+                Physics2D.IgnoreCollision(col, pc);
+        }
 
         // EnemyEntity
         EnemyEntity entity  = go.AddComponent<EnemyEntity>();
