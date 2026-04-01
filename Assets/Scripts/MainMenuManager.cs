@@ -642,8 +642,8 @@ public class MainMenuManager : MonoBehaviour {
         string chosen = availableCharacters[selectedCharacterIdx];
         PlayerPrefs.SetString("SelectedCharacter", chosen);
         PlayerPrefs.Save();
-        // Reload sprites for the chosen character
-        PlayerAnimator anim = Object.FindFirstObjectByType<PlayerAnimator>();
+        // Reload sprites for the chosen character (player is inactive during menus, so include inactive)
+        PlayerAnimator anim = Object.FindFirstObjectByType<PlayerAnimator>(FindObjectsInactive.Include);
         if (anim != null) anim.LoadClipsForCharacter(chosen);
         // Reset per-run bonuses and run stats
         RunUpgrades.Reset();

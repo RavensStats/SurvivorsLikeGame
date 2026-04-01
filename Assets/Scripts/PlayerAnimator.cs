@@ -3,7 +3,7 @@ using UnityEngine;
 
 /// <summary>
 /// Drives the Mage player sprite purely from code — no Animator Controller needed.
-/// Loads sprites at runtime from Resources/Sprites/Characters/Mage/animations/...
+/// Loads sprites at runtime from Resources/Sprites/Characters/{char}/animations/...
 /// </summary>
 [RequireComponent(typeof(SpriteRenderer))]
 [RequireComponent(typeof(Rigidbody2D))]
