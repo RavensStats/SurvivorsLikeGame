@@ -10,6 +10,10 @@ public class SurvivorMasterScript : MonoBehaviour {
             ultTimer = 0;
             ultFill.value = 0;
         }
+        public void FillUltimate() {
+            ultTimer = ultCooldown;
+            if (ultFill != null) ultFill.value = 1f;
+        }
     public static SurvivorMasterScript Instance;
     public SpatialGrid Grid;
 

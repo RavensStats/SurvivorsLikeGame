@@ -91,7 +91,7 @@ public class WorldGenerator : MonoBehaviour {
         sr.color = chosen == POIType.Graveyard     ? new Color(0.5f, 0.2f, 0.7f, 0.9f)
                  : chosen == POIType.HealingSpring ? new Color(0.2f, 0.9f, 0.4f, 0.9f)
                  : /* ManaWell */                    new Color(0.2f, 0.5f, 1.0f, 0.9f);
-        poi.transform.localScale = Vector3.one * 12f; // 100% bigger than original 6f
+        poi.transform.localScale = Vector3.one * 24f; // doubled radius
 
         // Trigger collider so the player activates it on contact
         CircleCollider2D col = poi.AddComponent<CircleCollider2D>();
@@ -127,7 +127,7 @@ public class POIInstance : MonoBehaviour {
         switch (type) {
             case POIType.Graveyard: SurvivorMasterScript.Instance.isInsideGraveyard = true; break;
             case POIType.HealingSpring: SurvivorMasterScript.Instance.playerHP = Mathf.Min(100, SurvivorMasterScript.Instance.playerHP + 25); break;
-            case POIType.ManaWell: SurvivorMasterScript.Instance.ResetUltimate(); break;
+            case POIType.ManaWell: SurvivorMasterScript.Instance.FillUltimate(); break;
         }
     }
     void OnTriggerExit2D(Collider2D other) { if (other.CompareTag("Player") && type == POIType.Graveyard) SurvivorMasterScript.Instance.isInsideGraveyard = false; }

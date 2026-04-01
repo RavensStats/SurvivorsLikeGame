@@ -17,14 +17,16 @@ public class MainMenuManager : MonoBehaviour {
     private GameObject vipPanel;
     private GameObject gameOverPanel;
     private GameObject characterSelectPanel;
+    private GameObject settingsPanel;
+    private System.Action settingsBackAction;
 
     private Canvas    canvas;
     private Font      font;
 
     // ── Colours ───────────────────────────────────────────────────────────────
     private static readonly Color BG_DARK   = new Color(0.05f, 0.05f, 0.10f, 0.97f);
-    private static readonly Color BTN_IDLE  = new Color(0.15f, 0.22f, 0.38f, 1f);
-    private static readonly Color BTN_EXIT  = new Color(0.38f, 0.10f, 0.10f, 1f);
+    private static readonly Color BTN_IDLE  = new Color(0.22f, 0.42f, 0.72f, 1f);
+    private static readonly Color BTN_EXIT  = new Color(0.45f, 0.12f, 0.12f, 1f);
     private static readonly Color GOLD_COL  = new Color(1f,   0.82f, 0.20f, 1f);
     private static readonly Color WHITE     = Color.white;
 
@@ -64,12 +66,14 @@ public class MainMenuManager : MonoBehaviour {
         cgo.AddComponent<CanvasScaler>();
         cgo.AddComponent<GraphicRaycaster>();
 
+        settingsBackAction = () => ShowPanel(menuPanel);
         BuildMainMenu();
         BuildUpgradeShop();
         BuildHighScores();
         BuildManageVIP();
         BuildGameOver();
         BuildCharacterSelect();
+        BuildSettings();
 
         ShowPanel(menuPanel);
         // Hide the player character until Play is pressed (player created in Awake, before Start)
@@ -97,17 +101,23 @@ public class MainMenuManager : MonoBehaviour {
         MakeText(menuPanel.transform, "LIKE", 36, FontStyle.Italic, GOLD_COL,
             TextAnchor.MiddleCenter, new Vector2(0, 0.63f), new Vector2(0, 0.76f));
 
-        // Buttons
-        float[] yAnchors = { 0.51f, 0.40f, 0.29f, 0.18f, 0.07f };
-        string[] labels  = { "Play", "Upgrade Shop", "High Scores", "Manage VIP", "Exit" };
+        // Buttons (6 total with Settings)
+        float[] yAnchors = { 0.54f, 0.44f, 0.34f, 0.24f, 0.14f, 0.04f };
+        string[] labels  = { "Play", "Upgrade Shop", "High Scores", "Manage VIP", "Settings", "Exit" };
         System.Action[] actions = {
             OnPlay,
             () => ShowPanel(shopPanel),
             () => { BuildHighScores(); ShowPanel(scoresPanel); },
             () => ShowPanel(vipPanel),
+            () => { settingsBackAction = () => ShowPanel(menuPanel); BuildSettings(); ShowPanel(settingsPanel); },
             () => Application.Quit()
         };
-        Color[] colors = { new Color(0.12f, 0.45f, 0.18f, 1f), BTN_IDLE, BTN_IDLE, BTN_IDLE, BTN_EXIT };
+        Color[] colors = {
+            new Color(0.12f, 0.55f, 0.22f, 1f),  // Play - bright green
+            BTN_IDLE, BTN_IDLE, BTN_IDLE,          // nav buttons
+            new Color(0.35f, 0.25f, 0.65f, 1f),   // Settings - purple
+            BTN_EXIT                               // Exit
+        };
 
         for (int i = 0; i < labels.Length; i++) {
             int idx = i;
@@ -131,6 +141,9 @@ public class MainMenuManager : MonoBehaviour {
         // ── Gold (prominent, at top) ──
         int gold  = PlayerPrefs.GetInt("TotalGold", 0);
         int spent = PlayerPrefs.GetInt("TotalGoldSpent", 0);
+        // Top-right gold display matching the game HUD style
+        MakeText(shopPanel.transform, $"\u25c6 {gold}", 22, FontStyle.Bold, GOLD_COL,
+            TextAnchor.MiddleRight, new Vector2(0.65f, 0.91f), new Vector2(0.97f, 0.98f));
         MakeText(shopPanel.transform, $"\u25c6 {gold} gold", 26, FontStyle.Bold, GOLD_COL,
             TextAnchor.MiddleCenter, new Vector2(0, 0.80f), new Vector2(0, 0.89f));
         MakeText(shopPanel.transform, $"Spent this session: {spent}g", 15, FontStyle.Italic,
@@ -181,7 +194,8 @@ public class MainMenuManager : MonoBehaviour {
         MakeButton(shopPanel.transform, "Back", BTN_IDLE, WHITE, 20,
             new Vector2(0.05f, 0.02f), new Vector2(0.45f, 0.10f),
             () => ShowPanel(menuPanel));
-        MakeButton(shopPanel.transform, "Refund All",
+        string refundLabel = spent > 0 ? $"Refund All ({spent}g)" : "Refund All";
+        MakeButton(shopPanel.transform, refundLabel,
             spent > 0 ? new Color(0.55f, 0.35f, 0.05f, 1f) : new Color(0.25f, 0.25f, 0.25f, 1f),
             WHITE, 20,
             new Vector2(0.55f, 0.02f), new Vector2(0.95f, 0.10f),
@@ -668,6 +682,128 @@ public class MainMenuManager : MonoBehaviour {
     }
 
     // ═════════════════════════════════════════════════════════════════════════
+    // SETTINGS
+    // ═════════════════════════════════════════════════════════════════════════
+    void BuildSettings() {
+        if (settingsPanel != null) Destroy(settingsPanel);
+        settingsPanel = MakeFullPanel("SettingsPanel");
+
+        MakeText(settingsPanel.transform, "Settings", 38, FontStyle.Bold, GOLD_COL,
+            TextAnchor.MiddleCenter, new Vector2(0, 0.90f), new Vector2(0, 0.98f));
+
+        // ── AUDIO header ──
+        MakeText(settingsPanel.transform, "AUDIO", 22, FontStyle.Bold, new Color(0.55f, 0.82f, 1f),
+            TextAnchor.MiddleLeft, new Vector2(0.05f, 0.83f), new Vector2(0.5f, 0.89f));
+        MakeImage(settingsPanel.transform, new Vector2(0.05f, 0.826f), new Vector2(0.95f, 0.831f),
+            new Color(0.4f, 0.6f, 0.9f, 0.6f));
+
+        // SFX Volume
+        float sfxVol = PlayerPrefs.GetFloat("sfxVolume", 0.8f);
+        SettingsStepperRow(settingsPanel.transform, "Sound Effects", 0.80f, sfxVol,
+            () => { PlayerPrefs.SetFloat("sfxVolume", Mathf.Max(0f, Mathf.Round((sfxVol - 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); },
+            () => { PlayerPrefs.SetFloat("sfxVolume", Mathf.Min(1f, Mathf.Round((sfxVol + 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); });
+
+        // Music Volume
+        float musicVol = PlayerPrefs.GetFloat("musicVolume", 0.5f);
+        SettingsStepperRow(settingsPanel.transform, "Background Music", 0.69f, musicVol,
+            () => { PlayerPrefs.SetFloat("musicVolume", Mathf.Max(0f, Mathf.Round((musicVol - 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); },
+            () => { PlayerPrefs.SetFloat("musicVolume", Mathf.Min(1f, Mathf.Round((musicVol + 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); });
+
+        // ── HUD header ──
+        MakeText(settingsPanel.transform, "HUD", 22, FontStyle.Bold, new Color(0.55f, 0.82f, 1f),
+            TextAnchor.MiddleLeft, new Vector2(0.05f, 0.60f), new Vector2(0.5f, 0.67f));
+        MakeImage(settingsPanel.transform, new Vector2(0.05f, 0.596f), new Vector2(0.95f, 0.601f),
+            new Color(0.4f, 0.6f, 0.9f, 0.6f));
+
+        // Show Minimap toggle
+        bool showMinimap = PlayerPrefs.GetInt("showMinimap", 1) == 1;
+        MakeImage(settingsPanel.transform, new Vector2(0.05f, 0.50f), new Vector2(0.95f, 0.59f),
+            new Color(0.12f, 0.15f, 0.22f, 0.8f));
+        MakeText(settingsPanel.transform, "Show Minimap", 18, FontStyle.Normal, WHITE,
+            TextAnchor.MiddleLeft, new Vector2(0.07f, 0.50f), new Vector2(0.70f, 0.59f));
+        Color mmCol = showMinimap ? new Color(0.12f, 0.45f, 0.18f, 1f) : new Color(0.45f, 0.12f, 0.12f, 1f);
+        MakeButton(settingsPanel.transform, showMinimap ? "ON" : "OFF", mmCol, WHITE, 18,
+            new Vector2(0.72f, 0.51f), new Vector2(0.88f, 0.58f),
+            () => {
+                int newVal = showMinimap ? 0 : 1;
+                PlayerPrefs.SetInt("showMinimap", newVal);
+                if (Time.timeScale > 0f) MinimapSystem.Instance?.SetVisible(newVal == 1);
+                BuildSettings(); ShowPanel(settingsPanel);
+            });
+
+        // Layout selector
+        MakeImage(settingsPanel.transform, new Vector2(0.05f, 0.39f), new Vector2(0.95f, 0.48f),
+            new Color(0.12f, 0.15f, 0.22f, 0.8f));
+        MakeText(settingsPanel.transform, "HUD Layout", 18, FontStyle.Normal, WHITE,
+            TextAnchor.MiddleLeft, new Vector2(0.07f, 0.39f), new Vector2(0.55f, 0.48f));
+        MakeButton(settingsPanel.transform, "Horizontal \u2713", new Color(0.12f, 0.45f, 0.18f, 1f), WHITE, 15,
+            new Vector2(0.57f, 0.40f), new Vector2(0.75f, 0.47f), null);
+        MakeButton(settingsPanel.transform, "Vertical", new Color(0.18f, 0.18f, 0.22f, 0.7f),
+            new Color(0.45f, 0.45f, 0.45f), 15,
+            new Vector2(0.76f, 0.40f), new Vector2(0.93f, 0.47f), null);
+
+        MakeText(settingsPanel.transform, "(Vertical layout coming soon)", 12, FontStyle.Italic,
+            new Color(0.45f, 0.45f, 0.45f), TextAnchor.MiddleLeft,
+            new Vector2(0.07f, 0.31f), new Vector2(0.93f, 0.39f));
+
+        // Back button
+        MakeButton(settingsPanel.transform, "Apply & Back", BTN_IDLE, WHITE, 22,
+            new Vector2(0.3f, 0.05f), new Vector2(0.7f, 0.14f),
+            () => { ApplySettings(); settingsBackAction?.Invoke(); });
+    }
+
+    void SettingsStepperRow(Transform parent, string label, float yTop, float val,
+        System.Action onDecrease, System.Action onIncrease) {
+        float yBot = yTop - 0.09f;
+        MakeImage(parent, new Vector2(0.05f, yBot), new Vector2(0.95f, yTop),
+            new Color(0.12f, 0.15f, 0.22f, 0.8f));
+        MakeText(parent, label, 17, FontStyle.Normal, WHITE,
+            TextAnchor.MiddleLeft, new Vector2(0.07f, yBot), new Vector2(0.55f, yTop));
+        MakeButton(parent, "\u25c4", new Color(0.20f, 0.28f, 0.48f, 1f), WHITE, 20,
+            new Vector2(0.57f, yBot + 0.01f), new Vector2(0.67f, yTop - 0.01f), onDecrease);
+        MakeText(parent, $"{Mathf.RoundToInt(val * 100)}%", 18, FontStyle.Bold, GOLD_COL,
+            TextAnchor.MiddleCenter, new Vector2(0.67f, yBot), new Vector2(0.81f, yTop));
+        MakeButton(parent, "\u25ba", new Color(0.20f, 0.28f, 0.48f, 1f), WHITE, 20,
+            new Vector2(0.81f, yBot + 0.01f), new Vector2(0.91f, yTop - 0.01f), onIncrease);
+    }
+
+    void ApplySettings() {
+        float sfxVol   = PlayerPrefs.GetFloat("sfxVolume",   0.8f);
+        float musicVol = PlayerPrefs.GetFloat("musicVolume", 0.5f);
+        bool  showMini = PlayerPrefs.GetInt("showMinimap", 1) == 1;
+
+        AudioListener.volume = sfxVol;
+        foreach (var src in Object.FindObjectsByType<AudioSource>(FindObjectsSortMode.None)) {
+            string n = src.gameObject.name;
+            if (n.IndexOf("music", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                n.IndexOf("bgm",   System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                src.gameObject.CompareTag("Music"))
+                src.volume = musicVol;
+        }
+        if (Time.timeScale > 0f && MinimapSystem.Instance != null)
+            MinimapSystem.Instance.SetVisible(showMini);
+        PlayerPrefs.Save();
+    }
+
+    /// <summary>Called from GameHUD pause menu to open settings over the gameplay canvas.</summary>
+    public void ShowSettings(System.Action onBack) {
+        canvas.gameObject.SetActive(true);
+        settingsBackAction = () => {
+            settingsPanel?.SetActive(false);
+            canvas.gameObject.SetActive(false);
+            onBack?.Invoke();
+        };
+        menuPanel?.SetActive(false);
+        shopPanel?.SetActive(false);
+        scoresPanel?.SetActive(false);
+        vipPanel?.SetActive(false);
+        gameOverPanel?.SetActive(false);
+        characterSelectPanel?.SetActive(false);
+        BuildSettings();
+        settingsPanel?.SetActive(true);
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
     // PANEL MANAGEMENT
     // ═════════════════════════════════════════════════════════════════════════
     void ShowPanel(GameObject target) {
@@ -677,6 +813,7 @@ public class MainMenuManager : MonoBehaviour {
         vipPanel?.SetActive(false);
         gameOverPanel?.SetActive(false);
         characterSelectPanel?.SetActive(false);
+        settingsPanel?.SetActive(false);
         target?.SetActive(true);
     }
 

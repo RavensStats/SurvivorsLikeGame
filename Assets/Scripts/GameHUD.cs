@@ -2,6 +2,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 public class GameHUD : MonoBehaviour {
+    public static GameHUD Instance { get; private set; }
+
     [Header("Icons (assign in Inspector)")]
     public Sprite heartIcon;
     public Sprite gemIcon;
@@ -16,11 +18,15 @@ public class GameHUD : MonoBehaviour {
     private GameObject topBarRoot;
     private GameObject pauseButtonGO;
     private Text pauseButtonLabel;
+    private GameObject pausePanel;
+    private Font hudFont;
     private const float yBelowMinimap = -160f; // minimap 140px + 10px gap + 10px offset
     private const float yTopLeft      = -10f;
     private const float slideSpeed    = 100f;
 
     void Start() {
+        Instance = this;
+        hudFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         circleSprite = CreateCircleSprite(100);
 
         // Always create a dedicated HUD canvas so it is never a child of the menu canvas
@@ -34,6 +40,7 @@ public class GameHUD : MonoBehaviour {
         BuildTopRightBar(canvas);
         BuildSideCircles(canvas);
         BuildPauseButton(canvas);
+        BuildPausePanel(canvas);
         SetVisible(false); // hidden until Play is pressed
     }
 
@@ -197,6 +204,7 @@ public class GameHUD : MonoBehaviour {
         if (topBarRoot != null) topBarRoot.SetActive(visible);
         if (circleContainerRect != null) circleContainerRect.gameObject.SetActive(visible);
         if (pauseButtonGO != null) pauseButtonGO.SetActive(visible);
+        if (!visible && pausePanel != null) pausePanel.SetActive(false);
     }
 
     // ── Pause / Resume button ──────────────────────────────────────────────
@@ -239,10 +247,82 @@ public class GameHUD : MonoBehaviour {
         if (Time.timeScale > 0f) {
             Time.timeScale = 0f;
             if (pauseButtonLabel != null) pauseButtonLabel.text = ">";
+            if (pausePanel != null) pausePanel.SetActive(true);
         } else {
             Time.timeScale = 1f;
             if (pauseButtonLabel != null) pauseButtonLabel.text = "II";
+            if (pausePanel != null) pausePanel.SetActive(false);
         }
+    }
+
+    // ── Pause overlay ─────────────────────────────────────────────────────────
+    void BuildPausePanel(Canvas canvas) {
+        pausePanel = new GameObject("PausePanel");
+        pausePanel.transform.SetParent(canvas.transform, false);
+        RectTransform prt = pausePanel.AddComponent<RectTransform>();
+        prt.anchorMin = Vector2.zero; prt.anchorMax = Vector2.one;
+        prt.offsetMin = Vector2.zero; prt.offsetMax = Vector2.zero;
+        pausePanel.AddComponent<Image>().color = new Color(0f, 0f, 0f, 0.78f);
+        pausePanel.SetActive(false);
+
+        // "PAUSED" title
+        GameObject titleGO = new GameObject("PauseTitle");
+        titleGO.transform.SetParent(pausePanel.transform, false);
+        RectTransform trt = titleGO.AddComponent<RectTransform>();
+        trt.anchorMin = new Vector2(0.25f, 0.68f); trt.anchorMax = new Vector2(0.75f, 0.82f);
+        trt.offsetMin = Vector2.zero; trt.offsetMax = Vector2.zero;
+        Text titleTxt = titleGO.AddComponent<Text>();
+        titleTxt.text = "PAUSED";
+        titleTxt.font = hudFont;
+        titleTxt.fontSize = 52;
+        titleTxt.fontStyle = FontStyle.Bold;
+        titleTxt.color = Color.white;
+        titleTxt.alignment = TextAnchor.MiddleCenter;
+
+        // Resume button
+        AddPauseButton(pausePanel.transform, "Resume",
+            new Color(0.12f, 0.55f, 0.22f, 1f),
+            new Vector2(0.35f, 0.50f), new Vector2(0.65f, 0.61f),
+            () => OnPauseClicked());
+
+        // Settings button
+        AddPauseButton(pausePanel.transform, "Settings",
+            new Color(0.35f, 0.25f, 0.65f, 1f),
+            new Vector2(0.35f, 0.37f), new Vector2(0.65f, 0.48f),
+            () => {
+                MainMenuManager mm = Object.FindFirstObjectByType<MainMenuManager>();
+                if (mm != null) mm.ShowSettings(() => { /* game stays paused, pause panel still visible */ });
+            });
+    }
+
+    void AddPauseButton(Transform parent, string label, Color bg,
+        Vector2 aMin, Vector2 aMax, System.Action onClick) {
+        GameObject go = new GameObject("PauseBtn_" + label);
+        go.transform.SetParent(parent, false);
+        RectTransform rt = go.AddComponent<RectTransform>();
+        rt.anchorMin = aMin; rt.anchorMax = aMax;
+        rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
+        go.AddComponent<Image>().color = bg;
+        Button btn = go.AddComponent<Button>();
+        ColorBlock cb = btn.colors;
+        cb.normalColor      = bg;
+        cb.highlightedColor = Color.Lerp(bg, Color.white, 0.25f);
+        cb.pressedColor     = Color.Lerp(bg, Color.black, 0.25f);
+        btn.colors = cb;
+        btn.onClick.AddListener(() => onClick());
+
+        GameObject tgo = new GameObject("Label");
+        tgo.transform.SetParent(go.transform, false);
+        RectTransform trt = tgo.AddComponent<RectTransform>();
+        trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one;
+        trt.offsetMin = Vector2.zero; trt.offsetMax = Vector2.zero;
+        Text txt = tgo.AddComponent<Text>();
+        txt.text      = label;
+        txt.font      = hudFont;
+        txt.fontSize  = 28;
+        txt.fontStyle = FontStyle.Bold;
+        txt.color     = Color.white;
+        txt.alignment = TextAnchor.MiddleCenter;
     }
 
     Image MakeImage(Transform parent, string objName,
