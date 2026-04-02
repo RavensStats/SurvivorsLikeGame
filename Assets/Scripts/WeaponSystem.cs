@@ -109,14 +109,14 @@ public class WeaponSystem : MonoBehaviour {
         var col = vfx.AddComponent<BoxCollider2D>();
         col.isTrigger = true;
 
-        const float duration = 0.28f;
+        const float duration = 0.5f;
         float t = 0f;
         while (t < duration) {
             if (vfx == null) yield break;
             t += Time.deltaTime;
             float progress = Mathf.Clamp01(t / duration);
-            // Slide from origin outward to 90% of range (10% closer to player)
-            vfx.transform.position = origin + (Vector3)(dir * range * 0.9f * progress);
+            // Slide from origin outward to 60% of range (40% closer to player)
+            vfx.transform.position = origin + (Vector3)(dir * range * 0.6f * progress);
             // Fade in: transparent at center, fully opaque at full extension
             sr.color = new Color(1f, 1f, 1f, progress);
             yield return null;
