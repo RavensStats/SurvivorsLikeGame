@@ -694,6 +694,7 @@ MonoBehaviour:
     range: 0
     knockback: 0
     projectilePrefab: {fileID: 0}
+    spriteFolder: 
   passiveItems: []
   cardPool: []
   recipes: []
@@ -848,7 +849,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::ZenithDatabaseLoader
   overwriteExisting: 0
   wandProjectilePrefab: {fileID: 5770085612918525153, guid: 52bdd6014d8d29249b99f1096db6dc7c, type: 3}
-  bowProjectilePrefab: {fileID: 0}
+  bowProjectilePrefab: {fileID: 1632384573471974789, guid: 58cba3ca4ddb5674b857acbbf5b92b75, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0

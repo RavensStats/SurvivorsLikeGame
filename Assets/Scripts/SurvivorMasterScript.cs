@@ -117,6 +117,9 @@ public class SurvivorMasterScript : MonoBehaviour {
         totalXPGained = 0; totalGoldGained = 0; totalEnemiesKilled = 0;
         playerLevel = 1; xp = 0; xpMax = 100;
         playerHP = maxPlayerHP;
+        gameTime = 0f;
+        regenRate = 0f;
+        regenTimer = 0f;
     }
 
     public void BonusMaxHP(float amount) {

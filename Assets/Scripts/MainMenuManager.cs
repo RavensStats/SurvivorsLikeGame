@@ -497,11 +497,18 @@ public class MainMenuManager : MonoBehaviour {
         // Kill all gems
         XpGem.Init();
 
-        // Reset run state
+        // Reset weapon system: clear levels, active weapons, orbs, cooldowns.
+        WeaponSystem ws = WeaponSystem.Instance;
+        if (ws != null) ws.ResetForNewRun();
+
+        // Reset run state (stats, timer, regen, XP, HP).
         SurvivorMasterScript sms = SurvivorMasterScript.Instance;
         if (sms != null) {
             sms.ResetRunStats();
             RunUpgrades.Reset();
+            // Re-assign the starting weapon for the current class.
+            if (ZenithDatabaseLoader.Instance != null)
+                ZenithDatabaseLoader.Instance.AssignStartingWeapon();
             if (sms.player != null)
                 XpGem.SpawnStartingGems(sms.player.position, 3);
         }

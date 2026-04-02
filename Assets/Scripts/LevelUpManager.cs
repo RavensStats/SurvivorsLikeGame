@@ -249,12 +249,21 @@ public class LevelUpManager : MonoBehaviour {
                 });
             }
 
-            // Offer level-up cards for owned weapons that scale with level.
+            // Offer level-up cards for owned weapons that scale with level (capped at 5).
             foreach (var owned in ws.activeWeapons) {
                 if (owned.fireMode == FireMode.Default) continue;
+                if (owned.level >= 5) continue;
                 int nextLevel = owned.level + 1;
                 var captured = owned;
-                string modeLabel = owned.fireMode == FireMode.NearestN ? "nearest" : "random";
+                string desc;
+                if (owned.fireMode == FireMode.ArcSwing) {
+                    string[] swingDescs = { "", "Attacks East only.", "Attacks East and West.",
+                        "Attacks E, W, and North.", "Attacks E, W, N, and South.", "Attacks in all 8 directions." };
+                    desc = swingDescs[nextLevel];
+                } else {
+                    string modeLabel = owned.fireMode == FireMode.NearestN ? "nearest" : "random";
+                    desc = $"Now targets {nextLevel} {modeLabel} enem{(nextLevel == 1 ? "y" : "ies")} per attack.";
+                }
                 Color col = owned.rarity == Rarity.Legendary ? new Color(1f, 0.8f, 0f)
                           : owned.rarity == Rarity.Epic      ? new Color(0.7f, 0.3f, 1f)
                           : owned.rarity == Rarity.Rare      ? new Color(0.3f, 0.7f, 1f)
@@ -262,7 +271,7 @@ public class LevelUpManager : MonoBehaviour {
                 pool.Add(new UpgradeOption {
                     id          = "levelup_" + owned.itemName,
                     title       = owned.itemName + $" Lv.{nextLevel}",
-                    description = $"Now targets {nextLevel} {modeLabel} enem{(nextLevel == 1 ? "y" : "ies")} per attack.",
+                    description = desc,
                     iconLabel   = "LV+",
                     iconColor   = col,
                     onSelect    = () => captured.level++
@@ -270,12 +279,28 @@ public class LevelUpManager : MonoBehaviour {
             }
         }
 
+        // Separate owned-item level-up cards so we can guarantee one slot for them.
+        var levelUpPool = pool.FindAll(o => o.id.StartsWith("levelup_"));
+        var restPool    = pool.FindAll(o => !o.id.StartsWith("levelup_"));
+
         var chosen = new List<UpgradeOption>();
         count = Mathf.Min(count, pool.Count);
-        while (chosen.Count < count && pool.Count > 0) {
-            int i = Random.Range(0, pool.Count);
-            chosen.Add(pool[i]);
-            pool.RemoveAt(i);
+
+        // Always pick exactly one level-up card first (if any exist).
+        if (levelUpPool.Count > 0 && count > 0) {
+            int i = Random.Range(0, levelUpPool.Count);
+            chosen.Add(levelUpPool[i]);
+            levelUpPool.RemoveAt(i);
+        }
+
+        // Fill the rest with random picks from the non-level-up pool,
+        // falling back to remaining level-up cards if the rest pool runs dry.
+        var fillPool = new List<UpgradeOption>(restPool);
+        fillPool.AddRange(levelUpPool);
+        while (chosen.Count < count && fillPool.Count > 0) {
+            int i = Random.Range(0, fillPool.Count);
+            chosen.Add(fillPool[i]);
+            fillPool.RemoveAt(i);
         }
         return chosen;
     }

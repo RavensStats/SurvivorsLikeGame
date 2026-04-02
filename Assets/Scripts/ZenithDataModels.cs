@@ -23,6 +23,8 @@ public class ItemData {
     public float range;
     public float knockback;
     public GameObject projectilePrefab;
+    // Subfolder under Resources/Sprites/Weapons/ used for runtime sprite loading (no prefab needed)
+    public string spriteFolder;
 }
 
 [System.Serializable]

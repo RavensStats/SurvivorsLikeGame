@@ -16,6 +16,20 @@ public class WeaponSystem : MonoBehaviour {
 
     void Awake() => Instance = this;
 
+    // Resets all run-time weapon state to defaults so a new run starts clean.
+    public void ResetForNewRun() {
+        // Reset levels on all pooled items back to 1.
+        foreach (var item in cardPool) item.level = 1;
+        activeWeapons.Clear();
+        passiveItems.Clear();
+        cooldowns.Clear();
+        // Destroy any active orbs.
+        foreach (var kvp in activeOrbs)
+            foreach (var o in kvp.Value)
+                if (o != null) Destroy(o);
+        activeOrbs.Clear();
+    }
+
     void Update() {
         if (Time.timeScale <= 0) return;
         foreach (var w in activeWeapons) {
@@ -30,7 +44,7 @@ public class WeaponSystem : MonoBehaviour {
         if (w.fireMode == FireMode.ArcSwing) { FireArcSwing(w); return; }
         if (w.fireMode == FireMode.Orbit)    { FireOrbit(w);    return; }
 
-        if (w.projectilePrefab == null) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab assigned."); return; }
+        if (w.projectilePrefab == null && string.IsNullOrEmpty(w.spriteFolder)) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab or spriteFolder assigned."); return; }
         switch (w.fireMode) {
             case FireMode.NearestN:      FireNearestN(w);      break;
             case FireMode.RandomInRange: FireRandomInRange(w); break;
@@ -38,31 +52,76 @@ public class WeaponSystem : MonoBehaviour {
         }
     }
 
-    // Deals damage to all enemies within a 120° arc toward the nearest enemy.
+    // Fixed attack directions per level: Lv1=E, Lv2=E+W, Lv3=E+W+N, Lv4=E+W+N+S, Lv5=all 8.
+    static readonly Vector2[][] SwordDirectionsByLevel = {
+        new[] { Vector2.right },
+        new[] { Vector2.right, Vector2.left },
+        new[] { Vector2.right, Vector2.left, Vector2.up },
+        new[] { Vector2.right, Vector2.left, Vector2.up, Vector2.down },
+        new[] { Vector2.right, Vector2.left, Vector2.up, Vector2.down,
+                new Vector2(1,1).normalized,  new Vector2(-1,1).normalized,
+                new Vector2(1,-1).normalized, new Vector2(-1,-1).normalized }
+    };
+
+    // Deals damage to all enemies within a 120° arc in level-based fixed directions.
     void FireArcSwing(ItemData w) {
-        float range = w.range > 0f ? w.range : 3f;
-        const float halfAngle = 60f;  // 120° total arc
+        float range = (w.range > 0f ? w.range : 3f) * 0.8f;  // 20% less range
+        const float halfAngle = 60f;  // 120° total arc per direction
         Vector3 pos = PlayerPos;
         var targets = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
         targets.RemoveAll(e => e == null || e.isDead);
         targets = targets.Distinct().ToList();
 
-        // Swing toward nearest enemy; fall back to rightward direction
-        Vector2 swingDir = Vector2.right;
-        if (targets.Count > 0) {
-            targets.Sort((a, b) =>
-                (a.transform.position - pos).sqrMagnitude
-                .CompareTo((b.transform.position - pos).sqrMagnitude));
-            swingDir = ((Vector2)(targets[0].transform.position - pos)).normalized;
-        }
-
+        int levelIdx = Mathf.Clamp(w.level, 1, 5) - 1;
+        Vector2[] directions = SwordDirectionsByLevel[levelIdx];
         float rangeSq = range * range;
-        foreach (var e in targets) {
-            Vector2 toEnemy = (Vector2)(e.transform.position - pos);
-            if (toEnemy.sqrMagnitude > rangeSq) continue;
-            if (Vector2.Angle(swingDir, toEnemy) <= halfAngle)
-                e.TakeDamage(w.baseDamage);
+        var alreadyHit = new HashSet<EnemyEntity>();
+
+        foreach (Vector2 swingDir in directions) {
+            foreach (var e in targets) {
+                if (alreadyHit.Contains(e)) continue;
+                Vector2 toEnemy = (Vector2)(e.transform.position - pos);
+                if (toEnemy.sqrMagnitude > rangeSq) continue;
+                if (Vector2.Angle(swingDir, toEnemy) <= halfAngle) {
+                    e.TakeDamage(w.baseDamage);
+                    alreadyHit.Add(e);
+                    Debug.Log($"[WeaponSystem] '{w.itemName}' hit {e.name} for {w.baseDamage} dmg.");
+                }
+            }
+            if (!string.IsNullOrEmpty(w.spriteFolder)) {
+                Sprite spr = Resources.Load<Sprite>($"Sprites/Weapons/{w.spriteFolder}/{w.spriteFolder}");
+                if (spr != null) StartCoroutine(SwordSlide(spr, pos, swingDir, range));
+            }
         }
+    }
+
+    IEnumerator SwordSlide(Sprite spr, Vector3 origin, Vector2 dir, float range) {
+        var vfx = new GameObject("SwingVFX_Sword");
+        var sr = vfx.AddComponent<SpriteRenderer>();
+        sr.sprite = spr;
+        sr.sortingOrder = 7;
+        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+        vfx.transform.rotation = Quaternion.Euler(0f, 0f, angle);
+        // Scale the sprite so its length equals the weapon range, then shrink by 50%
+        float naturalWidth = spr.rect.width / spr.pixelsPerUnit;
+        float s = (naturalWidth > 0f ? range / naturalWidth : 1f) * 0.5f;
+        vfx.transform.localScale = new Vector3(s, s, 1f);
+        var col = vfx.AddComponent<BoxCollider2D>();
+        col.isTrigger = true;
+
+        const float duration = 0.28f;
+        float t = 0f;
+        while (t < duration) {
+            if (vfx == null) yield break;
+            t += Time.deltaTime;
+            float progress = Mathf.Clamp01(t / duration);
+            // Slide from origin outward to 90% of range (10% closer to player)
+            vfx.transform.position = origin + (Vector3)(dir * range * 0.9f * progress);
+            // Fade in: transparent at center, fully opaque at full extension
+            sr.color = new Color(1f, 1f, 1f, progress);
+            yield return null;
+        }
+        if (vfx != null) Destroy(vfx);
     }
 
     // Spawns/maintains N orbiting objects (N = weapon level) that deal periodic burn damage.
@@ -91,11 +150,29 @@ public class WeaponSystem : MonoBehaviour {
         }
     }
 
+    // Creates a projectile from a prefab or, when none is assigned, builds one at runtime
+    // using the sprite found at Resources/Sprites/Weapons/{w.spriteFolder}/.
+    GameObject SpawnProjectile(ItemData w, Vector3 pos) {
+        if (w.projectilePrefab != null)
+            return Instantiate(w.projectilePrefab, pos, Quaternion.identity);
+        var go = new GameObject($"Proj_{w.itemName}");
+        go.transform.position = pos;
+        go.AddComponent<SpriteRenderer>();
+        var col = go.AddComponent<CircleCollider2D>();
+        col.isTrigger = true;
+        col.radius = 0.5f;
+        var rb = go.AddComponent<Rigidbody2D>();
+        rb.gravityScale = 0f;
+        rb.isKinematic = true;
+        go.AddComponent<ProjectileLogic>();
+        return go;
+    }
+
     void FireDefault(ItemData w) {
         Vector3 pos = PlayerPos;
         var targets = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
         Vector2 dir = targets.Count > 0 ? (targets[0].transform.position - pos).normalized : Random.insideUnitCircle.normalized;
-        Instantiate(w.projectilePrefab, pos, Quaternion.identity).GetComponent<ProjectileLogic>().Setup(w, dir);
+        SpawnProjectile(w, pos).GetComponent<ProjectileLogic>().Setup(w, dir);
     }
 
     // Fires one projectile at each of the N nearest enemies (N = weapon level).
@@ -111,13 +188,12 @@ public class WeaponSystem : MonoBehaviour {
             .CompareTo((b.transform.position - pos).sqrMagnitude));
         int count = Mathf.Min(w.level, targets.Count);
         if (count == 0) {
-            Instantiate(w.projectilePrefab, pos, Quaternion.identity)
-                .GetComponent<ProjectileLogic>().Setup(w, Random.insideUnitCircle.normalized);
+            SpawnProjectile(w, pos).GetComponent<ProjectileLogic>().Setup(w, Random.insideUnitCircle.normalized);
             return;
         }
         for (int i = 0; i < count; i++) {
             Vector2 dir = (targets[i].transform.position - pos).normalized;
-            Instantiate(w.projectilePrefab, pos, Quaternion.identity).GetComponent<ProjectileLogic>().Setup(w, dir);
+            SpawnProjectile(w, pos).GetComponent<ProjectileLogic>().Setup(w, dir);
         }
     }
 
@@ -135,7 +211,7 @@ public class WeaponSystem : MonoBehaviour {
         int count = Mathf.Min(w.level, targets.Count);
         for (int i = 0; i < count; i++) {
             Vector2 dir = (targets[i].transform.position - pos).normalized;
-            Instantiate(w.projectilePrefab, pos, Quaternion.identity).GetComponent<ProjectileLogic>().Setup(w, dir);
+            SpawnProjectile(w, pos).GetComponent<ProjectileLogic>().Setup(w, dir, targets[i]);
         }
     }
 
