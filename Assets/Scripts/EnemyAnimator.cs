@@ -13,6 +13,8 @@ public class EnemyAnimator : MonoBehaviour {
 
     public float fps = 10f;
 
+    private float attackFps = 10f; // overridden per-attack to fit within attackInterval
+
     // direction index: 0=S,1=SW,2=W,3=NW,4=N,5=NE,6=E,7=SE
     private static readonly string[] DirNames = {
         "south", "south-west", "west", "north-west",
@@ -62,9 +64,10 @@ public class EnemyAnimator : MonoBehaviour {
         }
 
         // Advance animation
+        float activeFps = state == AnimState.Attack ? attackFps : fps;
         frameTimer += Time.deltaTime;
-        if (frameTimer >= 1f / fps) {
-            frameTimer -= 1f / fps;
+        if (frameTimer >= 1f / activeFps) {
+            frameTimer -= 1f / activeFps;
             AdvanceFrame();
         }
 
@@ -109,6 +112,16 @@ public class EnemyAnimator : MonoBehaviour {
     /// <summary>Trigger attack animation on this enemy.</summary>
     public void TriggerAttack() {
         if (state == AnimState.Dead) return;
+
+        // Calculate fps so the attack animation completes in exactly one attackInterval.
+        var attack = GetComponent<EnemyAttack>();
+        if (attack != null && attackClip != null && clips.TryGetValue(attackClip, out Sprite[][] dirs)) {
+            Sprite[] frames = dirs[currentDir];
+            if (frames == null || frames.Length == 0) frames = dirs[0];
+            int frameCount = frames != null ? frames.Length : 1;
+            attackFps = frameCount / Mathf.Max(attack.attackInterval, 0.05f);
+        }
+
         state         = AnimState.Attack;
         currentFrame  = 0;
         frameTimer    = 0f;

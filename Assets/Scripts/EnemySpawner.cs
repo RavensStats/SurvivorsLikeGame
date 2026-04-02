@@ -18,7 +18,7 @@ public class EnemySpawnConfig {
     public float hp           = 50f;
     public float moveSpeed    = 3.5f;
     public float damage       = 10f;
-    public float attackRange  = 1.5f;
+    public float attackRange  = 1.0f;
     public float attackInterval = 1.5f;
 
     [Header("Wave Settings")]
@@ -179,10 +179,11 @@ public class EnemySpawner : MonoBehaviour {
         entity.behavior     = cfg.behavior;
         entity.hp           = hp * biomeHPMult;
         entity.moveSpeed    = cfg.moveSpeed * biomeSpeedMult;
+        entity.attackRange  = cfg.attackRange;
 
         // EnemyAttack
         EnemyAttack attack      = go.AddComponent<EnemyAttack>();
-        attack.type             = AttackType.Melee;
+        attack.type             = cfg.behavior == EnemyBehavior.Ranged ? AttackType.Projectile : AttackType.Melee;
         attack.damage           = damage * biomeDmgMult;
         attack.attackInterval   = cfg.attackInterval;
 

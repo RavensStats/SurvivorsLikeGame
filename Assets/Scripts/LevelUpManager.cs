@@ -49,56 +49,49 @@ public class LevelUpManager : MonoBehaviour {
             id          = "speed_1",
             title       = "Swift Boots",
             description = "+2 movement speed.\nGet to those gems faster.",
-            iconLabel   = "SPD", iconColor = new Color(0.4f, 0.85f, 1f),
+            iconLabel   = "Speed", iconColor = new Color(0.4f, 0.85f, 1f),
             onSelect    = () => { var pm = Object.FindFirstObjectByType<PlayerMovement>(); if (pm) pm.moveSpeed += 2f; }
-        },
-        new UpgradeOption {
-            id          = "speed_2",
-            title       = "Fleet Foot",
-            description = "+4 movement speed.\nLeave enemies in the dust.",
-            iconLabel   = "SPD", iconColor = new Color(0.2f, 0.7f, 1f),
-            onSelect    = () => { var pm = Object.FindFirstObjectByType<PlayerMovement>(); if (pm) pm.moveSpeed += 4f; }
         },
         new UpgradeOption {
             id          = "max_hp",
             title       = "Iron Constitution",
             description = "+20 maximum HP.\nTank more hits.",
-            iconLabel   = "HP+", iconColor = new Color(1f, 0.35f, 0.35f),
+            iconLabel   = "HP", iconColor = new Color(1f, 0.35f, 0.35f),
             onSelect    = () => SurvivorMasterScript.Instance?.BonusMaxHP(20f)
         },
         new UpgradeOption {
             id          = "xp_rate",
             title       = "Scholar's Mind",
             description = "+20% XP gain\nfor the rest of this run.",
-            iconLabel   = "XP+", iconColor = new Color(0.4f, 1f, 0.5f),
+            iconLabel   = "XP", iconColor = new Color(0.4f, 1f, 0.5f),
             onSelect    = () => RunUpgrades.XPRateBonus += 0.20f
         },
         new UpgradeOption {
             id          = "cooldown",
             title       = "Quick Hands",
             description = "-10% weapon cooldown\nfor this run.",
-            iconLabel   = "CD-", iconColor = new Color(1f, 1f, 0.3f),
+            iconLabel   = "Cooldown", iconColor = new Color(1f, 1f, 0.3f),
             onSelect    = () => RunUpgrades.CooldownReduction += 0.10f
         },
         new UpgradeOption {
             id          = "gem_magnet",
-            title       = "Magnetism",
+            title       = "Pickup Radius",
             description = "Gem pickup radius\n+50% for this run.",
-            iconLabel   = "MAG", iconColor = new Color(0.8f, 0.5f, 1f),
+            iconLabel   = "Pickup Radius", iconColor = new Color(0.8f, 0.5f, 1f),
             onSelect    = () => XpGem.PickupRadiusMultiplier += 0.50f
         },
         new UpgradeOption {
             id          = "hp_regen",
             title       = "Regeneration",
             description = "Recover 2 HP\nevery 5 seconds.",
-            iconLabel   = "REG", iconColor = new Color(0.2f, 1f, 0.4f),
+            iconLabel   = "Regeneration", iconColor = new Color(0.2f, 1f, 0.4f),
             onSelect    = () => SurvivorMasterScript.Instance?.EnableRegen(2f, 5f)
         },
         new UpgradeOption {
             id          = "damage",
             title       = "Forged Weapons",
             description = "+25% weapon damage\nfor this run.",
-            iconLabel   = "DMG", iconColor = new Color(1f, 0.5f, 0.1f),
+            iconLabel   = "Damage", iconColor = new Color(1f, 0.5f, 0.1f),
             onSelect    = () => RunUpgrades.DamageBonus += 0.25f
         },
     };

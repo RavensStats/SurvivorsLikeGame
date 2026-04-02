@@ -11,9 +11,13 @@ public class PlayerAnimator : MonoBehaviour {
     [Tooltip("Frames per second for all animations")]
     public float fps = 10f;
 
+    [Tooltip("Uniform size multiplier applied to all characters. 1.0 = reference 32px size. Reduce to shrink all characters.")]
+    [SerializeField] [Range(0.1f, 2f)] private float characterSizeMultiplier = 0.667f;
+
     // ── Internals ──────────────────────────────────────────────────────────────
     private SpriteRenderer sr;
     private Rigidbody2D rb;
+    private Vector3 baseScale;
 
     private enum AnimState { Walk, Fireball, Death }
     private AnimState state = AnimState.Walk;
@@ -43,6 +47,7 @@ public class PlayerAnimator : MonoBehaviour {
         sr = GetComponent<SpriteRenderer>();
         rb = GetComponent<Rigidbody2D>();
         sr.sortingOrder = 6; // above POI (1), gems (4), enemies (5)
+        baseScale = transform.localScale;
     }
 
     void Start() {
@@ -173,6 +178,21 @@ public class PlayerAnimator : MonoBehaviour {
         // Load sprites for every discovered folder
         foreach (string anim in animFolders)
             LoadClip(charFolder, anim);
+
+        // Auto-scale: normalise all characters to the same visual size as a 32px/PPU100 sprite,
+        // then apply characterSizeMultiplier for overall size tuning.
+        // Uses texture.width (actual PNG dimensions) rather than rect.width (alpha-trimmed bounds),
+        // so transparent padding in the sprite sheet doesn't skew the calculation.
+        Sprite firstSprite = null;
+        if (walkClip != null && clips.TryGetValue(walkClip, out Sprite[][] dirs))
+            for (int d = 0; d < dirs.Length && firstSprite == null; d++)
+                if (dirs[d] != null && dirs[d].Length > 0) firstSprite = dirs[d][0];
+
+        float texWidth = (firstSprite != null && firstSprite.texture != null)
+            ? firstSprite.texture.width
+            : 32f;
+        float scaleXY = baseScale.x * (32f / texWidth) * characterSizeMultiplier;
+        transform.localScale = new Vector3(scaleXY, scaleXY, 1f);
     }
 
     void LoadClip(string charFolder, string animName) {

@@ -3,7 +3,8 @@ using UnityEngine;
 public class EnemyEntity : MonoBehaviour {
     public EnemyBehavior behavior;
     public float hp = 50, stun;
-    public float moveSpeed = 3.5f;
+    public float moveSpeed  = 3.5f;
+    public float attackRange = 1.0f;
     public bool  isDead = false;
     public Vector2Int currentCell = new Vector2Int(-99, -99);
 
@@ -25,8 +26,9 @@ public class EnemyEntity : MonoBehaviour {
         SurvivorMasterScript.Instance.Grid.UpdateEntity(this, transform.position);
         
         Vector3 pPos = SurvivorMasterScript.Instance.player.position;
-        Vector3 dir = (pPos - transform.position).normalized;
-        float s = moveSpeed * (SurvivorMasterScript.Instance.isInsideGraveyard ? 1.57f : 1f);
+        Vector3 dir  = (pPos - transform.position).normalized;
+        float   dist = Vector3.Distance(transform.position, pPos);
+        float   s    = moveSpeed * (SurvivorMasterScript.Instance.isInsideGraveyard ? 1.57f : 1f);
 
         // --- Behavior Family Logic ---
         if (behavior == EnemyBehavior.Glitch || behavior == EnemyBehavior.Ghost) {
@@ -36,7 +38,6 @@ public class EnemyEntity : MonoBehaviour {
                 SurvivorMasterScript.Instance.player.position = Vector3.MoveTowards(pPos, transform.position, 0.5f * Time.deltaTime);
         } else if (behavior == EnemyBehavior.Ranged) {
             // Keep ~9 units away from player; orbit if within 6 units
-            float dist = Vector3.Distance(transform.position, pPos);
             if (dist < 6f) {
                 // Too close — back away
                 transform.position += -dir * s * Time.deltaTime;
@@ -54,8 +55,9 @@ public class EnemyEntity : MonoBehaviour {
                 transform.position += chargeDir * s * 3.5f * Time.deltaTime;
                 if (chargeTimer <= 0f) { isCharging = false; chargeTimer = 3f; }
             } else {
-                // Walk toward player normally while cooling down
-                transform.position += dir * s * Time.deltaTime;
+                // Walk toward player only if outside melee range
+                if (dist > attackRange)
+                    transform.position += dir * s * Time.deltaTime;
                 if (chargeTimer <= 0f) {
                     // Trigger a dash
                     isCharging = true;
@@ -71,8 +73,9 @@ public class EnemyEntity : MonoBehaviour {
                 TakeDamage(9999f); // self-destruct
             }
         } else if (behavior == EnemyBehavior.Shaman) {
-            // Move toward player at reduced speed
-            transform.position += dir * s * 0.6f * Time.deltaTime;
+            // Move toward player at reduced speed, stop at melee range
+            if (dist > attackRange)
+                transform.position += dir * s * 0.6f * Time.deltaTime;
             // Heal nearby enemies every 5s
             shamHealTimer -= Time.deltaTime;
             if (shamHealTimer <= 0f) {
@@ -82,7 +85,9 @@ public class EnemyEntity : MonoBehaviour {
                     if (e != null && !e.isDead && e != this) e.hp += 10f;
             }
         } else {
-            transform.position += dir * s * Time.deltaTime; // Default Chaser
+            // Default Chaser: approach player, stop at melee range
+            if (dist > attackRange)
+                transform.position += dir * s * Time.deltaTime;
         }
     }
 

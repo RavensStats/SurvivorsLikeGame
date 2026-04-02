@@ -18,7 +18,7 @@ public class GoldCoin : MonoBehaviour {
         go.transform.localScale = Vector3.one * 18f;
 
         SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
-        Sprite s = Resources.Load<Sprite>("Sprites/GoldCoin");
+        Sprite s = Resources.Load<Sprite>("Sprites/Misc/GoldCoin");
         if (s != null) sr.sprite = s;
         sr.color        = new Color(1f, 0.85f, 0f); // gold yellow tint
         sr.sortingOrder = 4; // same level as gems, above floor

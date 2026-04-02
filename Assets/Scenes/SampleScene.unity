@@ -692,6 +692,7 @@ MonoBehaviour:
     fireMode: 0
     level: 1
     range: 0
+    knockback: 0
     projectilePrefab: {fileID: 0}
   passiveItems: []
   cardPool: []
@@ -813,6 +814,21 @@ MonoBehaviour:
     spawnInterval: 0.4
     waveInterval: 8
     initialDelay: 3
+    groupSpawn: 0
+    groupRadius: 2.5
+    hpScalePerMinute: 5
+    damageScalePerMinute: 1
+  - enemyTypeName: Charger
+    behavior: 1
+    hp: 40
+    moveSpeed: 4
+    damage: 10
+    attackRange: 3
+    attackInterval: 1
+    countPerWave: 3
+    spawnInterval: 0.4
+    waveInterval: 8
+    initialDelay: 4
     groupSpawn: 0
     groupRadius: 2.5
     hpScalePerMinute: 5

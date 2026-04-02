@@ -21,6 +21,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         CharacterClass cls = SurvivorMasterScript.Instance.currentClass;
         string name = cls == CharacterClass.Mage   ? "Wand"
                     : cls == CharacterClass.Ranger  ? "Hunter's Bow"
+                    : cls == CharacterClass.Knight  ? "Sword"
                     : null;
         if (name == null) return;
 
@@ -45,23 +46,23 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         }
 
         // --- 1. POPULATE WEAPONS & ITEMS ---
-        AddWeapon(ws, "Wand", "Fires a bolt at the nearest N enemies (N = Wand level).", Rarity.Common, 10, 20f, 1.2f, 1, WeaponTrait.None, new List<string>{"Magic", "Projectiles"}, fireMode: FireMode.NearestN, knockback: 1f);
-        AddWeapon(ws, "Hunter's Bow", "Fires an arrow at up to N random enemies in range (N = Bow level).", Rarity.Common, 10, 8f, 2.0f, 1, WeaponTrait.None, new List<string>{"Physical", "Ranged"}, fireMode: FireMode.RandomInRange, range: 20f);
-        AddWeapon(ws, "Magic Wand", "Fires magic bolts at the nearest enemy.", Rarity.Common, 10, 5f, 1.2f, 1, WeaponTrait.None, new List<string>{"Magic", "Projectiles"});
-        AddWeapon(ws, "Axe", "Swings in a high-damage arc.", Rarity.Common, 8, 15f, 2.5f, 3, WeaponTrait.Piercing, new List<string>{"Physical", "Melee"});
-        AddWeapon(ws, "Fire Orb", "Orbits the player, burning enemies.", Rarity.Rare, 5, 8f, 3.0f, 99, WeaponTrait.Rotating, new List<string>{"Fire", "Magic"});
-        AddWeapon(ws, "Empty Tome", "Increases cooldown speed of all weapons.", Rarity.Common, 10, 0, 0, 0, WeaponTrait.None, new List<string>{"Utility", "Magic"}, false);
-        AddWeapon(ws, "Heavy Bracers", "Increases knockback power.", Rarity.Common, 10, 0, 0, 0, WeaponTrait.None, new List<string>{"Heavy", "Physical"}, false);
+        AddWeapon(ws, "Wand",         "Fires a bolt at the nearest N enemies (N = Wand level).",         Rarity.Common, 20f, 1.2f, 1,  WeaponTrait.None,     new List<string>{"Magic", "Projectiles"},  fireMode: FireMode.NearestN,      knockback: 1f);
+        AddWeapon(ws, "Hunter's Bow", "Fires an arrow at up to N random enemies in range (N = Bow level).", Rarity.Common, 8f,  2.0f, 1,  WeaponTrait.None,     new List<string>{"Physical", "Ranged"},   fireMode: FireMode.RandomInRange,  range: 20f);
+        AddWeapon(ws, "Sword",        "Slashes nearby enemies in a quick arc.",                            Rarity.Common, 12f, 0.8f, 1,  WeaponTrait.None,     new List<string>{"Physical", "Melee"},   fireMode: FireMode.ArcSwing,       range: 2.5f);
+        AddWeapon(ws, "Axe",          "Swings in a high-damage arc.",                                      Rarity.Common, 15f, 2.5f, 3,  WeaponTrait.Piercing, new List<string>{"Physical", "Melee"},   fireMode: FireMode.ArcSwing,       range: 4f);
+        AddWeapon(ws, "Fire Orb",     "Orbits the player, burning enemies.",                               Rarity.Rare,   8f,  3.0f, 99, WeaponTrait.Rotating, new List<string>{"Fire", "Magic"},      fireMode: FireMode.Orbit);
+        AddWeapon(ws, "Empty Tome",   "Increases cooldown speed of all weapons.",                          Rarity.Common, 0,   0,    0,  WeaponTrait.None,     new List<string>{"Utility", "Magic"},    false);
+        AddWeapon(ws, "Heavy Bracers","Increases knockback power.",                                        Rarity.Common, 0,   0,    0,  WeaponTrait.None,     new List<string>{"Heavy", "Physical"},   false);
 
         // --- 2. POPULATE EVOLUTION RECIPES ---
-        AddRecipe(ws, "Magic Wand", "Empty Tome", "Holy Scepter");
+        AddRecipe(ws, "Wand", "Empty Tome", "Holy Scepter");
         AddRecipe(ws, "Axe", "Heavy Bracers", "Death Spiral");
         AddRecipe(ws, "Fire Orb", "Mana Well", "Supernova");
 
         Debug.Log("Zenith Database Initialized: " + ws.cardPool.Count + " items loaded.");
     }
 
-    void AddWeapon(WeaponSystem ws, string name, string desc, Rarity rare, int weight, float dmg, float cd, int pierce, WeaponTrait trait, List<string> tags, bool isWeapon = true, FireMode fireMode = FireMode.Default, float range = 0f, int level = 1, float knockback = 0f) {
+    void AddWeapon(WeaponSystem ws, string name, string desc, Rarity rare, float dmg, float cd, int pierce, WeaponTrait trait, List<string> tags, bool isWeapon = true, FireMode fireMode = FireMode.Default, float range = 0f, int level = 1, float knockback = 0f) {
         if (ws.cardPool.Exists(x => x.itemName == name)) return;
         
         ws.cardPool.Add(new ItemData {

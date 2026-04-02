@@ -9,6 +9,7 @@ public class WeaponSystem : MonoBehaviour {
     public List<ItemData> cardPool = new List<ItemData>();
     public List<EvolutionRecipe> recipes;
     private Dictionary<string, float> cooldowns = new Dictionary<string, float>();
+    private Dictionary<string, List<GameObject>> activeOrbs = new Dictionary<string, List<GameObject>>();
 
     // Always use the live player position so projectiles spawn/query at the right spot.
     Vector3 PlayerPos => SurvivorMasterScript.Instance.player?.position ?? transform.position;
@@ -25,11 +26,68 @@ public class WeaponSystem : MonoBehaviour {
     }
 
     void Fire(ItemData w) {
+        // Non-projectile modes are handled first (no prefab needed)
+        if (w.fireMode == FireMode.ArcSwing) { FireArcSwing(w); return; }
+        if (w.fireMode == FireMode.Orbit)    { FireOrbit(w);    return; }
+
         if (w.projectilePrefab == null) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab assigned."); return; }
         switch (w.fireMode) {
             case FireMode.NearestN:      FireNearestN(w);      break;
             case FireMode.RandomInRange: FireRandomInRange(w); break;
             default:                     FireDefault(w);       break;
+        }
+    }
+
+    // Deals damage to all enemies within a 120° arc toward the nearest enemy.
+    void FireArcSwing(ItemData w) {
+        float range = w.range > 0f ? w.range : 3f;
+        const float halfAngle = 60f;  // 120° total arc
+        Vector3 pos = PlayerPos;
+        var targets = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
+        targets.RemoveAll(e => e == null || e.isDead);
+        targets = targets.Distinct().ToList();
+
+        // Swing toward nearest enemy; fall back to rightward direction
+        Vector2 swingDir = Vector2.right;
+        if (targets.Count > 0) {
+            targets.Sort((a, b) =>
+                (a.transform.position - pos).sqrMagnitude
+                .CompareTo((b.transform.position - pos).sqrMagnitude));
+            swingDir = ((Vector2)(targets[0].transform.position - pos)).normalized;
+        }
+
+        float rangeSq = range * range;
+        foreach (var e in targets) {
+            Vector2 toEnemy = (Vector2)(e.transform.position - pos);
+            if (toEnemy.sqrMagnitude > rangeSq) continue;
+            if (Vector2.Angle(swingDir, toEnemy) <= halfAngle)
+                e.TakeDamage(w.baseDamage);
+        }
+    }
+
+    // Spawns/maintains N orbiting objects (N = weapon level) that deal periodic burn damage.
+    void FireOrbit(ItemData w) {
+        if (!activeOrbs.ContainsKey(w.itemName))
+            activeOrbs[w.itemName] = new List<GameObject>();
+
+        activeOrbs[w.itemName].RemoveAll(o => o == null);
+
+        // Orbs already match the weapon level — nothing to do
+        if (activeOrbs[w.itemName].Count == w.level) return;
+
+        foreach (var o in activeOrbs[w.itemName])
+            if (o != null) Destroy(o);
+        activeOrbs[w.itemName].Clear();
+
+        for (int i = 0; i < w.level; i++) {
+            var orb = new GameObject($"Orb_{w.itemName}_{i}");
+            var sr = orb.AddComponent<SpriteRenderer>();
+            sr.color        = new Color(1f, 0.45f, 0.05f);
+            sr.sortingOrder = 6;
+            var logic = orb.AddComponent<OrbLogic>();
+            logic.startAngle = (360f / w.level) * i;
+            logic.damage     = w.baseDamage;
+            activeOrbs[w.itemName].Add(orb);
         }
     }
 

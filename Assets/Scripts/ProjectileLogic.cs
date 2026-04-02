@@ -2,6 +2,7 @@ using UnityEngine;
 
 public class ProjectileLogic : MonoBehaviour {
     private ItemData d; private Vector2 dir; private int p;
+    private bool _dead;
     private readonly System.Collections.Generic.HashSet<Collider2D> hit
         = new System.Collections.Generic.HashSet<Collider2D>();
 
@@ -24,6 +25,7 @@ public class ProjectileLogic : MonoBehaviour {
     void OnTriggerStay2D(Collider2D other)  => HandleHit(other);
 
     void HandleHit(Collider2D other) {
+        if (_dead) return;
         if (!other.CompareTag("Enemy")) return;
         if (hit.Contains(other)) return; // already processed this collider
         hit.Add(other);
@@ -32,6 +34,6 @@ public class ProjectileLogic : MonoBehaviour {
         entity.TakeDamage(d.baseDamage);
         if (!entity.isDead && d.knockback > 0f) entity.ApplyKnockback(dir, d.knockback);
         if (d.trait == WeaponTrait.Bouncy) { dir = Random.insideUnitCircle.normalized; hit.Clear(); }
-        p--; if (p <= 0 && d.trait != WeaponTrait.Bouncy) Destroy(gameObject);
+        p--; if (p <= 0 && d.trait != WeaponTrait.Bouncy) { _dead = true; Destroy(gameObject); }
     }
 }

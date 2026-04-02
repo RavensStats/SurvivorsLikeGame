@@ -516,6 +516,10 @@ public class MainMenuManager : MonoBehaviour {
 
     /// <summary>Called by SurvivorMasterScript when the player dies.</summary>
     public void ShowGameOver(RunRecord record = null) {
+        // Persist gold earned this run before anything else
+        PlayerPrefs.SetInt("TotalGold", SurvivorMasterScript.GlobalGold);
+        PlayerPrefs.Save();
+
         if (record != null) SubmitRecord(record);
         SetGameplayUIVisible(false);
         canvas.gameObject.SetActive(true);
