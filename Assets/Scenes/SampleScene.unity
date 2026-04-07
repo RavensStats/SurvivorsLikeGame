@@ -679,25 +679,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cbf08a2998beefe45bcfdd5aaf11220e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::WeaponSystem
-  activeWeapons:
-  - itemName: 
-    description: 
-    tags: []
-    rarity: 0
-    isWeapon: 0
-    baseDamage: 0
-    cooldown: 0
-    pierceCount: 0
-    trait: 0
-    fireMode: 0
-    level: 1
-    range: 0
-    knockback: 0
-    projectilePrefab: {fileID: 0}
-    spriteFolder: 
+  activeWeapons: []
   passiveItems: []
   cardPool: []
-  recipes: []
+  recipes:
+  - weaponA: Sword
+    itemB: Flame
+    resultName: Sword Of Fire
+    evolvedPrefab: {fileID: 5528235300770921477, guid: f1c6f26a85545e84dba52efaba233ffd, type: 3}
 --- !u!114 &1573701118
 MonoBehaviour:
   m_ObjectHideFlags: 0

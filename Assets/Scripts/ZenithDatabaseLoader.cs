@@ -53,14 +53,15 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         AddWeapon(ws, "Hunter's Bow", "Fires an arrow at up to N random enemies in range (N = Bow level).", Rarity.Common, 8f,  1.8f, 1,  WeaponTrait.None,     new List<string>{"Physical", "Ranged"},   fireMode: FireMode.RandomInRange,  range: 35f,  spriteFolder: "Arrow");
         AddWeapon(ws, "Sword",        "Slashes nearby enemies in a quick arc.",                            Rarity.Common, 12f, 0.8f, 1,  WeaponTrait.None,     new List<string>{"Physical", "Melee"},   fireMode: FireMode.ArcSwing,       range: 12f, spriteFolder: "Sword");
         AddWeapon(ws, "Axe",          "Swings in a high-damage arc.",                                      Rarity.Common, 15f, 2.5f, 3,  WeaponTrait.Piercing, new List<string>{"Physical", "Melee"},   fireMode: FireMode.ArcSwing,       range: 4f);
-        AddWeapon(ws, "Fire Orb",     "Orbits the player, burning enemies.",                               Rarity.Rare,   8f,  3.0f, 99, WeaponTrait.Rotating, new List<string>{"Fire", "Magic"},      fireMode: FireMode.Orbit);
+        AddWeapon(ws, "Flame",        "Orbits the player, burning enemies.",                               Rarity.Rare,   8f,  3.0f, 99, WeaponTrait.Rotating, new List<string>{"Fire", "Magic"},      fireMode: FireMode.Orbit);
         AddWeapon(ws, "Empty Tome",   "Increases cooldown speed of all weapons.",                          Rarity.Common, 0,   0,    0,  WeaponTrait.None,     new List<string>{"Utility", "Magic"},    false);
         AddWeapon(ws, "Heavy Bracers","Increases knockback power.",                                        Rarity.Common, 0,   0,    0,  WeaponTrait.None,     new List<string>{"Heavy", "Physical"},   false);
 
         // --- 2. POPULATE EVOLUTION RECIPES ---
         AddRecipe(ws, "Wand", "Empty Tome", "Holy Scepter");
         AddRecipe(ws, "Axe", "Heavy Bracers", "Death Spiral");
-        AddRecipe(ws, "Fire Orb", "Mana Well", "Supernova");
+        AddRecipe(ws, "Flame", "Mana Well", "Supernova");
+        AddRecipe(ws, "Sword", "Flame", "Sword of Fire");
 
         Debug.Log("Zenith Database Initialized: " + ws.cardPool.Count + " items loaded.");
     }
