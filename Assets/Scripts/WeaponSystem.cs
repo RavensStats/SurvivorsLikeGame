@@ -32,9 +32,27 @@ public class WeaponSystem : MonoBehaviour {
 
     void Update() {
         if (Time.timeScale <= 0) return;
+
+        // Berserker passive: cooldowns shrink as player HP drops (up to 50% faster at 1 HP).
+        float berserkerMult = 1f;
+        if (SurvivorMasterScript.Instance != null &&
+            SurvivorMasterScript.Instance.currentClass == CharacterClass.Berserker) {
+            float hpRatio = SurvivorMasterScript.Instance.HPRatio;
+            berserkerMult = Mathf.Lerp(0.5f, 1.0f, hpRatio); // 1.0 at full HP, 0.5 at 0 HP
+        }
+
+        // Tick disable timer
+        if (_disableTimer > 0) _disableTimer -= Time.deltaTime;
+        else _disabledWeapon = null;
+
+        if (_frozen) return; // Chrono freeze — skip all firing
+
+        float poiCd = SurvivorMasterScript.Instance?.poiCooldownMult ?? 1f;
+
         foreach (var w in activeWeapons) {
+            if (w.itemName == _disabledWeapon) continue; // Siren disable
             if (!cooldowns.ContainsKey(w.itemName)) cooldowns[w.itemName] = 0;
-            cooldowns[w.itemName] -= Time.deltaTime / PersistentUpgrades.CooldownMult;
+            cooldowns[w.itemName] -= Time.deltaTime / (PersistentUpgrades.CooldownMult * berserkerMult * poiCd);
             if (cooldowns[w.itemName] <= 0) { Fire(w); cooldowns[w.itemName] = w.cooldown; }
         }
     }
@@ -83,9 +101,10 @@ public class WeaponSystem : MonoBehaviour {
                 Vector2 toEnemy = (Vector2)(e.transform.position - pos);
                 if (toEnemy.sqrMagnitude > rangeSq) continue;
                 if (Vector2.Angle(swingDir, toEnemy) <= halfAngle) {
-                    e.TakeDamage(w.baseDamage);
+                    float dmg = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+                    e.TakeDamage(dmg);
                     alreadyHit.Add(e);
-                    Debug.Log($"[WeaponSystem] '{w.itemName}' hit {e.name} for {w.baseDamage} dmg.");
+                    Debug.Log($"[WeaponSystem] '{w.itemName}' hit {e.name} for {dmg:F1} dmg.");
                 }
             }
             if (!string.IsNullOrEmpty(w.spriteFolder)) {
@@ -141,8 +160,19 @@ public class WeaponSystem : MonoBehaviour {
         for (int i = 0; i < w.level; i++) {
             var orb = new GameObject($"Orb_{w.itemName}_{i}");
             var sr = orb.AddComponent<SpriteRenderer>();
-            sr.color        = new Color(1f, 0.45f, 0.05f);
             sr.sortingOrder = 6;
+            // Load sprite from the weapon's spriteFolder if set; fall back to tinted circle.
+            if (!string.IsNullOrEmpty(w.spriteFolder)) {
+                Sprite spr = Resources.Load<Sprite>($"Sprites/Weapons/{w.spriteFolder}/{w.spriteFolder}");
+                if (spr != null) {
+                    sr.sprite = spr;
+                    orb.transform.localScale = Vector3.one * 4f;   // 400 % scale for sprite orbs
+                } else {
+                    sr.color  = new Color(1f, 0.45f, 0.05f);
+                }
+            } else {
+                sr.color = new Color(1f, 0.45f, 0.05f);
+            }
             var logic = orb.AddComponent<OrbLogic>();
             logic.startAngle = (360f / w.level) * i;
             logic.damage     = w.baseDamage;
@@ -163,7 +193,7 @@ public class WeaponSystem : MonoBehaviour {
         col.radius = 0.5f;
         var rb = go.AddComponent<Rigidbody2D>();
         rb.gravityScale = 0f;
-        rb.isKinematic = true;
+        rb.bodyType = RigidbodyType2D.Kinematic;
         go.AddComponent<ProjectileLogic>();
         return go;
     }
@@ -264,6 +294,21 @@ public class WeaponSystem : MonoBehaviour {
             elapsed += tickInterval;
         }
     }
+
+    // ── Enemy-inflicted debuffs ──────────────────────────────────────────────
+    private bool _frozen;
+    public void SetFrozen(bool v) => _frozen = v;
+
+    private string _disabledWeapon;
+    private float  _disableTimer;
+    public void DisableRandomWeapon(float duration) {
+        if (activeWeapons.Count == 0) return;
+        _disabledWeapon = activeWeapons[Random.Range(0, activeWeapons.Count)].itemName;
+        _disableTimer   = duration;
+    }
+
+    // Freeze + disable are checked in Update before ticking cooldowns.
+    // (Berserker mult already calculated; just bail or skip weapon.)
 
     public void RapidFire(float d) { StartCoroutine(RapidFireRoutine(d)); }
     IEnumerator RapidFireRoutine(float duration) {

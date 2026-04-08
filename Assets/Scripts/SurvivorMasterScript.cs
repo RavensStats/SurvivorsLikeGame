@@ -28,6 +28,14 @@ public class SurvivorMasterScript : MonoBehaviour {
     public static int GlobalGold;
     public bool isInsideGraveyard, isInvulnerable;
 
+    // ── POI modifier state (reset on run start; set/cleared by POIInstance) ──
+    [HideInInspector] public float poiDamageMult    = 1f;  // Forge
+    [HideInInspector] public float poiCooldownMult  = 1f;  // Mana Well
+    [HideInInspector] public float poiGoldMult      = 1f;  // Golden Statue / Thieves Den
+    [HideInInspector] public int   poiExtraCards    = 0;   // Cursed Altar
+    [HideInInspector] public bool  poiBlockKnockback = false; // Monolith
+    [HideInInspector] public bool  poiHalfSpeed     = false; // Toxic Pit
+
     [Header("UI References")]
     public Slider hpSlider, xpSlider, ultFill;
     public Text timerText, goldText;
@@ -37,7 +45,9 @@ public class SurvivorMasterScript : MonoBehaviour {
     private float regenRate, regenInterval = 5f, regenTimer;
     public float GameTime => gameTime;
     public float UltTimer => ultTimer;
+    public void DrainUlt(float amt) => ultTimer = Mathf.Max(0f, ultTimer - amt);
     public float UltCooldown => ultCooldown;
+    public float HPRatio => maxPlayerHP > 0f ? Mathf.Clamp01(playerHP / maxPlayerHP) : 1f;
 
     // ── Run stats (reset each run) ─────────────────────────────────────────
     [HideInInspector] public float totalDamageDealt;
@@ -107,7 +117,7 @@ public class SurvivorMasterScript : MonoBehaviour {
         float actual = amt * PersistentUpgrades.XPRateMult * (1f + RunUpgrades.XPRateBonus);
         xp += actual;
         totalXPGained += actual;
-        if (xp >= xpMax) { xp = 0; xpMax *= 1.2f; playerLevel++; LevelUpManager.Instance?.Show(3); }
+        if (xp >= xpMax) { xp = 0; xpMax *= 1.2f; playerLevel++; LevelUpManager.Instance?.Show(3 + poiExtraCards); }
     }
 
     public void RegisterDamageDealt(float amt) => totalDamageDealt += amt;
@@ -120,6 +130,12 @@ public class SurvivorMasterScript : MonoBehaviour {
         gameTime = 0f;
         regenRate = 0f;
         regenTimer = 0f;
+        poiDamageMult   = 1f;
+        poiCooldownMult = 1f;
+        poiGoldMult     = 1f;
+        poiExtraCards   = 0;
+        poiBlockKnockback = false;
+        poiHalfSpeed    = false;
     }
 
     public void BonusMaxHP(float amount) {
@@ -138,6 +154,10 @@ public class SurvivorMasterScript : MonoBehaviour {
         if (!bestiary.Contains(b)) bestiary.Add(b);
         b.kills++;
         if (b.kills >= 500) b.isHunterBonusUnlocked = true;
+
+        // Vampire: restore 3 HP every 5th kill
+        if (currentClass == CharacterClass.Vampire && totalEnemiesKilled % 5 == 0)
+            playerHP = Mathf.Min(playerHP + 3f, maxPlayerHP);
     }
 
     public void TakeDamage(float amt) {

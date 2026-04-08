@@ -42,6 +42,10 @@ public class EnemySpawnConfig {
     public float hpScalePerMinute     = 5f;
     [Tooltip("Additional damage added per elapsed game-minute")]
     public float damageScalePerMinute = 1f;
+
+    [Header("Classification")]
+    [Tooltip("Controls which HP bar setting applies (Normal / MiniBoss / Boss)")]
+    public EnemyTier tier = EnemyTier.Normal;
 }
 
 /// <summary>
@@ -52,6 +56,9 @@ public class EnemySpawnConfig {
 public class EnemySpawner : MonoBehaviour {
 
     public static EnemySpawner Instance { get; private set; }
+
+    /// <summary>Multiplier applied to spawn rate (e.g. Graveyard POI sets to 2x).</summary>
+    [HideInInspector] public float GlobalSpawnRateMult = 1f;
 
     [Tooltip("List of enemy types and their wave configurations")]
     public List<EnemySpawnConfig> enemyTypes = new List<EnemySpawnConfig> {
@@ -99,7 +106,8 @@ public class EnemySpawner : MonoBehaviour {
 
         while (running) {
             yield return SpawnWave(cfg);
-            yield return new WaitForSeconds(cfg.waveInterval);
+            float interval = cfg.waveInterval / Mathf.Max(0.1f, GlobalSpawnRateMult);
+            yield return new WaitForSeconds(interval);
         }
     }
 
@@ -177,6 +185,7 @@ public class EnemySpawner : MonoBehaviour {
         // EnemyEntity
         EnemyEntity entity  = go.AddComponent<EnemyEntity>();
         entity.behavior     = cfg.behavior;
+        entity.tier         = cfg.tier;
         entity.hp           = hp * biomeHPMult;
         entity.moveSpeed    = cfg.moveSpeed * biomeSpeedMult;
         entity.attackRange  = cfg.attackRange;
@@ -191,6 +200,10 @@ public class EnemySpawner : MonoBehaviour {
         EnemyAnimator anim = go.AddComponent<EnemyAnimator>();
         if (!string.IsNullOrEmpty(cfg.enemyTypeName))
             anim.LoadClipsForEnemy(cfg.enemyTypeName);
+
+        // Linker: add beam component (auto-adds LineRenderer)
+        if (cfg.behavior == EnemyBehavior.Linker)
+            go.AddComponent<LinkerBeam>();
     }
 
     // ── Position selection ─────────────────────────────────────────────────────

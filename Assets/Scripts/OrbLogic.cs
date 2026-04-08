@@ -1,23 +1,35 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// Attached to orb GameObjects spawned by WeaponSystem for the Orbit fire mode.
-/// Rotates around the player at a fixed radius and deals periodic damage to nearby enemies.
+/// Rotates around the player and deals damage to any enemy whose collider it touches.
 /// </summary>
 public class OrbLogic : MonoBehaviour {
-    public float orbitRadius    = 3f;
-    public float orbitSpeed     = 120f;   // degrees per second
-    public float startAngle;              // initial angle in degrees
+    public float orbitRadius = 3f;
+    public float orbitSpeed  = 120f;   // degrees per second
+    public float startAngle;           // initial angle in degrees
     public float damage;
-    public float damageRadius   = 1.2f;
-    public float damageInterval = 0.75f;
 
-    private float nextDamageTick;
+    // Minimum seconds between hits on the same enemy (prevents per-frame overkill).
+    private const float HitCooldown = 0.25f;
+    private readonly Dictionary<Collider2D, float> hitTimes = new Dictionary<Collider2D, float>();
 
     void Start() {
+        // Sprite: fall back to a procedural circle if nothing was assigned externally.
         var sr = GetComponent<SpriteRenderer>();
         if (sr != null && sr.sprite == null)
             sr.sprite = MakeCircleSprite(16);
+
+        // Kinematic Rigidbody2D is required for 2D trigger callbacks to fire on this object.
+        var rb = gameObject.AddComponent<Rigidbody2D>();
+        rb.bodyType    = RigidbodyType2D.Kinematic;
+        rb.gravityScale = 0f;
+
+        // Trigger collider sized to match the visible orb.
+        var col = gameObject.AddComponent<CircleCollider2D>();
+        col.isTrigger = true;
+        col.radius    = 0.5f;
     }
 
     void Update() {
@@ -28,16 +40,21 @@ public class OrbLogic : MonoBehaviour {
         float rad = startAngle * Mathf.Deg2Rad;
         transform.position = (Vector2)player.position
             + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * orbitRadius;
+    }
 
-        if (Time.time < nextDamageTick) return;
-        nextDamageTick = Time.time + damageInterval;
+    void OnTriggerEnter2D(Collider2D other) => TryHit(other);
+    void OnTriggerStay2D(Collider2D other)  => TryHit(other);
 
-        var enemies = SurvivorMasterScript.Instance.Grid.GetNearby(transform.position);
-        float radSq = damageRadius * damageRadius;
-        foreach (var e in enemies)
-            if (e != null && !e.isDead
-                && (e.transform.position - transform.position).sqrMagnitude <= radSq)
-                e.TakeDamage(damage);
+    void TryHit(Collider2D other) {
+        if (!other.CompareTag("Enemy")) return;
+
+        float now = Time.time;
+        if (hitTimes.TryGetValue(other, out float last) && now - last < HitCooldown) return;
+        hitTimes[other] = now;
+
+        var entity = other.GetComponent<EnemyEntity>();
+        if (entity == null || entity.isDead) return;
+        entity.TakeDamage(damage);
     }
 
     static Sprite MakeCircleSprite(int res) {

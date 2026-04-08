@@ -38,8 +38,10 @@ public class GoldCoin : MonoBehaviour {
 
         // Sweep toward player when within collect radius
         if (dist <= CollectRadius) {
-            SurvivorMasterScript.GlobalGold          += value;
-            SurvivorMasterScript.Instance.totalGoldGained += value;
+            float mult = SurvivorMasterScript.Instance?.poiGoldMult ?? 1f;
+            int earned = Mathf.RoundToInt(value * mult);
+            SurvivorMasterScript.GlobalGold               += earned;
+            SurvivorMasterScript.Instance.totalGoldGained += earned;
             Destroy(gameObject);
             return;
         }

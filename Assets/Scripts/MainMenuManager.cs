@@ -580,33 +580,65 @@ public class MainMenuManager : MonoBehaviour {
         MakeText(displayBar.transform, "\u25bc", 18, FontStyle.Normal, new Color(0.75f, 0.75f, 0.75f, 1f),
             TextAnchor.MiddleRight, new Vector2(0.85f, 0.1f), new Vector2(0.97f, 0.9f));
 
-        // ── Drop list (hidden by default) ───────────────────────────────────
-        float rowH       = 0.07f;
-        int   maxVisible = 6;
-        int   visible    = Mathf.Min(availableCharacters.Length, maxVisible);
+        // ── Scrollable drop list ─────────────────────────────────────────────
+        const float rowH       = 0.07f;
+        const int   maxVisible = 6;
+        int   clampedVisible   = Mathf.Min(availableCharacters.Length, maxVisible);
+        float rowPx            = rowH * Screen.height;  // pixel height of one visible row
 
+        // Outer panel — fixed height = clampedVisible rows, sits just below the display bar.
         GameObject dropList = new GameObject("DropList");
         dropList.transform.SetParent(characterSelectPanel.transform, false);
         RectTransform dlRT = dropList.AddComponent<RectTransform>();
-        dlRT.anchorMin = new Vector2(0.2f, 0.56f - visible * rowH);
+        dlRT.anchorMin = new Vector2(0.2f, 0.56f - clampedVisible * rowH);
         dlRT.anchorMax = new Vector2(0.8f, 0.56f);
         dlRT.offsetMin = Vector2.zero; dlRT.offsetMax = Vector2.zero;
         dropList.AddComponent<Image>().color = new Color(0.08f, 0.12f, 0.20f, 0.98f);
         dropList.SetActive(false);
 
-        // One button per character inside the list
+        // ScrollRect drives vertical scrolling of the content.
+        var scroll = dropList.AddComponent<ScrollRect>();
+        scroll.horizontal        = false;
+        scroll.vertical          = true;
+        scroll.scrollSensitivity = 30f;
+        scroll.movementType      = ScrollRect.MovementType.Clamped;
+
+        // Viewport — masks content that extends beyond the visible window.
+        GameObject viewport = new GameObject("Viewport");
+        viewport.transform.SetParent(dropList.transform, false);
+        RectTransform vpRT = viewport.AddComponent<RectTransform>();
+        vpRT.anchorMin = Vector2.zero; vpRT.anchorMax = Vector2.one;
+        vpRT.offsetMin = Vector2.zero; vpRT.offsetMax = Vector2.zero;
+        viewport.AddComponent<Image>().color = Color.clear;  // transparent image required by Mask
+        viewport.AddComponent<Mask>().showMaskGraphic = false;
+
+        // Content — tall enough to hold all items; ScrollRect moves this inside the viewport.
+        GameObject content = new GameObject("Content");
+        content.transform.SetParent(viewport.transform, false);
+        RectTransform contRT = content.AddComponent<RectTransform>();
+        contRT.anchorMin = new Vector2(0f, 1f);
+        contRT.anchorMax = new Vector2(1f, 1f);
+        contRT.pivot     = new Vector2(0.5f, 1f);
+        contRT.offsetMin = new Vector2(0f, -(availableCharacters.Length * rowPx));
+        contRT.offsetMax = new Vector2(0f, 0f);
+
+        scroll.viewport = vpRT;
+        scroll.content  = contRT;
+
+        // One button per character, stacked inside content.
         Image[] itemImgs = new Image[availableCharacters.Length];
         for (int i = 0; i < availableCharacters.Length; i++) {
-            int   idx    = i;
-            float yFrac  = 1f - (float)(i + 1) / availableCharacters.Length;
-            float yTop   = 1f - (float)i       / availableCharacters.Length;
+            int idx = i;
 
             GameObject itemGO = new GameObject("Item_" + availableCharacters[i]);
-            itemGO.transform.SetParent(dropList.transform, false);
+            itemGO.transform.SetParent(content.transform, false);
             RectTransform irt = itemGO.AddComponent<RectTransform>();
-            irt.anchorMin = new Vector2(0f, yFrac);
-            irt.anchorMax = new Vector2(1f, yTop);
-            irt.offsetMin = new Vector2(2, 2); irt.offsetMax = new Vector2(-2, -2);
+            // Anchor to top-left corner; use offsets for absolute pixel placement.
+            irt.anchorMin = new Vector2(0f, 1f);
+            irt.anchorMax = new Vector2(1f, 1f);
+            irt.pivot     = new Vector2(0.5f, 1f);
+            irt.offsetMin = new Vector2( 2f, -(i + 1) * rowPx + 1f);
+            irt.offsetMax = new Vector2(-2f, -i * rowPx);
 
             Image imgComp = itemGO.AddComponent<Image>();
             imgComp.color = idx == selectedCharacterIdx ? highlightCol : rowCol;
@@ -630,16 +662,20 @@ public class MainMenuManager : MonoBehaviour {
             GameObject tgo = new GameObject("Label");
             tgo.transform.SetParent(itemGO.transform, false);
             RectTransform trt = tgo.AddComponent<RectTransform>();
-            trt.anchorMin = new Vector2(0.04f, 0f); trt.anchorMax = new Vector2(0.96f, 1f);
-            trt.offsetMin = Vector2.zero; trt.offsetMax = Vector2.zero;
+            trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one;
+            trt.offsetMin = new Vector2(8f, 2f); trt.offsetMax = new Vector2(-8f, -2f);
             Text t = tgo.AddComponent<Text>();
             t.text = availableCharacters[i]; t.font = font;
             t.fontSize = 20; t.color = WHITE;
             t.alignment = TextAnchor.MiddleLeft;
         }
 
-        // Toggle list on display-bar click
-        dbBtn.onClick.AddListener(() => dropList.SetActive(!dropList.activeSelf));
+        // Toggle list; bring to front so it renders above Start/Back buttons.
+        dbBtn.onClick.AddListener(() => {
+            bool show = !dropList.activeSelf;
+            dropList.SetActive(show);
+            if (show) dropList.transform.SetAsLastSibling();
+        });
 
         // Start Game / Back
         MakeButton(characterSelectPanel.transform, "Start Game", new Color(0.12f, 0.45f, 0.18f, 1f), WHITE, 24,
@@ -680,16 +716,11 @@ public class MainMenuManager : MonoBehaviour {
     }
 
     string[] GetAvailableCharacters() {
-        // Only folders in Resources/Sprites/Characters
-        List<string> chars = new List<string>();
-        string path = Application.dataPath + "/Resources/Sprites/Characters";
-        if (System.IO.Directory.Exists(path)) {
-            foreach (var dir in System.IO.Directory.GetDirectories(path)) {
-                string name = System.IO.Path.GetFileName(dir);
-                if (!name.StartsWith(".")) chars.Add(name);
-            }
-        }
-        return chars.ToArray();
+        // All values in the CharacterClass enum are selectable.
+        // Characters without a sprite folder simply use the default idle animation.
+        var names = System.Enum.GetNames(typeof(CharacterClass));
+        System.Array.Sort(names, System.StringComparer.OrdinalIgnoreCase);
+        return names;
     }
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -755,11 +786,27 @@ public class MainMenuManager : MonoBehaviour {
 
         MakeText(settingsPanel.transform, "(Vertical layout coming soon)", 12, FontStyle.Italic,
             new Color(0.45f, 0.45f, 0.45f), TextAnchor.MiddleLeft,
-            new Vector2(0.07f, 0.31f), new Vector2(0.93f, 0.39f));
+            new Vector2(0.07f, 0.31f), new Vector2(0.93f, 0.38f));
+
+        // ── GAMEPLAY header ──
+        MakeText(settingsPanel.transform, "GAMEPLAY", 22, FontStyle.Bold, new Color(0.55f, 0.82f, 1f),
+            TextAnchor.MiddleLeft, new Vector2(0.05f, 0.25f), new Vector2(0.5f, 0.31f));
+        MakeImage(settingsPanel.transform, new Vector2(0.05f, 0.246f), new Vector2(0.95f, 0.251f),
+            new Color(0.4f, 0.6f, 0.9f, 0.6f));
+
+        bool showDmgNums  = PlayerPrefs.GetInt("showDamageNumbers", 1) == 1;
+        bool showHpNormal = PlayerPrefs.GetInt("showHpNormal",      0) == 1;
+        bool showHpMini   = PlayerPrefs.GetInt("showHpMiniBoss",    1) == 1;
+        bool showHpBoss   = PlayerPrefs.GetInt("showHpBoss",        1) == 1;
+
+        SettingsToggleRow(settingsPanel.transform, "Damage Numbers",       0.245f, showDmgNums,  "showDamageNumbers");
+        SettingsToggleRow(settingsPanel.transform, "Enemy HP (Normal)",    0.185f, showHpNormal, "showHpNormal");
+        SettingsToggleRow(settingsPanel.transform, "Enemy HP (Mini-Boss)", 0.125f, showHpMini,   "showHpMiniBoss");
+        SettingsToggleRow(settingsPanel.transform, "Enemy HP (Boss)",      0.065f, showHpBoss,   "showHpBoss");
 
         // Back button
         MakeButton(settingsPanel.transform, "Apply & Back", BTN_IDLE, WHITE, 22,
-            new Vector2(0.3f, 0.05f), new Vector2(0.7f, 0.14f),
+            new Vector2(0.3f, 0.005f), new Vector2(0.7f, 0.055f),
             () => { ApplySettings(); settingsBackAction?.Invoke(); });
     }
 
@@ -776,6 +823,23 @@ public class MainMenuManager : MonoBehaviour {
             TextAnchor.MiddleCenter, new Vector2(0.67f, yBot), new Vector2(0.81f, yTop));
         MakeButton(parent, "\u25ba", new Color(0.20f, 0.28f, 0.48f, 1f), WHITE, 20,
             new Vector2(0.81f, yBot + 0.01f), new Vector2(0.91f, yTop - 0.01f), onIncrease);
+    }
+
+    // Single ON/OFF row — rowH = 0.06
+    void SettingsToggleRow(Transform parent, string label, float yTop, bool current, string prefKey) {
+        float yBot = yTop - 0.06f;
+        MakeImage(parent, new Vector2(0.05f, yBot), new Vector2(0.95f, yTop),
+            new Color(0.12f, 0.15f, 0.22f, 0.8f));
+        MakeText(parent, label, 16, FontStyle.Normal, WHITE,
+            TextAnchor.MiddleLeft, new Vector2(0.07f, yBot), new Vector2(0.72f, yTop));
+        Color btnCol = current ? new Color(0.12f, 0.45f, 0.18f, 1f) : new Color(0.45f, 0.12f, 0.12f, 1f);
+        MakeButton(parent, current ? "ON" : "OFF", btnCol, WHITE, 16,
+            new Vector2(0.73f, yBot + 0.005f), new Vector2(0.88f, yTop - 0.005f),
+            () => {
+                PlayerPrefs.SetInt(prefKey, current ? 0 : 1);
+                PlayerPrefs.Save();
+                BuildSettings(); ShowPanel(settingsPanel);
+            });
     }
 
     void ApplySettings() {

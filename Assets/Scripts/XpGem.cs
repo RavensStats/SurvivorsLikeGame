@@ -35,6 +35,7 @@ public class XpGem : MonoBehaviour {
     // ── Per-run state ─────────────────────────────────────────────────────────
     static float ratchetTime = 120f;
     public static float PickupRadiusMultiplier = 1f; // increased by Magnetism upgrade
+    public static int   TierBonus = 0;               // increased by Graveyard POI
 
     // ─────────────────────────────────────────────────────────────────────────
     // Unity lifecycle
@@ -59,11 +60,12 @@ public class XpGem : MonoBehaviour {
     public static void Init() {
         AllGems.Clear();
         PickupRadiusMultiplier = 1f;
+        TierBonus = 0;
         ratchetTime = Random.Range(90f, 150f);
         Debug.Log($"[XpGem] Ratchet period = {ratchetTime:F0}s");
     }
 
-    public static void Spawn(Vector3 pos) => SpawnTier(PickTier(), pos);
+    public static void Spawn(Vector3 pos) => SpawnTier(Mathf.Min(PickTier() + TierBonus, 8), pos);
 
     public static void SpawnStartingGems(Vector3 centre, int count) {
         for (int i = 0; i < count; i++) {

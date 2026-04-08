@@ -76,30 +76,54 @@ public class WorldGenerator : MonoBehaviour {
     }
 
     void SpawnPOI(Vector3 pos) {
-        // Only the three POI types that have implemented logic get spawned
-        POIType[] implemented = { POIType.Graveyard, POIType.HealingSpring, POIType.ManaWell };
-        POIType chosen = implemented[Random.Range(0, implemented.Length)];
+        // All 20 implemented POI types
+        POIType[] all = (POIType[])System.Enum.GetValues(typeof(POIType));
+        POIType chosen = all[Random.Range(0, all.Length)];
 
         GameObject poi = new GameObject($"POI_{chosen}");
         poi.transform.position = pos;
         poi.transform.SetParent(transform, true);
 
-        // Visual indicator: small colored circle using SpriteRenderer
+        // Visual indicator: colored circle
         SpriteRenderer sr = poi.AddComponent<SpriteRenderer>();
         sr.sprite       = MakeCircleSprite(32);
-        sr.sortingOrder = 1; // below floor objects; gameplay (enemies/gems/player) render above
-        sr.color = chosen == POIType.Graveyard     ? new Color(0.5f, 0.2f, 0.7f, 0.9f)
-                 : chosen == POIType.HealingSpring ? new Color(0.2f, 0.9f, 0.4f, 0.9f)
-                 : /* ManaWell */                    new Color(0.2f, 0.5f, 1.0f, 0.9f);
-        poi.transform.localScale = Vector3.one * 24f; // doubled radius
+        sr.sortingOrder = 1;
+        sr.color = POIColor(chosen);
+        poi.transform.localScale = Vector3.one * 24f;
 
-        // Trigger collider so the player activates it on contact
+        // Trigger collider — player activates on contact
         CircleCollider2D col = poi.AddComponent<CircleCollider2D>();
         col.isTrigger = true;
         col.radius    = 0.5f;
 
         POIInstance inst = poi.AddComponent<POIInstance>();
         inst.type = chosen;
+    }
+
+    static Color POIColor(POIType t) {
+        switch (t) {
+            case POIType.Graveyard:      return new Color(0.5f, 0.2f, 0.7f, 0.9f);
+            case POIType.Forge:          return new Color(1.0f, 0.4f, 0.1f, 0.9f);
+            case POIType.HolyShrine:     return new Color(1.0f, 1.0f, 0.6f, 0.9f);
+            case POIType.CursedAltar:    return new Color(0.3f, 0.0f, 0.3f, 0.9f);
+            case POIType.ManaWell:       return new Color(0.2f, 0.5f, 1.0f, 0.9f);
+            case POIType.MerchantCart:   return new Color(1.0f, 0.85f, 0.0f, 0.9f);
+            case POIType.AncientLibrary: return new Color(0.6f, 0.4f, 0.1f, 0.9f);
+            case POIType.HealingSpring:  return new Color(0.2f, 0.9f, 0.4f, 0.9f);
+            case POIType.ScrapHeap:      return new Color(0.5f, 0.5f, 0.5f, 0.9f);
+            case POIType.VolcanicVent:   return new Color(1.0f, 0.2f, 0.0f, 0.9f);
+            case POIType.FrozenObelisk:  return new Color(0.5f, 0.8f, 1.0f, 0.9f);
+            case POIType.ThievesDen:     return new Color(0.7f, 0.6f, 0.1f, 0.9f);
+            case POIType.Monolith:       return new Color(0.3f, 0.3f, 0.3f, 0.9f);
+            case POIType.RadarStation:   return new Color(0.1f, 0.7f, 0.7f, 0.9f);
+            case POIType.ToxicPit:       return new Color(0.3f, 0.7f, 0.1f, 0.9f);
+            case POIType.Beehive:        return new Color(1.0f, 0.75f, 0.0f, 0.9f);
+            case POIType.GoldenStatue:   return new Color(1.0f, 0.9f, 0.2f, 0.9f);
+            case POIType.TimeRift:       return new Color(0.7f, 0.1f, 1.0f, 0.9f);
+            case POIType.Overgrowth:     return new Color(0.0f, 0.5f, 0.1f, 0.9f);
+            case POIType.Meteorite:      return new Color(0.6f, 0.3f, 0.1f, 0.9f);
+            default:                     return new Color(1f, 1f, 1f, 0.9f);
+        }
     }
 
     // Procedurally build a white filled-circle sprite of the given diameter in pixels.
@@ -118,17 +142,4 @@ public class WorldGenerator : MonoBehaviour {
         tex.Apply();
         return Sprite.Create(tex, new Rect(0, 0, diameter, diameter), new Vector2(0.5f, 0.5f), diameter);
     }
-}
-
-public class POIInstance : MonoBehaviour {
-    public POIType type;
-    void OnTriggerEnter2D(Collider2D other) {
-        if (!other.CompareTag("Player")) return;
-        switch (type) {
-            case POIType.Graveyard: SurvivorMasterScript.Instance.isInsideGraveyard = true; break;
-            case POIType.HealingSpring: SurvivorMasterScript.Instance.playerHP = Mathf.Min(100, SurvivorMasterScript.Instance.playerHP + 25); break;
-            case POIType.ManaWell: SurvivorMasterScript.Instance.FillUltimate(); break;
-        }
-    }
-    void OnTriggerExit2D(Collider2D other) { if (other.CompareTag("Player") && type == POIType.Graveyard) SurvivorMasterScript.Instance.isInsideGraveyard = false; }
 }

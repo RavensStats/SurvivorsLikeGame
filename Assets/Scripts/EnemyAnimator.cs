@@ -37,8 +37,6 @@ public class EnemyAnimator : MonoBehaviour {
     private int   currentDir   = 0;
     private int   currentFrame = 0;
     private float frameTimer   = 0f;
-    private bool  deathStarted = false;
-    private bool  attackStarted = false;
 
     void Awake() {
         sr     = GetComponent<SpriteRenderer>();
@@ -53,7 +51,6 @@ public class EnemyAnimator : MonoBehaviour {
             state        = AnimState.Dead;
             currentFrame = 0;
             frameTimer   = 0f;
-            deathStarted = true;
         }
 
         // Update direction by facing toward player (unless dead)
@@ -102,7 +99,6 @@ public class EnemyAnimator : MonoBehaviour {
             } else if (state == AnimState.Attack) {
                 state        = AnimState.Walk;    // return to walk after attack
                 currentFrame = 0;
-                attackStarted = false;
             } else {
                 currentFrame = 0; // loop walk
             }
@@ -125,7 +121,6 @@ public class EnemyAnimator : MonoBehaviour {
         state         = AnimState.Attack;
         currentFrame  = 0;
         frameTimer    = 0f;
-        attackStarted = true;
     }
 
     // ─── Sprite loading ───────────────────────────────────────────────────────
