@@ -41,7 +41,7 @@ public class SurvivorMasterScript : MonoBehaviour {
     public Text timerText, goldText;
 
     private float gameTime, ultTimer, ultCooldown = 60f;
-    private float maxPlayerHP;
+    private float maxPlayerHP, _baseMaxPlayerHP;
     private float regenRate, regenInterval = 5f, regenTimer;
     public float GameTime => gameTime;
     public float UltTimer => ultTimer;
@@ -75,6 +75,7 @@ public class SurvivorMasterScript : MonoBehaviour {
         GlobalGold = PlayerPrefs.GetInt("TotalGold", 0);
         playerHP += PersistentUpgrades.MaxHPBonus;
         maxPlayerHP = playerHP;
+        _baseMaxPlayerHP = maxPlayerHP;
         string nemJson = PlayerPrefs.GetString("Nemesis", "");
         nemesis = string.IsNullOrEmpty(nemJson) ? new NemesisData() : JsonUtility.FromJson<NemesisData>(nemJson);
     }
@@ -126,10 +127,13 @@ public class SurvivorMasterScript : MonoBehaviour {
         totalDamageDealt = 0; totalDamageReceived = 0;
         totalXPGained = 0; totalGoldGained = 0; totalEnemiesKilled = 0;
         playerLevel = 1; xp = 0; xpMax = 100;
+        maxPlayerHP = _baseMaxPlayerHP;
         playerHP = maxPlayerHP;
         gameTime = 0f;
         regenRate = 0f;
         regenTimer = 0f;
+        // Reset per-run movement speed boost.
+        player?.GetComponent<PlayerMovement>()?.ResetForNewRun();
         poiDamageMult   = 1f;
         poiCooldownMult = 1f;
         poiGoldMult     = 1f;

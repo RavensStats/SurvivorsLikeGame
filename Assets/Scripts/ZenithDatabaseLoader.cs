@@ -72,6 +72,14 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         Debug.Log($"[ZenithDatabaseLoader] Assigned '{name}' (Lv.{weapon.level}) as starting weapon for {cls}.");
     }
 
+    /// <summary>Restores the card pool to its initial state (re-adds any items removed by evolution).</summary>
+    public void ReloadDatabase() {
+        bool prev = overwriteExisting;
+        overwriteExisting = true;
+        LoadDatabase();
+        overwriteExisting = prev;
+    }
+
     [ContextMenu("Force Load Database")] // Allows you to right-click the component in Inspector to run
     public void LoadDatabase() {
         WeaponSystem ws = GetComponent<WeaponSystem>();

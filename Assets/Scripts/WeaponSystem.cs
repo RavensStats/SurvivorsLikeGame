@@ -18,6 +18,8 @@ public class WeaponSystem : MonoBehaviour {
 
     // Resets all run-time weapon state to defaults so a new run starts clean.
     public void ResetForNewRun() {
+        // Reload the full card pool first (evolution may have removed items like Flame).
+        GetComponent<ZenithDatabaseLoader>()?.ReloadDatabase();
         // Reset levels on all pooled items back to 1.
         foreach (var item in cardPool) item.level = 1;
         activeWeapons.Clear();

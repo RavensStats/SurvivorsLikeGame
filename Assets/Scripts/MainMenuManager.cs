@@ -268,60 +268,201 @@ public class MainMenuManager : MonoBehaviour {
         MakeText(scoresPanel.transform, "High Scores", 36, FontStyle.Bold, GOLD_COL,
             TextAnchor.MiddleCenter, new Vector2(0, 0.88f), new Vector2(0, 0.97f));
 
-        // ── Filter tabs ──
-        var allChars = new List<string> { "All" };
-        string charsPath = Application.dataPath + "/Resources/Sprites/Characters";
-        if (System.IO.Directory.Exists(charsPath))
-            foreach (var d in System.IO.Directory.GetDirectories(charsPath))
-                allChars.Add(System.IO.Path.GetFileName(d));
+        // ── Filter dropdown ─────────────────────────────────────────────────
+        var options = new List<string> { "All" };
+        foreach (var ch in GetAvailableCharacters()) options.Add(ch);
 
-        float tabW = 1f / allChars.Count;
-        for (int ti = 0; ti < allChars.Count; ti++) {
-            int   idx   = ti;
-            string label = allChars[ti];
-            bool  active = label == currentScoreFilter;
-            Color tc    = active ? GOLD_COL : BTN_IDLE;
-            MakeButton(scoresPanel.transform, label, tc, WHITE, 14,
-                new Vector2(ti * tabW, 0.80f), new Vector2((ti + 1) * tabW - 0.005f, 0.88f),
-                () => { currentScoreFilter = label; BuildHighScores(); ShowPanel(scoresPanel); });
+        const float dropRowH   = 0.065f;
+        const int   maxDropVis = 7;
+        int   clampedDrop  = Mathf.Min(options.Count, maxDropVis);
+        float dropRowPx    = dropRowH * Screen.height;
+
+        // Display bar (click to toggle list)
+        GameObject filterBar = new GameObject("FilterDisplay");
+        filterBar.transform.SetParent(scoresPanel.transform, false);
+        RectTransform fbRT = filterBar.AddComponent<RectTransform>();
+        fbRT.anchorMin = new Vector2(0.05f, 0.80f); fbRT.anchorMax = new Vector2(0.55f, 0.87f);
+        fbRT.offsetMin = Vector2.zero; fbRT.offsetMax = Vector2.zero;
+        filterBar.AddComponent<Image>().color = new Color(0.15f, 0.22f, 0.38f, 1f);
+        Button fbBtn = filterBar.AddComponent<Button>();
+        ColorBlock fbCB = fbBtn.colors;
+        fbCB.normalColor      = new Color(0.15f, 0.22f, 0.38f, 1f);
+        fbCB.highlightedColor = new Color(0.25f, 0.35f, 0.55f, 1f);
+        fbCB.pressedColor     = new Color(0.10f, 0.16f, 0.28f, 1f);
+        fbBtn.colors = fbCB;
+        MakeText(filterBar.transform, "Filter:", 13, FontStyle.Normal,
+            new Color(0.65f, 0.65f, 0.65f, 1f), TextAnchor.MiddleLeft,
+            new Vector2(0.03f, 0.1f), new Vector2(0.26f, 0.9f));
+        MakeText(filterBar.transform, currentScoreFilter, 18, FontStyle.Bold, WHITE,
+            TextAnchor.MiddleLeft, new Vector2(0.27f, 0.05f), new Vector2(0.87f, 0.95f));
+        MakeText(filterBar.transform, "\u25bc", 13, FontStyle.Normal,
+            new Color(0.75f, 0.75f, 0.75f, 1f), TextAnchor.MiddleRight,
+            new Vector2(0.87f, 0.1f), new Vector2(0.97f, 0.9f));
+
+        // Scrollable drop list
+        GameObject dropList = new GameObject("FilterDropList");
+        dropList.transform.SetParent(scoresPanel.transform, false);
+        RectTransform dlRT = dropList.AddComponent<RectTransform>();
+        dlRT.anchorMin = new Vector2(0.05f, 0.80f - clampedDrop * dropRowH);
+        dlRT.anchorMax = new Vector2(0.55f, 0.80f);
+        dlRT.offsetMin = Vector2.zero; dlRT.offsetMax = Vector2.zero;
+        dropList.AddComponent<Image>().color = new Color(0.08f, 0.12f, 0.20f, 0.98f);
+        dropList.SetActive(false);
+
+        var dlScroll = dropList.AddComponent<ScrollRect>();
+        dlScroll.horizontal = false; dlScroll.vertical = true;
+        dlScroll.scrollSensitivity = 30f;
+        dlScroll.movementType = ScrollRect.MovementType.Clamped;
+
+        GameObject dlVp = new GameObject("Viewport");
+        dlVp.transform.SetParent(dropList.transform, false);
+        RectTransform dlVpRT = dlVp.AddComponent<RectTransform>();
+        dlVpRT.anchorMin = Vector2.zero; dlVpRT.anchorMax = Vector2.one;
+        dlVpRT.offsetMin = Vector2.zero; dlVpRT.offsetMax = Vector2.zero;
+        dlVp.AddComponent<RectMask2D>();
+
+        GameObject dlCnt = new GameObject("Content");
+        dlCnt.transform.SetParent(dlVp.transform, false);
+        RectTransform dlCntRT = dlCnt.AddComponent<RectTransform>();
+        dlCntRT.anchorMin = new Vector2(0f, 1f); dlCntRT.anchorMax = new Vector2(1f, 1f);
+        dlCntRT.pivot = new Vector2(0.5f, 1f);
+        dlCntRT.offsetMin = new Vector2(0f, -(options.Count * dropRowPx));
+        dlCntRT.offsetMax = Vector2.zero;
+        dlScroll.viewport = dlVpRT; dlScroll.content = dlCntRT;
+        dlScroll.normalizedPosition = new Vector2(0, 1);
+
+        Color hlCol  = new Color(0.12f, 0.45f, 0.18f, 1f);
+        Color itemBg = new Color(0.12f, 0.18f, 0.28f, 1f);
+        for (int i = 0; i < options.Count; i++) {
+            string lbl = options[i];
+            bool   sel = lbl == currentScoreFilter;
+            GameObject optGO = new GameObject("Opt_" + lbl);
+            optGO.transform.SetParent(dlCnt.transform, false);
+            RectTransform ort = optGO.AddComponent<RectTransform>();
+            ort.anchorMin = new Vector2(0f, 1f); ort.anchorMax = new Vector2(1f, 1f);
+            ort.pivot = new Vector2(0.5f, 1f);
+            ort.offsetMin = new Vector2(2f, -(i + 1) * dropRowPx + 1f);
+            ort.offsetMax = new Vector2(-2f, -i * dropRowPx);
+            Color oc = sel ? hlCol : itemBg;
+            optGO.AddComponent<Image>().color = oc;
+            Button ob = optGO.AddComponent<Button>();
+            ColorBlock ocb = ob.colors;
+            ocb.normalColor      = oc;
+            ocb.highlightedColor = Color.Lerp(oc, Color.white, 0.25f);
+            ocb.pressedColor     = Color.Lerp(oc, Color.black, 0.25f);
+            ob.colors = ocb;
+            ob.onClick.AddListener(() => {
+                currentScoreFilter = lbl;
+                BuildHighScores();
+                ShowPanel(scoresPanel);
+            });
+            GameObject tgo = new GameObject("Label");
+            tgo.transform.SetParent(optGO.transform, false);
+            RectTransform trt = tgo.AddComponent<RectTransform>();
+            trt.anchorMin = Vector2.zero; trt.anchorMax = Vector2.one;
+            trt.offsetMin = new Vector2(8f, 2f); trt.offsetMax = new Vector2(-8f, -2f);
+            Text t = tgo.AddComponent<Text>();
+            t.text = lbl; t.font = font; t.fontSize = 18; t.color = WHITE;
+            t.alignment = TextAnchor.MiddleLeft;
         }
+        fbBtn.onClick.AddListener(() => {
+            bool show = !dropList.activeSelf;
+            dropList.SetActive(show);
+            if (show) dropList.transform.SetAsLastSibling();
+        });
 
-        // ── Records ──
+        // ── Column header row (fixed, above scroll) ──────────────────────────
+        float chBot = 0.78f, chTop = 0.795f;
+        MakeText(scoresPanel.transform, "#",       12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.02f, chBot), new Vector2(0.06f, chTop));
+        MakeText(scoresPanel.transform, "Char",    12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleLeft,   new Vector2(0.07f, chBot), new Vector2(0.22f, chTop));
+        MakeText(scoresPanel.transform, "Lv",      12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.22f, chBot), new Vector2(0.30f, chTop));
+        MakeText(scoresPanel.transform, "Time",    12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.30f, chBot), new Vector2(0.42f, chTop));
+        MakeText(scoresPanel.transform, "Kills",   12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.42f, chBot), new Vector2(0.54f, chTop));
+        MakeText(scoresPanel.transform, "Dmg Out", 12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.54f, chBot), new Vector2(0.70f, chTop));
+        MakeText(scoresPanel.transform, "Dmg In",  12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.70f, chBot), new Vector2(0.86f, chTop));
+        MakeText(scoresPanel.transform, "Gold",    12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.86f, chBot), new Vector2(0.99f, chTop));
+
+        // ── Records ScrollRect ────────────────────────────────────────────────
         var records = LoadRecords(currentScoreFilter);
         if (records.Count == 0) {
             MakeText(scoresPanel.transform, "No runs recorded yet.", 18, FontStyle.Normal,
                 new Color(0.6f, 0.6f, 0.6f, 1f), TextAnchor.MiddleCenter,
                 new Vector2(0, 0.45f), new Vector2(0, 0.55f));
         } else {
-            // Header row
-            float hY = 0.78f;
-            MakeText(scoresPanel.transform, "#",       14, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.02f, hY - 0.04f), new Vector2(0.06f, hY));
-            MakeText(scoresPanel.transform, "Char",    14, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleLeft,   new Vector2(0.07f, hY - 0.04f), new Vector2(0.22f, hY));
-            MakeText(scoresPanel.transform, "Lv",      14, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.22f, hY - 0.04f), new Vector2(0.30f, hY));
-            MakeText(scoresPanel.transform, "Time",    14, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.30f, hY - 0.04f), new Vector2(0.42f, hY));
-            MakeText(scoresPanel.transform, "Kills",   14, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.42f, hY - 0.04f), new Vector2(0.54f, hY));
-            MakeText(scoresPanel.transform, "Dmg Out", 14, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.54f, hY - 0.04f), new Vector2(0.70f, hY));
-            MakeText(scoresPanel.transform, "Dmg In",  14, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.70f, hY - 0.04f), new Vector2(0.86f, hY));
-            MakeText(scoresPanel.transform, "Gold",    14, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.86f, hY - 0.04f), new Vector2(0.99f, hY));
+            const float REC_ROW_PX = 52f;
+            float totalRecH = records.Count * REC_ROW_PX;
+
+            GameObject recScrGO = new GameObject("RecordsScroll");
+            recScrGO.transform.SetParent(scoresPanel.transform, false);
+            RectTransform rsRT = recScrGO.AddComponent<RectTransform>();
+            rsRT.anchorMin = new Vector2(0f, 0.11f); rsRT.anchorMax = new Vector2(1f, 0.778f);
+            rsRT.offsetMin = Vector2.zero; rsRT.offsetMax = Vector2.zero;
+            recScrGO.AddComponent<Image>().color = Color.clear;
+            var rs = recScrGO.AddComponent<ScrollRect>();
+            rs.horizontal = false; rs.vertical = true;
+            rs.scrollSensitivity = 30f;
+            rs.movementType = ScrollRect.MovementType.Clamped;
+
+            GameObject rsVp = new GameObject("Viewport");
+            rsVp.transform.SetParent(recScrGO.transform, false);
+            RectTransform rsVpRT = rsVp.AddComponent<RectTransform>();
+            rsVpRT.anchorMin = Vector2.zero; rsVpRT.anchorMax = Vector2.one;
+            rsVpRT.offsetMin = Vector2.zero; rsVpRT.offsetMax = Vector2.zero;
+            rsVp.AddComponent<RectMask2D>();
+
+            GameObject rsCnt = new GameObject("Content");
+            rsCnt.transform.SetParent(rsVp.transform, false);
+            RectTransform rsCntRT = rsCnt.AddComponent<RectTransform>();
+            rsCntRT.anchorMin = new Vector2(0f, 1f); rsCntRT.anchorMax = new Vector2(1f, 1f);
+            rsCntRT.pivot = new Vector2(0.5f, 1f);
+            rsCntRT.offsetMin = new Vector2(0f, -totalRecH);
+            rsCntRT.offsetMax = Vector2.zero;
+            rs.viewport = rsVpRT; rs.content = rsCntRT;
+            rs.normalizedPosition = new Vector2(0, 1);
+            Transform rsCt = rsCnt.transform;
+
+            void Cell(float rowTop, float rowBot, string txt, int fs,
+                      TextAnchor align, float x0, float x1, Color color) {
+                GameObject cgo = new GameObject("Cell");
+                cgo.transform.SetParent(rsCt, false);
+                RectTransform crt = cgo.AddComponent<RectTransform>();
+                crt.anchorMin = new Vector2(x0, 1f); crt.anchorMax = new Vector2(x1, 1f);
+                crt.pivot = new Vector2((x0 + x1) * 0.5f, 1f);
+                crt.offsetMin = new Vector2(2f, -(rowBot - 2f));
+                crt.offsetMax = new Vector2(-2f, -(rowTop + 2f));
+                Text tx = cgo.AddComponent<Text>();
+                tx.text = txt; tx.font = font; tx.fontSize = fs;
+                tx.color = color; tx.alignment = align;
+            }
 
             for (int i = 0; i < records.Count; i++) {
-                var r   = records[i];
-                float y = 0.74f - i * 0.065f;
+                var r = records[i];
+                float rowTop = i * REC_ROW_PX;
+                float rowBot = rowTop + REC_ROW_PX;
                 Color rowCol = i == 0 ? GOLD_COL : WHITE;
-                string rankStr = i == 0 ? "1" : i == 1 ? "2" : i == 2 ? "3" : $"{i+1}";
-                string timeStr = $"{r.timePlayed/60:00}:{r.timePlayed%60:00}";
+                string rankStr = i < 3 ? new[] { "1", "2", "3" }[i] : $"{i + 1}";
+                string timeStr = $"{r.timePlayed / 60:00}:{r.timePlayed % 60:00}";
 
-                MakeImage(scoresPanel.transform, new Vector2(0.01f, y - 0.055f), new Vector2(0.99f, y),
-                    new Color(0.12f, 0.15f, 0.22f, i % 2 == 0 ? 0.6f : 0.3f));
+                // Stripe background
+                GameObject bgGO = new GameObject("RowBg");
+                bgGO.transform.SetParent(rsCt, false);
+                RectTransform bgRT = bgGO.AddComponent<RectTransform>();
+                bgRT.anchorMin = new Vector2(0f, 1f); bgRT.anchorMax = new Vector2(1f, 1f);
+                bgRT.pivot = new Vector2(0.5f, 1f);
+                bgRT.offsetMin = new Vector2(1f, -(rowBot - 1f));
+                bgRT.offsetMax = new Vector2(-1f, -rowTop);
+                bgGO.AddComponent<Image>().color =
+                    new Color(0.12f, 0.15f, 0.22f, i % 2 == 0 ? 0.6f : 0.3f);
 
-                MakeText(scoresPanel.transform, rankStr,               15, i==0?FontStyle.Bold:FontStyle.Normal, rowCol, TextAnchor.MiddleCenter, new Vector2(0.02f, y-0.055f), new Vector2(0.06f, y));
-                MakeText(scoresPanel.transform, r.characterName,       14, FontStyle.Normal, rowCol, TextAnchor.MiddleLeft,   new Vector2(0.07f, y-0.055f), new Vector2(0.22f, y));
-                MakeText(scoresPanel.transform, r.level.ToString(),    14, FontStyle.Normal, rowCol, TextAnchor.MiddleCenter, new Vector2(0.22f, y-0.055f), new Vector2(0.30f, y));
-                MakeText(scoresPanel.transform, timeStr,               14, FontStyle.Normal, rowCol, TextAnchor.MiddleCenter, new Vector2(0.30f, y-0.055f), new Vector2(0.42f, y));
-                MakeText(scoresPanel.transform, r.enemiesKilled.ToString(), 14, FontStyle.Normal, rowCol, TextAnchor.MiddleCenter, new Vector2(0.42f, y-0.055f), new Vector2(0.54f, y));
-                MakeText(scoresPanel.transform, r.damageDealt.ToString(),   14, FontStyle.Normal, rowCol, TextAnchor.MiddleCenter, new Vector2(0.54f, y-0.055f), new Vector2(0.70f, y));
-                MakeText(scoresPanel.transform, r.damageReceived.ToString(),14, FontStyle.Normal, rowCol, TextAnchor.MiddleCenter, new Vector2(0.70f, y-0.055f), new Vector2(0.86f, y));
-                MakeText(scoresPanel.transform, r.goldGained.ToString(),    14, FontStyle.Normal, rowCol, TextAnchor.MiddleCenter, new Vector2(0.86f, y-0.055f), new Vector2(0.99f, y));
+                FontStyle fs = i == 0 ? FontStyle.Bold : FontStyle.Normal;
+                Cell(rowTop, rowBot, rankStr,               i == 0 ? 15 : 14, TextAnchor.MiddleCenter, 0.02f, 0.06f, rowCol);
+                Cell(rowTop, rowBot, r.characterName,       13, TextAnchor.MiddleLeft,   0.07f, 0.22f, rowCol);
+                Cell(rowTop, rowBot, r.level.ToString(),    13, TextAnchor.MiddleCenter, 0.22f, 0.30f, rowCol);
+                Cell(rowTop, rowBot, timeStr,               13, TextAnchor.MiddleCenter, 0.30f, 0.42f, rowCol);
+                Cell(rowTop, rowBot, r.enemiesKilled.ToString(), 13, TextAnchor.MiddleCenter, 0.42f, 0.54f, rowCol);
+                Cell(rowTop, rowBot, r.damageDealt.ToString(),   13, TextAnchor.MiddleCenter, 0.54f, 0.70f, rowCol);
+                Cell(rowTop, rowBot, r.damageReceived.ToString(),13, TextAnchor.MiddleCenter, 0.70f, 0.86f, rowCol);
+                Cell(rowTop, rowBot, r.goldGained.ToString(),    13, TextAnchor.MiddleCenter, 0.86f, 0.99f, rowCol);
             }
         }
 
@@ -609,8 +750,7 @@ public class MainMenuManager : MonoBehaviour {
         RectTransform vpRT = viewport.AddComponent<RectTransform>();
         vpRT.anchorMin = Vector2.zero; vpRT.anchorMax = Vector2.one;
         vpRT.offsetMin = Vector2.zero; vpRT.offsetMax = Vector2.zero;
-        viewport.AddComponent<Image>().color = Color.clear;  // transparent image required by Mask
-        viewport.AddComponent<Mask>().showMaskGraphic = false;
+        viewport.AddComponent<RectMask2D>();
 
         // Content — tall enough to hold all items; ScrollRect moves this inside the viewport.
         GameObject content = new GameObject("Content");
@@ -624,6 +764,7 @@ public class MainMenuManager : MonoBehaviour {
 
         scroll.viewport = vpRT;
         scroll.content  = contRT;
+        scroll.normalizedPosition = new Vector2(0, 1);
 
         // One button per character, stacked inside content.
         Image[] itemImgs = new Image[availableCharacters.Length];
@@ -733,81 +874,185 @@ public class MainMenuManager : MonoBehaviour {
         MakeText(settingsPanel.transform, "Settings", 38, FontStyle.Bold, GOLD_COL,
             TextAnchor.MiddleCenter, new Vector2(0, 0.90f), new Vector2(0, 0.98f));
 
-        // ── AUDIO header ──
-        MakeText(settingsPanel.transform, "AUDIO", 22, FontStyle.Bold, new Color(0.55f, 0.82f, 1f),
-            TextAnchor.MiddleLeft, new Vector2(0.05f, 0.83f), new Vector2(0.5f, 0.89f));
-        MakeImage(settingsPanel.transform, new Vector2(0.05f, 0.826f), new Vector2(0.95f, 0.831f),
-            new Color(0.4f, 0.6f, 0.9f, 0.6f));
+        MakeButton(settingsPanel.transform, "Apply & Back", BTN_IDLE, WHITE, 22,
+            new Vector2(0.3f, 0.005f), new Vector2(0.7f, 0.065f),
+            () => { ApplySettings(); settingsBackAction?.Invoke(); });
 
-        // SFX Volume
+        // ── Scroll region (below title, above Back button) ────────────────────
+        GameObject scrollGO = new GameObject("SettingsScroll");
+        scrollGO.transform.SetParent(settingsPanel.transform, false);
+        RectTransform scrollRT = scrollGO.AddComponent<RectTransform>();
+        scrollRT.anchorMin = new Vector2(0f, 0.08f); scrollRT.anchorMax = new Vector2(1f, 0.89f);
+        scrollRT.offsetMin = Vector2.zero; scrollRT.offsetMax = Vector2.zero;
+        scrollGO.AddComponent<Image>().color = Color.clear;
+        var sc = scrollGO.AddComponent<ScrollRect>();
+        sc.horizontal = false; sc.vertical = true;
+        sc.scrollSensitivity = 40f; sc.movementType = ScrollRect.MovementType.Clamped;
+
+        GameObject vpGO = new GameObject("Viewport");
+        vpGO.transform.SetParent(scrollGO.transform, false);
+        RectTransform vpRT = vpGO.AddComponent<RectTransform>();
+        vpRT.anchorMin = Vector2.zero; vpRT.anchorMax = Vector2.one;
+        vpRT.offsetMin = Vector2.zero; vpRT.offsetMax = Vector2.zero;
+        vpGO.AddComponent<RectMask2D>();
+
+        GameObject cntGO = new GameObject("Content");
+        cntGO.transform.SetParent(vpGO.transform, false);
+        RectTransform cntRT = cntGO.AddComponent<RectTransform>();
+        cntRT.anchorMin = new Vector2(0f, 1f); cntRT.anchorMax = new Vector2(1f, 1f);
+        cntRT.pivot = new Vector2(0.5f, 1f);
+        sc.viewport = vpRT; sc.content = cntRT;
+        Transform ct = cntGO.transform;
+
+        float cur = 10f;
+        const float HEADER_H  = 48f;
+        const float DIVIDER_H = 4f;
+        const float STEPPER_H = 80f;
+        const float TOGGLE_H  = 60f;
+        const float LAYOUT_H  = 72f;
+        const float SOON_H    = 46f;
+        const float SPACER_H  = 18f;
+
+        // Returns a row container anchored at the current pixel offset in content.
+        // The row spans 0.04–0.96 of content width (4% side indent).
+        Transform Row(float h) {
+            GameObject go = new GameObject("Row");
+            go.transform.SetParent(ct, false);
+            RectTransform rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0.04f, 1f); rt.anchorMax = new Vector2(0.96f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.offsetMin = new Vector2(0f, -(cur + h)); rt.offsetMax = new Vector2(0f, -cur);
+            cur += h;
+            return go.transform;
+        }
+
+        // Full-width row (0–1) — used for divider line.
+        Transform FullRow(float h) {
+            GameObject go = new GameObject("FullRow");
+            go.transform.SetParent(ct, false);
+            RectTransform rt = go.AddComponent<RectTransform>();
+            rt.anchorMin = new Vector2(0f, 1f); rt.anchorMax = new Vector2(1f, 1f);
+            rt.pivot = new Vector2(0.5f, 1f);
+            rt.offsetMin = new Vector2(0f, -(cur + h)); rt.offsetMax = new Vector2(0f, -cur);
+            cur += h;
+            return go.transform;
+        }
+
+        void Spacer() { cur += SPACER_H; }
+
+        void SectionHeader(string title) {
+            Transform r = Row(HEADER_H);
+            MakeText(r, title, 22, FontStyle.Bold, new Color(0.55f, 0.82f, 1f),
+                TextAnchor.MiddleLeft, new Vector2(0.02f, 0.1f), new Vector2(0.5f, 0.9f));
+            Transform d = FullRow(DIVIDER_H);
+            MakeImage(d, new Vector2(0.05f, 0.1f), new Vector2(0.95f, 0.9f),
+                new Color(0.4f, 0.6f, 0.9f, 0.6f));
+        }
+
+        // ── AUDIO ──────────────────────────────────────────────────────────────
+        SectionHeader("AUDIO");
+
         float sfxVol = PlayerPrefs.GetFloat("sfxVolume", 0.8f);
-        SettingsStepperRow(settingsPanel.transform, "Sound Effects", 0.80f, sfxVol,
-            () => { PlayerPrefs.SetFloat("sfxVolume", Mathf.Max(0f, Mathf.Round((sfxVol - 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); },
-            () => { PlayerPrefs.SetFloat("sfxVolume", Mathf.Min(1f, Mathf.Round((sfxVol + 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); });
+        {
+            Transform r = Row(STEPPER_H);
+            MakeImage(r, Vector2.zero, Vector2.one, new Color(0.12f, 0.15f, 0.22f, 0.8f));
+            MakeText(r, "Sound Effects", 17, FontStyle.Normal, WHITE,
+                TextAnchor.MiddleLeft, new Vector2(0.02f, 0.1f), new Vector2(0.52f, 0.9f));
+            MakeButton(r, "\u25c4", new Color(0.20f, 0.28f, 0.48f, 1f), WHITE, 20,
+                new Vector2(0.54f, 0.1f), new Vector2(0.64f, 0.9f),
+                () => { PlayerPrefs.SetFloat("sfxVolume", Mathf.Max(0f, Mathf.Round((sfxVol - 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); });
+            MakeText(r, $"{Mathf.RoundToInt(sfxVol * 100)}%", 18, FontStyle.Bold, GOLD_COL,
+                TextAnchor.MiddleCenter, new Vector2(0.64f, 0.05f), new Vector2(0.78f, 0.95f));
+            MakeButton(r, "\u25ba", new Color(0.20f, 0.28f, 0.48f, 1f), WHITE, 20,
+                new Vector2(0.78f, 0.1f), new Vector2(0.88f, 0.9f),
+                () => { PlayerPrefs.SetFloat("sfxVolume", Mathf.Min(1f, Mathf.Round((sfxVol + 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); });
+        }
 
-        // Music Volume
         float musicVol = PlayerPrefs.GetFloat("musicVolume", 0.5f);
-        SettingsStepperRow(settingsPanel.transform, "Background Music", 0.69f, musicVol,
-            () => { PlayerPrefs.SetFloat("musicVolume", Mathf.Max(0f, Mathf.Round((musicVol - 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); },
-            () => { PlayerPrefs.SetFloat("musicVolume", Mathf.Min(1f, Mathf.Round((musicVol + 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); });
+        {
+            Transform r = Row(STEPPER_H);
+            MakeImage(r, Vector2.zero, Vector2.one, new Color(0.12f, 0.15f, 0.22f, 0.8f));
+            MakeText(r, "Background Music", 17, FontStyle.Normal, WHITE,
+                TextAnchor.MiddleLeft, new Vector2(0.02f, 0.1f), new Vector2(0.52f, 0.9f));
+            MakeButton(r, "\u25c4", new Color(0.20f, 0.28f, 0.48f, 1f), WHITE, 20,
+                new Vector2(0.54f, 0.1f), new Vector2(0.64f, 0.9f),
+                () => { PlayerPrefs.SetFloat("musicVolume", Mathf.Max(0f, Mathf.Round((musicVol - 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); });
+            MakeText(r, $"{Mathf.RoundToInt(musicVol * 100)}%", 18, FontStyle.Bold, GOLD_COL,
+                TextAnchor.MiddleCenter, new Vector2(0.64f, 0.05f), new Vector2(0.78f, 0.95f));
+            MakeButton(r, "\u25ba", new Color(0.20f, 0.28f, 0.48f, 1f), WHITE, 20,
+                new Vector2(0.78f, 0.1f), new Vector2(0.88f, 0.9f),
+                () => { PlayerPrefs.SetFloat("musicVolume", Mathf.Min(1f, Mathf.Round((musicVol + 0.1f) * 10f) / 10f)); ApplySettings(); BuildSettings(); ShowPanel(settingsPanel); });
+        }
 
-        // ── HUD header ──
-        MakeText(settingsPanel.transform, "HUD", 22, FontStyle.Bold, new Color(0.55f, 0.82f, 1f),
-            TextAnchor.MiddleLeft, new Vector2(0.05f, 0.60f), new Vector2(0.5f, 0.67f));
-        MakeImage(settingsPanel.transform, new Vector2(0.05f, 0.596f), new Vector2(0.95f, 0.601f),
-            new Color(0.4f, 0.6f, 0.9f, 0.6f));
+        // ── HUD ────────────────────────────────────────────────────────────────
+        Spacer();
+        SectionHeader("HUD");
 
-        // Show Minimap toggle
         bool showMinimap = PlayerPrefs.GetInt("showMinimap", 1) == 1;
-        MakeImage(settingsPanel.transform, new Vector2(0.05f, 0.50f), new Vector2(0.95f, 0.59f),
-            new Color(0.12f, 0.15f, 0.22f, 0.8f));
-        MakeText(settingsPanel.transform, "Show Minimap", 18, FontStyle.Normal, WHITE,
-            TextAnchor.MiddleLeft, new Vector2(0.07f, 0.50f), new Vector2(0.70f, 0.59f));
-        Color mmCol = showMinimap ? new Color(0.12f, 0.45f, 0.18f, 1f) : new Color(0.45f, 0.12f, 0.12f, 1f);
-        MakeButton(settingsPanel.transform, showMinimap ? "ON" : "OFF", mmCol, WHITE, 18,
-            new Vector2(0.72f, 0.51f), new Vector2(0.88f, 0.58f),
-            () => {
-                int newVal = showMinimap ? 0 : 1;
-                PlayerPrefs.SetInt("showMinimap", newVal);
-                if (Time.timeScale > 0f) MinimapSystem.Instance?.SetVisible(newVal == 1);
-                BuildSettings(); ShowPanel(settingsPanel);
-            });
+        {
+            Transform r = Row(TOGGLE_H);
+            MakeImage(r, Vector2.zero, Vector2.one, new Color(0.12f, 0.15f, 0.22f, 0.8f));
+            MakeText(r, "Show Minimap", 18, FontStyle.Normal, WHITE,
+                TextAnchor.MiddleLeft, new Vector2(0.02f, 0.05f), new Vector2(0.66f, 0.95f));
+            Color mmCol = showMinimap ? new Color(0.12f, 0.45f, 0.18f, 1f) : new Color(0.45f, 0.12f, 0.12f, 1f);
+            MakeButton(r, showMinimap ? "ON" : "OFF", mmCol, WHITE, 18,
+                new Vector2(0.68f, 0.1f), new Vector2(0.86f, 0.9f),
+                () => {
+                    int newVal = showMinimap ? 0 : 1;
+                    PlayerPrefs.SetInt("showMinimap", newVal);
+                    if (Time.timeScale > 0f) MinimapSystem.Instance?.SetVisible(newVal == 1);
+                    BuildSettings(); ShowPanel(settingsPanel);
+                });
+        }
 
-        // Layout selector
-        MakeImage(settingsPanel.transform, new Vector2(0.05f, 0.39f), new Vector2(0.95f, 0.48f),
-            new Color(0.12f, 0.15f, 0.22f, 0.8f));
-        MakeText(settingsPanel.transform, "HUD Layout", 18, FontStyle.Normal, WHITE,
-            TextAnchor.MiddleLeft, new Vector2(0.07f, 0.39f), new Vector2(0.55f, 0.48f));
-        MakeButton(settingsPanel.transform, "Horizontal \u2713", new Color(0.12f, 0.45f, 0.18f, 1f), WHITE, 15,
-            new Vector2(0.57f, 0.40f), new Vector2(0.75f, 0.47f), null);
-        MakeButton(settingsPanel.transform, "Vertical", new Color(0.18f, 0.18f, 0.22f, 0.7f),
-            new Color(0.45f, 0.45f, 0.45f), 15,
-            new Vector2(0.76f, 0.40f), new Vector2(0.93f, 0.47f), null);
+        {
+            Transform r = Row(LAYOUT_H);
+            MakeImage(r, Vector2.zero, Vector2.one, new Color(0.12f, 0.15f, 0.22f, 0.8f));
+            MakeText(r, "HUD Layout", 18, FontStyle.Normal, WHITE,
+                TextAnchor.MiddleLeft, new Vector2(0.02f, 0.1f), new Vector2(0.52f, 0.9f));
+            MakeButton(r, "Horizontal \u2713", new Color(0.12f, 0.45f, 0.18f, 1f), WHITE, 15,
+                new Vector2(0.54f, 0.12f), new Vector2(0.74f, 0.88f), null);
+            MakeButton(r, "Vertical", new Color(0.18f, 0.18f, 0.22f, 0.7f),
+                new Color(0.45f, 0.45f, 0.45f), 15,
+                new Vector2(0.75f, 0.12f), new Vector2(0.94f, 0.88f), null);
+        }
 
-        MakeText(settingsPanel.transform, "(Vertical layout coming soon)", 12, FontStyle.Italic,
-            new Color(0.45f, 0.45f, 0.45f), TextAnchor.MiddleLeft,
-            new Vector2(0.07f, 0.31f), new Vector2(0.93f, 0.38f));
+        {
+            Transform r = Row(SOON_H);
+            MakeText(r, "(Vertical layout coming soon)", 12, FontStyle.Italic,
+                new Color(0.45f, 0.45f, 0.45f), TextAnchor.MiddleLeft,
+                new Vector2(0.04f, 0.1f), new Vector2(0.96f, 0.9f));
+        }
 
-        // ── GAMEPLAY header ──
-        MakeText(settingsPanel.transform, "GAMEPLAY", 22, FontStyle.Bold, new Color(0.55f, 0.82f, 1f),
-            TextAnchor.MiddleLeft, new Vector2(0.05f, 0.25f), new Vector2(0.5f, 0.31f));
-        MakeImage(settingsPanel.transform, new Vector2(0.05f, 0.246f), new Vector2(0.95f, 0.251f),
-            new Color(0.4f, 0.6f, 0.9f, 0.6f));
+        // ── GAMEPLAY ──────────────────────────────────────────────────────────
+        Spacer();
+        SectionHeader("GAMEPLAY");
 
         bool showDmgNums  = PlayerPrefs.GetInt("showDamageNumbers", 1) == 1;
         bool showHpNormal = PlayerPrefs.GetInt("showHpNormal",      0) == 1;
         bool showHpMini   = PlayerPrefs.GetInt("showHpMiniBoss",    1) == 1;
         bool showHpBoss   = PlayerPrefs.GetInt("showHpBoss",        1) == 1;
 
-        SettingsToggleRow(settingsPanel.transform, "Damage Numbers",       0.245f, showDmgNums,  "showDamageNumbers");
-        SettingsToggleRow(settingsPanel.transform, "Enemy HP (Normal)",    0.185f, showHpNormal, "showHpNormal");
-        SettingsToggleRow(settingsPanel.transform, "Enemy HP (Mini-Boss)", 0.125f, showHpMini,   "showHpMiniBoss");
-        SettingsToggleRow(settingsPanel.transform, "Enemy HP (Boss)",      0.065f, showHpBoss,   "showHpBoss");
+        void TogRow(string label, bool current, string prefKey) {
+            Transform r = Row(TOGGLE_H);
+            MakeImage(r, Vector2.zero, Vector2.one, new Color(0.12f, 0.15f, 0.22f, 0.8f));
+            MakeText(r, label, 16, FontStyle.Normal, WHITE,
+                TextAnchor.MiddleLeft, new Vector2(0.02f, 0.05f), new Vector2(0.68f, 0.95f));
+            Color btnCol = current ? new Color(0.12f, 0.45f, 0.18f, 1f) : new Color(0.45f, 0.12f, 0.12f, 1f);
+            MakeButton(r, current ? "ON" : "OFF", btnCol, WHITE, 16,
+                new Vector2(0.70f, 0.1f), new Vector2(0.86f, 0.9f),
+                () => { PlayerPrefs.SetInt(prefKey, current ? 0 : 1); PlayerPrefs.Save(); BuildSettings(); ShowPanel(settingsPanel); });
+        }
 
-        // Back button
-        MakeButton(settingsPanel.transform, "Apply & Back", BTN_IDLE, WHITE, 22,
-            new Vector2(0.3f, 0.005f), new Vector2(0.7f, 0.055f),
-            () => { ApplySettings(); settingsBackAction?.Invoke(); });
+        TogRow("Damage Numbers",       showDmgNums,  "showDamageNumbers");
+        TogRow("Enemy HP (Normal)",    showHpNormal, "showHpNormal");
+        TogRow("Enemy HP (Mini-Boss)", showHpMini,   "showHpMiniBoss");
+        TogRow("Enemy HP (Boss)",      showHpBoss,   "showHpBoss");
+
+        cur += 20f; // bottom padding
+        cntRT.offsetMin = new Vector2(0f, -cur);
+        cntRT.offsetMax = Vector2.zero;
+        sc.normalizedPosition = new Vector2(0, 1);
     }
 
     void SettingsStepperRow(Transform parent, string label, float yTop, float val,

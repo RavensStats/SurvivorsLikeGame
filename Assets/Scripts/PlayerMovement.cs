@@ -4,6 +4,7 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(Rigidbody2D))]
 public class PlayerMovement : MonoBehaviour {
     public float moveSpeed = 12f;
+    private float _baseMoveSpeed;
     /// <summary>Scale applied to all input (1=normal, -1=reversed, 0.4=slowed).</summary>
     [HideInInspector] public float inputScale = 1f;
     /// <summary>The last non-zero movement direction (used by enemy AI to find "behind" the player).</summary>
@@ -17,6 +18,12 @@ public class PlayerMovement : MonoBehaviour {
         rb.gravityScale = 0f;
         rb.freezeRotation = true;
         moveSpeed += PersistentUpgrades.SpeedBonus;
+        _baseMoveSpeed = moveSpeed;
+    }
+
+    public void ResetForNewRun() {
+        moveSpeed = _baseMoveSpeed;
+        inputScale = 1f;
     }
 
     void Update() {

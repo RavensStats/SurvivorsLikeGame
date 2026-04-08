@@ -20,7 +20,7 @@ public class FloatingText : MonoBehaviour {
         var mesh           = gameObject.AddComponent<TextMesh>();
         mesh.text          = Mathf.RoundToInt(damage).ToString();
         mesh.fontSize      = 60;
-        mesh.characterSize = 0.05f;   // world height ≈ fontSize × characterSize / 10 = 0.3 units
+        mesh.characterSize = 0.14f;   // world height ≈ fontSize × characterSize / 10 = 0.84 units
         mesh.fontStyle     = FontStyle.Bold;
         mesh.color         = new Color(0.78f, 0.78f, 0.78f, 1f);
         mesh.anchor        = TextAnchor.MiddleCenter;
