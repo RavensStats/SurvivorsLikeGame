@@ -26,6 +26,8 @@ public class ItemData {
     public GameObject projectilePrefab;
     // Subfolder under Resources/Sprites/Weapons/ used for runtime sprite loading (no prefab needed)
     public string spriteFolder;
+    // World-space scale for runtime-built projectile sprites (5 = 400% larger than natural size).
+    public float projectileScale = 5f;
 }
 
 [System.Serializable]

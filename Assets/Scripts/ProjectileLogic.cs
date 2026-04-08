@@ -17,6 +17,9 @@ public class ProjectileLogic : MonoBehaviour {
         d = item; dir = direction; p = item.pierceCount; _target = target; Destroy(gameObject, 5f);
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0f, 0f, angle);
+        // Apply per-weapon scale for runtime-built projectiles (prefab instances keep their authored scale).
+        if (item.projectilePrefab == null)
+            transform.localScale = Vector3.one * item.projectileScale;
         // Load directional sprite from Resources when the SpriteRenderer has no sprite assigned
         var sr = GetComponent<SpriteRenderer>();
         if (sr != null && sr.sprite == null && !string.IsNullOrEmpty(item.spriteFolder)) {

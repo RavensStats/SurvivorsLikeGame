@@ -62,6 +62,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
                     : cls == CharacterClass.Junker        ? "Scrap Maul"
                     : cls == CharacterClass.Oracle        ? "Oracle Beam"
                     : cls == CharacterClass.PuppetMaster  ? "Shadow Clone"
+                    : cls == CharacterClass.Onmyoji       ? "Spirit Aura"
                     : null;
         if (name == null) return;
 
@@ -91,10 +92,10 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         }
 
         // --- 1. POPULATE WEAPONS & ITEMS ---
-        AddWeapon(ws, "Wand",         "Fires a bolt at the nearest N enemies (N = Wand level).",         Rarity.Common, 20f, 1.2f, 1,  WeaponTrait.None,     new List<string>{"Magic", "Projectiles"},  fireMode: FireMode.NearestN,      knockback: 1f);
-        AddWeapon(ws, "Hunter's Bow", "Fires an arrow at up to N random enemies in range (N = Bow level).", Rarity.Common, 8f,  1.8f, 1,  WeaponTrait.None,     new List<string>{"Physical", "Ranged"},   fireMode: FireMode.RandomInRange,  range: 35f,  spriteFolder: "Arrow");
+        AddWeapon(ws, "Wand",         "Fires a bolt at the nearest N enemies (N = Wand level).",         Rarity.Common, 20f, 1.2f, 1,  WeaponTrait.None,     new List<string>{"Magic", "Projectiles"},  fireMode: FireMode.NearestN,      knockback: 1f, scale: 10f);
+        AddWeapon(ws, "Hunter's Bow", "Fires an arrow at up to N random enemies in range (N = Bow level).", Rarity.Common, 8f,  1.8f, 1,  WeaponTrait.None,     new List<string>{"Physical", "Ranged"},   fireMode: FireMode.RandomInRange,  range: 35f,  spriteFolder: "Arrow", scale: 10f);
         AddWeapon(ws, "Sword",        "Slashes nearby enemies in a quick arc.",                            Rarity.Common, 12f, 0.8f, 1,  WeaponTrait.None,     new List<string>{"Physical", "Melee"},   fireMode: FireMode.ArcSwing,       range: 12f, spriteFolder: "Sword");
-        AddWeapon(ws, "Axe",          "Swings in a high-damage arc.",                                      Rarity.Common, 15f, 2.5f, 3,  WeaponTrait.Piercing, new List<string>{"Physical", "Melee"},   fireMode: FireMode.ArcSwing,       range: 4f);
+        AddWeapon(ws, "Axe",          "Swings in a high-damage arc.",                                      Rarity.Common, 15f, 2.5f, 3,  WeaponTrait.Piercing, new List<string>{"Physical", "Melee"},   fireMode: FireMode.ArcSwing,       range: 4f, spriteFolder: "Axe");
         AddWeapon(ws, "Flame",        "Orbits the player, burning enemies.",                               Rarity.Rare,   8f,  3.0f, 99, WeaponTrait.Rotating, new List<string>{"Fire", "Magic"},      fireMode: FireMode.Orbit, spriteFolder: "Flame");
         AddWeapon(ws, "Empty Tome",   "Increases cooldown speed of all weapons.",                          Rarity.Common, 0,   0,    0,  WeaponTrait.None,     new List<string>{"Utility", "Magic"},    false);
         AddWeapon(ws, "Heavy Bracers","Increases knockback power.",                                        Rarity.Common, 0,   0,    0,  WeaponTrait.None,     new List<string>{"Heavy", "Physical"},   false);
@@ -135,6 +136,11 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         AddWeapon(ws, "Oracle Beam",    "Beams of light strike random nearby foes simultaneously.",        Rarity.Rare,   14f, 1.2f,  1, WeaponTrait.None,     new List<string>{"Holy","Magic"},        fireMode: FireMode.RandomInRange, range: 28f, spriteFolder: "RadialLaser");
         AddWeapon(ws, "Shadow Clone",   "Creates a mirror clone that mimics all weapon attacks.",          Rarity.Rare,   10f, 2.0f,  1, WeaponTrait.None,     new List<string>{"Dark","Magic"},        fireMode: FireMode.NearestN,  spriteFolder: "Psychic");
 
+        // ── New weapons for previously unused sprites ─────────────────────────
+        AddWeapon(ws, "Spirit Aura",  "A swirling spiritual ring that orbits and burns nearby enemies.",  Rarity.Rare,   6f,  2.0f, 99, WeaponTrait.Rotating, new List<string>{"Magic","Spirit"},     fireMode: FireMode.Orbit,         spriteFolder: "Aura");
+        AddWeapon(ws, "Caltrop Throw","Scatters spiked caltrops that slow and damage enemies on contact.", Rarity.Common, 10f, 1.5f,  2, WeaponTrait.None,     new List<string>{"Physical","Ranged"}, fireMode: FireMode.RandomInRange, range: 18f, spriteFolder: "Caltrop");
+        AddWeapon(ws, "Tidal Bolt",   "A piercing water projectile that chains through multiple foes.",   Rarity.Common, 12f, 1.0f,  3, WeaponTrait.Piercing, new List<string>{"Water","Ranged"},    fireMode: FireMode.NearestN,      spriteFolder: "WaterDroplet");
+
         // --- 2. POPULATE EVOLUTION RECIPES ---
         AddRecipe(ws, "Wand", "Empty Tome", "Holy Scepter");
         AddRecipe(ws, "Axe", "Heavy Bracers", "Death Spiral");
@@ -144,7 +150,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         Debug.Log("Zenith Database Initialized: " + ws.cardPool.Count + " items loaded.");
     }
 
-    void AddWeapon(WeaponSystem ws, string name, string desc, Rarity rare, float dmg, float cd, int pierce, WeaponTrait trait, List<string> tags, bool isWeapon = true, FireMode fireMode = FireMode.Default, float range = 0f, int level = 1, float knockback = 0f, string spriteFolder = null) {
+    void AddWeapon(WeaponSystem ws, string name, string desc, Rarity rare, float dmg, float cd, int pierce, WeaponTrait trait, List<string> tags, bool isWeapon = true, FireMode fireMode = FireMode.Default, float range = 0f, int level = 1, float knockback = 0f, string spriteFolder = null, float scale = 5f) {
         if (ws.cardPool.Exists(x => x.itemName == name)) return;
         
         ws.cardPool.Add(new ItemData {
@@ -161,7 +167,8 @@ public class ZenithDatabaseLoader : MonoBehaviour {
             range = range,
             level = level,
             knockback = knockback,
-            spriteFolder = spriteFolder
+            spriteFolder = spriteFolder,
+            projectileScale = scale
         });
     }
 
