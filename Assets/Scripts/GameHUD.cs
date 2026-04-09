@@ -20,6 +20,7 @@ public class GameHUD : MonoBehaviour {
     private Text pauseButtonLabel;
     private GameObject pausePanel;
     private Font hudFont;
+    private GraphicRaycaster hudRaycaster;
     private const float yBelowMinimap = -160f; // minimap 140px + 10px gap + 10px offset
     private const float yTopLeft      = -10f;
     private const float slideSpeed    = 100f;
@@ -35,7 +36,7 @@ public class GameHUD : MonoBehaviour {
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 1;
         cgo.AddComponent<CanvasScaler>();
-        cgo.AddComponent<GraphicRaycaster>();
+        hudRaycaster = cgo.AddComponent<GraphicRaycaster>();
 
         BuildTopRightBar(canvas);
         BuildSideCircles(canvas);
@@ -205,6 +206,9 @@ public class GameHUD : MonoBehaviour {
         if (circleContainerRect != null) circleContainerRect.gameObject.SetActive(visible);
         if (pauseButtonGO != null) pauseButtonGO.SetActive(visible);
         if (!visible && pausePanel != null) pausePanel.SetActive(false);
+        // Disable the raycaster when hidden so the HUD canvas never intercepts clicks
+        // that are meant for higher-sorting-order canvases (e.g. the game over panel).
+        if (hudRaycaster != null) hudRaycaster.enabled = visible;
     }
 
     // ── Pause / Resume button ──────────────────────────────────────────────

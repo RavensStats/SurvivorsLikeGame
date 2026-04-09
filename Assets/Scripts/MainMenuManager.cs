@@ -372,15 +372,23 @@ public class MainMenuManager : MonoBehaviour {
         });
 
         // ── Column header row (fixed, above scroll) ──────────────────────────
-        float chBot = 0.78f, chTop = 0.795f;
-        MakeText(scoresPanel.transform, "#",       12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.02f, chBot), new Vector2(0.06f, chTop));
-        MakeText(scoresPanel.transform, "Char",    12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleLeft,   new Vector2(0.07f, chBot), new Vector2(0.22f, chTop));
-        MakeText(scoresPanel.transform, "Lv",      12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.22f, chBot), new Vector2(0.30f, chTop));
-        MakeText(scoresPanel.transform, "Time",    12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.30f, chBot), new Vector2(0.42f, chTop));
-        MakeText(scoresPanel.transform, "Kills",   12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.42f, chBot), new Vector2(0.54f, chTop));
-        MakeText(scoresPanel.transform, "Dmg Out", 12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.54f, chBot), new Vector2(0.70f, chTop));
-        MakeText(scoresPanel.transform, "Dmg In",  12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.70f, chBot), new Vector2(0.86f, chTop));
-        MakeText(scoresPanel.transform, "Gold",    12, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.86f, chBot), new Vector2(0.99f, chTop));
+        // Background band so headings read clearly against any panel colour.
+        GameObject hdrBg = new GameObject("HeaderBg");
+        hdrBg.transform.SetParent(scoresPanel.transform, false);
+        RectTransform hdrBgRT = hdrBg.AddComponent<RectTransform>();
+        hdrBgRT.anchorMin = new Vector2(0f, 0.762f); hdrBgRT.anchorMax = new Vector2(1f, 0.797f);
+        hdrBgRT.offsetMin = Vector2.zero; hdrBgRT.offsetMax = Vector2.zero;
+        hdrBg.AddComponent<Image>().color = new Color(0.10f, 0.16f, 0.28f, 1f);
+
+        float chBot = 0.763f, chTop = 0.796f;
+        MakeText(scoresPanel.transform, "#",          16, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.02f, chBot), new Vector2(0.06f, chTop));
+        MakeText(scoresPanel.transform, "Character",  16, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleLeft,   new Vector2(0.07f, chBot), new Vector2(0.22f, chTop));
+        MakeText(scoresPanel.transform, "Lvl",        16, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.22f, chBot), new Vector2(0.30f, chTop));
+        MakeText(scoresPanel.transform, "Time",       16, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.30f, chBot), new Vector2(0.42f, chTop));
+        MakeText(scoresPanel.transform, "Kills",      16, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.42f, chBot), new Vector2(0.54f, chTop));
+        MakeText(scoresPanel.transform, "Dmg Out",    16, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.54f, chBot), new Vector2(0.70f, chTop));
+        MakeText(scoresPanel.transform, "Dmg In",     16, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.70f, chBot), new Vector2(0.86f, chTop));
+        MakeText(scoresPanel.transform, "Gold",       16, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.86f, chBot), new Vector2(0.99f, chTop));
 
         // ── Records ScrollRect ────────────────────────────────────────────────
         var records = LoadRecords(currentScoreFilter);
@@ -395,7 +403,7 @@ public class MainMenuManager : MonoBehaviour {
             GameObject recScrGO = new GameObject("RecordsScroll");
             recScrGO.transform.SetParent(scoresPanel.transform, false);
             RectTransform rsRT = recScrGO.AddComponent<RectTransform>();
-            rsRT.anchorMin = new Vector2(0f, 0.11f); rsRT.anchorMax = new Vector2(1f, 0.778f);
+            rsRT.anchorMin = new Vector2(0f, 0.11f); rsRT.anchorMax = new Vector2(1f, 0.760f);
             rsRT.offsetMin = Vector2.zero; rsRT.offsetMax = Vector2.zero;
             recScrGO.AddComponent<Image>().color = Color.clear;
             var rs = recScrGO.AddComponent<ScrollRect>();
@@ -669,6 +677,8 @@ public class MainMenuManager : MonoBehaviour {
         PlayerPrefs.Save();
 
         if (record != null) SubmitRecord(record);
+        // Ensure the level-up overlay is dismissed (player died while a card was visible)
+        LevelUpManager.Instance?.ForceClose();
         SetGameplayUIVisible(false);
         canvas.gameObject.SetActive(true);
         BuildGameOver(record);
@@ -1169,12 +1179,13 @@ public class MainMenuManager : MonoBehaviour {
         rt.anchorMin = anchorMin; rt.anchorMax = anchorMax;
         rt.offsetMin = Vector2.zero; rt.offsetMax = Vector2.zero;
         Text txt = go.AddComponent<Text>();
-        txt.text      = content;
-        txt.font      = font;
-        txt.fontSize  = size;
-        txt.fontStyle = style;
-        txt.color     = color;
-        txt.alignment = align;
+        txt.text          = content;
+        txt.font          = font;
+        txt.fontSize      = size;
+        txt.fontStyle     = style;
+        txt.color         = color;
+        txt.alignment     = align;
+        txt.raycastTarget = false; // display only – never block pointer events
         return txt;
     }
 

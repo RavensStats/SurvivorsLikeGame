@@ -89,7 +89,7 @@ public class WeaponSystem : MonoBehaviour {
         const float halfAngle = 60f;  // 120° total arc per direction
         Vector3 pos = PlayerPos;
         var targets = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
-        targets.RemoveAll(e => e == null || e.isDead);
+        targets.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
         targets = targets.Distinct().ToList();
 
         int levelIdx = Mathf.Clamp(w.level, 1, 5) - 1;
@@ -143,6 +143,18 @@ public class WeaponSystem : MonoBehaviour {
             yield return null;
         }
         if (vfx != null) Destroy(vfx);
+    }
+
+    // Immediately rebuilds the orbs for an Orbit weapon so its sprite/count
+    // reflects a just-applied upgrade without waiting for the next cooldown tick.
+    public void RefreshOrbitWeapon(ItemData w) {
+        if (w.fireMode != FireMode.Orbit) return;
+        if (activeOrbs.ContainsKey(w.itemName)) {
+            foreach (var o in activeOrbs[w.itemName])
+                if (o != null) Destroy(o);
+            activeOrbs[w.itemName].Clear();
+        }
+        FireOrbit(w);
     }
 
     // Spawns/maintains N orbiting objects (N = weapon level) that deal periodic burn damage.
@@ -203,6 +215,7 @@ public class WeaponSystem : MonoBehaviour {
     void FireDefault(ItemData w) {
         Vector3 pos = PlayerPos;
         var targets = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
+        targets.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
         Vector2 dir = targets.Count > 0 ? (targets[0].transform.position - pos).normalized : Random.insideUnitCircle.normalized;
         SpawnProjectile(w, pos).GetComponent<ProjectileLogic>().Setup(w, dir);
     }
@@ -211,7 +224,7 @@ public class WeaponSystem : MonoBehaviour {
     void FireNearestN(ItemData w) {
         Vector3 pos = PlayerPos;
         var targets = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
-        targets.RemoveAll(e => e == null || e.isDead);
+        targets.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
         // Deduplicate — SpatialGrid's 3x3 cell scan can include the same entity twice
         // if it sits on a shared boundary during an UpdateEntity call.
         targets = targets.Distinct().ToList();
@@ -233,7 +246,7 @@ public class WeaponSystem : MonoBehaviour {
     void FireRandomInRange(ItemData w) {
         Vector3 pos = PlayerPos;
         var targets = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
-        targets.RemoveAll(e => e == null || e.isDead);
+        targets.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
         float rangeSq = w.range * w.range;
         targets = targets.Where(e => (e.transform.position - pos).sqrMagnitude <= rangeSq).ToList();
         for (int i = targets.Count - 1; i > 0; i--) {

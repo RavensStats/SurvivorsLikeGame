@@ -161,6 +161,7 @@ public class EnemySpawner : MonoBehaviour {
         // SpriteRenderer (needed by EnemyAnimator)
         SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
         sr.sortingOrder = 5; // above POI (1), gems (4), below player (6)
+        sr.enabled = false;  // hidden until EnemyAnimator sets the first sprite frame
 
         // Rigidbody2D — kinematic so the code drives position directly
         Rigidbody2D rb = go.AddComponent<Rigidbody2D>();

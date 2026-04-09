@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "04b83fc7-5ca3-4f1c-a6b2-681af50adf73",
+    "name": "Puffer",
+    "prompt": "a short stout shambling enemy. they should have spikes all over their body. They have a sickly green colored skin, with orange patches",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-09T09:34:52.812929+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "Walking-c158ceda": {
+        "south": [
+          "animations/Walking-c158ceda/south/frame_000.png",
+          "animations/Walking-c158ceda/south/frame_001.png",
+          "animations/Walking-c158ceda/south/frame_002.png",
+          "animations/Walking-c158ceda/south/frame_003.png",
+          "animations/Walking-c158ceda/south/frame_004.png",
+          "animations/Walking-c158ceda/south/frame_005.png"
+        ],
+        "south-east": [
+          "animations/Walking-c158ceda/south-east/frame_000.png",
+          "animations/Walking-c158ceda/south-east/frame_001.png",
+          "animations/Walking-c158ceda/south-east/frame_002.png",
+          "animations/Walking-c158ceda/south-east/frame_003.png",
+          "animations/Walking-c158ceda/south-east/frame_004.png",
+          "animations/Walking-c158ceda/south-east/frame_005.png"
+        ],
+        "north-west": [
+          "animations/Walking-c158ceda/north-west/frame_000.png",
+          "animations/Walking-c158ceda/north-west/frame_001.png",
+          "animations/Walking-c158ceda/north-west/frame_002.png",
+          "animations/Walking-c158ceda/north-west/frame_003.png",
+          "animations/Walking-c158ceda/north-west/frame_004.png",
+          "animations/Walking-c158ceda/north-west/frame_005.png"
+        ],
+        "south-west": [
+          "animations/Walking-c158ceda/south-west/frame_000.png",
+          "animations/Walking-c158ceda/south-west/frame_001.png",
+          "animations/Walking-c158ceda/south-west/frame_002.png",
+          "animations/Walking-c158ceda/south-west/frame_003.png",
+          "animations/Walking-c158ceda/south-west/frame_004.png",
+          "animations/Walking-c158ceda/south-west/frame_005.png"
+        ],
+        "east": [
+          "animations/Walking-c158ceda/east/frame_000.png",
+          "animations/Walking-c158ceda/east/frame_001.png",
+          "animations/Walking-c158ceda/east/frame_002.png",
+          "animations/Walking-c158ceda/east/frame_003.png",
+          "animations/Walking-c158ceda/east/frame_004.png",
+          "animations/Walking-c158ceda/east/frame_005.png"
+        ],
+        "west": [
+          "animations/Walking-c158ceda/west/frame_000.png",
+          "animations/Walking-c158ceda/west/frame_001.png",
+          "animations/Walking-c158ceda/west/frame_002.png",
+          "animations/Walking-c158ceda/west/frame_003.png",
+          "animations/Walking-c158ceda/west/frame_004.png",
+          "animations/Walking-c158ceda/west/frame_005.png"
+        ],
+        "north-east": [
+          "animations/Walking-c158ceda/north-east/frame_000.png",
+          "animations/Walking-c158ceda/north-east/frame_001.png",
+          "animations/Walking-c158ceda/north-east/frame_002.png",
+          "animations/Walking-c158ceda/north-east/frame_003.png",
+          "animations/Walking-c158ceda/north-east/frame_004.png",
+          "animations/Walking-c158ceda/north-east/frame_005.png"
+        ],
+        "north": [
+          "animations/Walking-c158ceda/north/frame_000.png",
+          "animations/Walking-c158ceda/north/frame_001.png",
+          "animations/Walking-c158ceda/north/frame_002.png",
+          "animations/Walking-c158ceda/north/frame_003.png",
+          "animations/Walking-c158ceda/north/frame_004.png",
+          "animations/Walking-c158ceda/north/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-09T10:07:43.343683"
+}

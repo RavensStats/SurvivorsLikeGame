@@ -213,6 +213,11 @@ public class LevelUpManager : MonoBehaviour {
         Time.timeScale = 1f;
     }
 
+    /// <summary>Destroy the panel without resuming time – called when the player dies mid-selection.</summary>
+    public void ForceClose() {
+        if (panel != null) Destroy(panel);
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────────────────────
@@ -274,7 +279,7 @@ public class LevelUpManager : MonoBehaviour {
                     description = desc,
                     iconLabel   = "LV+",
                     iconColor   = col,
-                    onSelect    = () => captured.level++
+                    onSelect    = () => { captured.level++; WeaponSystem.Instance?.RefreshOrbitWeapon(captured); }
                 });
             }
         }

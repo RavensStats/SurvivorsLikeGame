@@ -49,6 +49,14 @@ public class SurvivorMasterScript : MonoBehaviour {
     public float UltCooldown => ultCooldown;
     public float HPRatio => maxPlayerHP > 0f ? Mathf.Clamp01(playerHP / maxPlayerHP) : 1f;
 
+    // Returns true when worldPos falls within the camera's current viewport.
+    // Used to gate enemy movement and weapon targeting to on-screen entities only.
+    public static bool IsOnScreen(Vector3 worldPos) {
+        if (Camera.main == null) return true;
+        Vector3 vp = Camera.main.WorldToViewportPoint(worldPos);
+        return vp.z > 0f && vp.x >= 0f && vp.x <= 1f && vp.y >= 0f && vp.y <= 1f;
+    }
+
     // ── Run stats (reset each run) ─────────────────────────────────────────
     [HideInInspector] public float totalDamageDealt;
     [HideInInspector] public float totalDamageReceived;

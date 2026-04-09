@@ -712,6 +712,12 @@ MonoBehaviour:
     isPendingRevenge: 0
   isInsideGraveyard: 0
   isInvulnerable: 0
+  poiDamageMult: 1
+  poiCooldownMult: 1
+  poiGoldMult: 1
+  poiExtraCards: 0
+  poiBlockKnockback: 0
+  poiHalfSpeed: 0
   hpSlider: {fileID: 0}
   xpSlider: {fileID: 0}
   ultFill: {fileID: 0}
@@ -792,10 +798,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: c48ae4952d6b9684e9adda58275794cb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::EnemySpawner
+  GlobalSpawnRateMult: 1
   enemyTypes:
   - enemyTypeName: Creeper
     behavior: 0
-    hp: 50
+    hp: 75
     moveSpeed: 3.5
     damage: 10
     attackRange: 3
@@ -808,9 +815,42 @@ MonoBehaviour:
     groupRadius: 2.5
     hpScalePerMinute: 5
     damageScalePerMinute: 1
+    tier: 0
   - enemyTypeName: Charger
     behavior: 1
     hp: 40
+    moveSpeed: 4.5
+    damage: 12
+    attackRange: 3
+    attackInterval: 1
+    countPerWave: 3
+    spawnInterval: 0.4
+    waveInterval: 8
+    initialDelay: 6
+    groupSpawn: 0
+    groupRadius: 2.5
+    hpScalePerMinute: 5
+    damageScalePerMinute: 1.1
+    tier: 0
+  - enemyTypeName: Puffer
+    behavior: 25
+    hp: 500
+    moveSpeed: 2.5
+    damage: 10
+    attackRange: 3
+    attackInterval: 1
+    countPerWave: 3
+    spawnInterval: 0.4
+    waveInterval: 8
+    initialDelay: 12
+    groupSpawn: 0
+    groupRadius: 2.5
+    hpScalePerMinute: 10
+    damageScalePerMinute: 1.2
+    tier: 0
+  - enemyTypeName: Linker
+    behavior: 18
+    hp: 100
     moveSpeed: 4
     damage: 10
     attackRange: 3
@@ -818,11 +858,12 @@ MonoBehaviour:
     countPerWave: 3
     spawnInterval: 0.4
     waveInterval: 8
-    initialDelay: 4
+    initialDelay: 9
     groupSpawn: 0
     groupRadius: 2.5
     hpScalePerMinute: 5
-    damageScalePerMinute: 1
+    damageScalePerMinute: 1.2
+    tier: 0
   minSpawnDistFromPlayer: 12
 --- !u!114 &1573701124
 MonoBehaviour:

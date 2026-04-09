@@ -77,8 +77,10 @@ public class EnemyAnimator : MonoBehaviour {
             // Try current direction, fall back to south (0) if missing frames
             Sprite[] frames = dirs[currentDir];
             if (frames == null || frames.Length == 0) frames = dirs[0];
-            if (frames != null && frames.Length > 0)
+            if (frames != null && frames.Length > 0) {
                 sr.sprite = frames[Mathf.Clamp(currentFrame, 0, frames.Length - 1)];
+                if (!sr.enabled) sr.enabled = true; // reveal once first sprite is ready
+            }
         }
     }
 

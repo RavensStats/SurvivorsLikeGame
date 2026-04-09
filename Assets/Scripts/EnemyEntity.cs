@@ -82,6 +82,9 @@ public class EnemyEntity : MonoBehaviour {
     private int     _webberPhase      = 0;
     private float   _webTrailTimer    = 0f;
 
+    // Cached nearest Linker partner – re-queried only when it dies.
+    private EnemyEntity _cachedLinkerPartner;
+
     // Commander – speed-aura radius
     private float _commanderAuraTimer = 0f;
 
@@ -117,6 +120,12 @@ public class EnemyEntity : MonoBehaviour {
         if (isDead) return;
         if (stun > 0) { stun -= Time.deltaTime; return; }
         SurvivorMasterScript.Instance.Grid.UpdateEntity(this, transform.position);
+
+        // Enemies that are off-screen neither chase the player nor respond to their
+        // position – they simply stop until they scroll back into view.
+        // Linkers are exempted: they must maintain pair spacing even off-screen so
+        // their beam doesn't break when the leader moves out of view.
+        if (!SurvivorMasterScript.IsOnScreen(transform.position) && behavior != EnemyBehavior.Linker) return;
 
         Vector3 pPos = SurvivorMasterScript.Instance.player.position;
         Vector3 dir  = (pPos - transform.position).normalized;
@@ -413,10 +422,30 @@ public class EnemyEntity : MonoBehaviour {
                 }
                 break;
 
-            // ── Puffer – idle wander, inflate when damaged ────────────────────
+            // ── Puffer – approach player, grow over time, explode at 350% ─────
             case EnemyBehavior.Puffer: {
-                Vector3 wander = new Vector3(Mathf.Sin(Time.time * 0.6f + GetInstanceID()), Mathf.Cos(Time.time * 0.7f + GetInstanceID()), 0f);
-                transform.position += wander * s * 0.5f * Time.deltaTime;
+                // Move toward the player so it can get in melee range; overlay gentle wander
+                if (dist > attackRange) transform.position += dir * s * 0.55f * Time.deltaTime;
+                Vector3 wander = new Vector3(Mathf.Sin(Time.time * 0.6f + GetInstanceID()),
+                                              Mathf.Cos(Time.time * 0.7f + GetInstanceID()), 0f);
+                transform.position += wander * s * 0.25f * Time.deltaTime;
+
+                // Grow +5% of base scale per second; explode at 350%
+                if (!_pufferInflated) {
+                    float maxScale = _pufferBaseScale * 3.5f;
+                    float newScale = transform.localScale.x + _pufferBaseScale * 0.05f * Time.deltaTime;
+                    if (newScale >= maxScale) {
+                        _pufferInflated = true;
+                        // How many 5%-of-base steps have elapsed; capped at the 350% ceiling
+                        int growthSteps = Mathf.FloorToInt((transform.localScale.x / _pufferBaseScale - 1f) / 0.05f);
+                        // Pool base scale = +400% of puffer base, +10% extra per growth step
+                        float poolScale = _pufferBaseScale * (4f + 0.1f * growthSteps);
+                        PoisonPoolHazard.Spawn(transform.position, poolScale, _pufferBaseDamage * 2f);
+                        TakeDamage(9999f);
+                    } else {
+                        transform.localScale = Vector3.one * newScale;
+                    }
+                }
                 break;
             }
 
@@ -472,6 +501,53 @@ public class EnemyEntity : MonoBehaviour {
                 break;
             }
 
+            // ── Linker – walk so the chosen beam's centre lands on the player ─────
+            case EnemyBehavior.Linker: {
+                const float MAX_RANGE    = 17.25f;  // must match LinkerBeam.maxBeamRange
+                const float TARGET_RANGE = MAX_RANGE * 0.95f;
+
+                // Use the shared LinkerBeam registry for partner lookup – no SpatialGrid
+                // cell-boundary gaps. Only re-search when the cached partner is gone.
+                if (_cachedLinkerPartner == null || _cachedLinkerPartner.isDead)
+                    _cachedLinkerPartner = LinkerBeam.FindNearestFrom(transform.position, this, MAX_RANGE);
+
+                if (_cachedLinkerPartner == null) {
+                    // No partner yet – drift toward the player.
+                    if (dist > attackRange) transform.position += dir * s * 0.6f * Time.deltaTime;
+                    break;
+                }
+
+                // Linked linkers move 75% faster to sweep the beam through the player more aggressively.
+                s *= 1.75f;
+
+                Vector3 partPos   = _cachedLinkerPartner.transform.position;
+                float   partDist  = Vector3.Distance(transform.position, partPos);
+                Vector3 toPartner = (partPos - transform.position).normalized;
+
+                // Pair-local leadership: the member with the lower instance ID is the
+                // leader of THIS pair. Every pair independently drives its beam midpoint
+                // toward the player, so groups of 4+ linkers all stay active – there is
+                // no single global leader that leaves the rest frozen.
+                bool isPairLeader = GetInstanceID() < _cachedLinkerPartner.GetInstanceID();
+
+                if (isPairLeader) {
+                    // Target: position self so (self + partner) / 2 == player.
+                    // → self_target = 2*pPos - partPos.
+                    // Clamp so beam length never exceeds TARGET_RANGE.
+                    Vector3 target   = 2f * pPos - partPos;
+                    Vector3 toTarget = target - partPos;  // = 2*(pPos - partPos)
+                    if (toTarget.magnitude > TARGET_RANGE)
+                        target = partPos + toTarget.normalized * TARGET_RANGE;
+                    transform.position = Vector3.MoveTowards(transform.position, target, s * Time.deltaTime);
+                } else {
+                    // Follower: spring-hold TARGET_RANGE from the pair leader.
+                    // diff > 0 → too far → move toward partner; diff < 0 → too close → push away.
+                    float diff = partDist - TARGET_RANGE;
+                    transform.position += toPartner * (diff * 2f) * Time.deltaTime;
+                }
+                break;
+            }
+
             // ── Default Chaser ─────────────────────────────────────────────────
             default:
                 if (dist > attackRange) transform.position += dir * s * Time.deltaTime;
@@ -480,7 +556,11 @@ public class EnemyEntity : MonoBehaviour {
 
         // ── Health bar follow + periodic visibility refresh ──────────────────
         if (_hpBarRoot != null) {
-            _hpBarRoot.transform.position = transform.position + Vector3.up * 1.8f;
+            // Place the bar just above the top edge of the sprite, regardless of sprite height.
+            float halfSpriteH = (_sr != null && _sr.sprite != null)
+                ? _sr.sprite.bounds.extents.y * transform.localScale.y
+                : transform.localScale.y * 0.055f; // fallback: ~half of default unit sprite at scale 10
+            _hpBarRoot.transform.position = transform.position + Vector3.up * (halfSpriteH + 0.25f);
             _hpVisTimer -= Time.deltaTime;
             if (_hpVisTimer <= 0f) {
                 _hpVisTimer = 0.5f;
@@ -497,14 +577,6 @@ public class EnemyEntity : MonoBehaviour {
     public void TakeDamage(float d) {
         if (isDead) return;
         if (IsInvulnerable()) return;
-        // Puffer: inflate on hit
-        if (behavior == EnemyBehavior.Puffer && !_pufferInflated) {
-            _pufferInflated = true;
-            transform.localScale *= 1.8f;
-            hp *= 1.5f; _maxHp = hp;
-            var ea = GetComponent<EnemyAttack>();
-            if (ea != null) ea.damage *= 1.5f;
-        }
         SurvivorMasterScript.Instance.RegisterDamageDealt(d);
         var b = SurvivorMasterScript.Instance.bestiary.Find(x => x.behavior == behavior);
         if (b != null && b.isHunterBonusUnlocked) d *= 1.15f;
@@ -616,7 +688,10 @@ public class EnemyEntity : MonoBehaviour {
         fill.transform.localScale    = new Vector3(barW, barH, 1f);
         _hpBarFill = fill.transform;
 
-        _hpBarRoot.transform.position = transform.position + Vector3.up * 1.8f;
+        float initHalfH = (_sr != null && _sr.sprite != null)
+            ? _sr.sprite.bounds.extents.y * transform.localScale.y
+            : transform.localScale.y * 0.055f;
+        _hpBarRoot.transform.position = transform.position + Vector3.up * (initHalfH + 0.25f);
         _hpBarRoot.SetActive(ShouldShowHealthBar());
     }
 
