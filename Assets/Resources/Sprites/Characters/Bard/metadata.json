@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "52b60b4d-adad-4969-82e9-1409c3296d92",
+    "name": "a bard from an rpg. the bard is wearing a sage green shirt as well as a red cloak and brown boots.",
+    "prompt": "a bard from an rpg. the bard is wearing a sage green shirt as well as a red cloak and brown boots.",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-10T09:03:09.966253+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "Walking-86c0aa52": {
+        "east": [
+          "animations/Walking-86c0aa52/east/frame_000.png",
+          "animations/Walking-86c0aa52/east/frame_001.png",
+          "animations/Walking-86c0aa52/east/frame_002.png",
+          "animations/Walking-86c0aa52/east/frame_003.png",
+          "animations/Walking-86c0aa52/east/frame_004.png",
+          "animations/Walking-86c0aa52/east/frame_005.png"
+        ],
+        "south": [
+          "animations/Walking-86c0aa52/south/frame_000.png",
+          "animations/Walking-86c0aa52/south/frame_001.png",
+          "animations/Walking-86c0aa52/south/frame_002.png",
+          "animations/Walking-86c0aa52/south/frame_003.png",
+          "animations/Walking-86c0aa52/south/frame_004.png",
+          "animations/Walking-86c0aa52/south/frame_005.png"
+        ],
+        "north": [
+          "animations/Walking-86c0aa52/north/frame_000.png",
+          "animations/Walking-86c0aa52/north/frame_001.png",
+          "animations/Walking-86c0aa52/north/frame_002.png",
+          "animations/Walking-86c0aa52/north/frame_003.png",
+          "animations/Walking-86c0aa52/north/frame_004.png",
+          "animations/Walking-86c0aa52/north/frame_005.png"
+        ],
+        "south-west": [
+          "animations/Walking-86c0aa52/south-west/frame_000.png",
+          "animations/Walking-86c0aa52/south-west/frame_001.png",
+          "animations/Walking-86c0aa52/south-west/frame_002.png",
+          "animations/Walking-86c0aa52/south-west/frame_003.png",
+          "animations/Walking-86c0aa52/south-west/frame_004.png",
+          "animations/Walking-86c0aa52/south-west/frame_005.png"
+        ],
+        "south-east": [
+          "animations/Walking-86c0aa52/south-east/frame_000.png",
+          "animations/Walking-86c0aa52/south-east/frame_001.png",
+          "animations/Walking-86c0aa52/south-east/frame_002.png",
+          "animations/Walking-86c0aa52/south-east/frame_003.png",
+          "animations/Walking-86c0aa52/south-east/frame_004.png",
+          "animations/Walking-86c0aa52/south-east/frame_005.png"
+        ],
+        "west": [
+          "animations/Walking-86c0aa52/west/frame_000.png",
+          "animations/Walking-86c0aa52/west/frame_001.png",
+          "animations/Walking-86c0aa52/west/frame_002.png",
+          "animations/Walking-86c0aa52/west/frame_003.png",
+          "animations/Walking-86c0aa52/west/frame_004.png",
+          "animations/Walking-86c0aa52/west/frame_005.png"
+        ],
+        "north-east": [
+          "animations/Walking-86c0aa52/north-east/frame_000.png",
+          "animations/Walking-86c0aa52/north-east/frame_001.png",
+          "animations/Walking-86c0aa52/north-east/frame_002.png",
+          "animations/Walking-86c0aa52/north-east/frame_003.png",
+          "animations/Walking-86c0aa52/north-east/frame_004.png",
+          "animations/Walking-86c0aa52/north-east/frame_005.png"
+        ],
+        "north-west": [
+          "animations/Walking-86c0aa52/north-west/frame_000.png",
+          "animations/Walking-86c0aa52/north-west/frame_001.png",
+          "animations/Walking-86c0aa52/north-west/frame_002.png",
+          "animations/Walking-86c0aa52/north-west/frame_003.png",
+          "animations/Walking-86c0aa52/north-west/frame_004.png",
+          "animations/Walking-86c0aa52/north-west/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-10T09:17:06.873590"
+}
