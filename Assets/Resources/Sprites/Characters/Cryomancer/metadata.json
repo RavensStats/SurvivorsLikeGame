@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "7b97de16-4805-442e-b32e-9fc159616d37",
+    "name": "an ice mage from an rpg. the ice mage should have light skin and be wearing light blue robes with dark trim",
+    "prompt": "an ice mage from an rpg. the ice mage should have light skin and be wearing light blue robes with dark trim",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-10T09:39:57.897204+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "Walking-351bc51d": {
+        "south": [
+          "animations/Walking-351bc51d/south/frame_000.png",
+          "animations/Walking-351bc51d/south/frame_001.png",
+          "animations/Walking-351bc51d/south/frame_002.png",
+          "animations/Walking-351bc51d/south/frame_003.png",
+          "animations/Walking-351bc51d/south/frame_004.png",
+          "animations/Walking-351bc51d/south/frame_005.png"
+        ],
+        "north": [
+          "animations/Walking-351bc51d/north/frame_000.png",
+          "animations/Walking-351bc51d/north/frame_001.png",
+          "animations/Walking-351bc51d/north/frame_002.png",
+          "animations/Walking-351bc51d/north/frame_003.png",
+          "animations/Walking-351bc51d/north/frame_004.png",
+          "animations/Walking-351bc51d/north/frame_005.png"
+        ],
+        "north-east": [
+          "animations/Walking-351bc51d/north-east/frame_000.png",
+          "animations/Walking-351bc51d/north-east/frame_001.png",
+          "animations/Walking-351bc51d/north-east/frame_002.png",
+          "animations/Walking-351bc51d/north-east/frame_003.png",
+          "animations/Walking-351bc51d/north-east/frame_004.png",
+          "animations/Walking-351bc51d/north-east/frame_005.png"
+        ],
+        "south-east": [
+          "animations/Walking-351bc51d/south-east/frame_000.png",
+          "animations/Walking-351bc51d/south-east/frame_001.png",
+          "animations/Walking-351bc51d/south-east/frame_002.png",
+          "animations/Walking-351bc51d/south-east/frame_003.png",
+          "animations/Walking-351bc51d/south-east/frame_004.png",
+          "animations/Walking-351bc51d/south-east/frame_005.png"
+        ],
+        "north-west": [
+          "animations/Walking-351bc51d/north-west/frame_000.png",
+          "animations/Walking-351bc51d/north-west/frame_001.png",
+          "animations/Walking-351bc51d/north-west/frame_002.png",
+          "animations/Walking-351bc51d/north-west/frame_003.png",
+          "animations/Walking-351bc51d/north-west/frame_004.png",
+          "animations/Walking-351bc51d/north-west/frame_005.png"
+        ],
+        "west": [
+          "animations/Walking-351bc51d/west/frame_000.png",
+          "animations/Walking-351bc51d/west/frame_001.png",
+          "animations/Walking-351bc51d/west/frame_002.png",
+          "animations/Walking-351bc51d/west/frame_003.png",
+          "animations/Walking-351bc51d/west/frame_004.png",
+          "animations/Walking-351bc51d/west/frame_005.png"
+        ],
+        "south-west": [
+          "animations/Walking-351bc51d/south-west/frame_000.png",
+          "animations/Walking-351bc51d/south-west/frame_001.png",
+          "animations/Walking-351bc51d/south-west/frame_002.png",
+          "animations/Walking-351bc51d/south-west/frame_003.png",
+          "animations/Walking-351bc51d/south-west/frame_004.png",
+          "animations/Walking-351bc51d/south-west/frame_005.png"
+        ],
+        "east": [
+          "animations/Walking-351bc51d/east/frame_000.png",
+          "animations/Walking-351bc51d/east/frame_001.png",
+          "animations/Walking-351bc51d/east/frame_002.png",
+          "animations/Walking-351bc51d/east/frame_003.png",
+          "animations/Walking-351bc51d/east/frame_004.png",
+          "animations/Walking-351bc51d/east/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-11T16:28:55.766955"
+}

@@ -1,0 +1,105 @@
+{
+  "character": {
+    "id": "513fb103-92ea-4ee0-abde-ea124a03cd98",
+    "name": "A shaolin monk in an orange combat uniform with hand and foot wraps",
+    "prompt": "A shaolin monk in an orange combat uniform with hand and foot wraps",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-10T16:52:35.28938+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "Walking-c24f11d7": {
+        "north-west-ef9a3c3b": [
+          "animations/Walking-c24f11d7/north-west-ef9a3c3b/frame_000.png",
+          "animations/Walking-c24f11d7/north-west-ef9a3c3b/frame_001.png",
+          "animations/Walking-c24f11d7/north-west-ef9a3c3b/frame_002.png",
+          "animations/Walking-c24f11d7/north-west-ef9a3c3b/frame_003.png",
+          "animations/Walking-c24f11d7/north-west-ef9a3c3b/frame_004.png",
+          "animations/Walking-c24f11d7/north-west-ef9a3c3b/frame_005.png"
+        ],
+        "north": [
+          "animations/Walking-c24f11d7/north/frame_000.png",
+          "animations/Walking-c24f11d7/north/frame_001.png",
+          "animations/Walking-c24f11d7/north/frame_002.png",
+          "animations/Walking-c24f11d7/north/frame_003.png",
+          "animations/Walking-c24f11d7/north/frame_004.png",
+          "animations/Walking-c24f11d7/north/frame_005.png"
+        ],
+        "east": [
+          "animations/Walking-c24f11d7/east/frame_000.png",
+          "animations/Walking-c24f11d7/east/frame_001.png",
+          "animations/Walking-c24f11d7/east/frame_002.png",
+          "animations/Walking-c24f11d7/east/frame_003.png",
+          "animations/Walking-c24f11d7/east/frame_004.png",
+          "animations/Walking-c24f11d7/east/frame_005.png"
+        ],
+        "south-east": [
+          "animations/Walking-c24f11d7/south-east/frame_000.png",
+          "animations/Walking-c24f11d7/south-east/frame_001.png",
+          "animations/Walking-c24f11d7/south-east/frame_002.png",
+          "animations/Walking-c24f11d7/south-east/frame_003.png",
+          "animations/Walking-c24f11d7/south-east/frame_004.png",
+          "animations/Walking-c24f11d7/south-east/frame_005.png"
+        ],
+        "north-east": [
+          "animations/Walking-c24f11d7/north-east/frame_000.png",
+          "animations/Walking-c24f11d7/north-east/frame_001.png",
+          "animations/Walking-c24f11d7/north-east/frame_002.png",
+          "animations/Walking-c24f11d7/north-east/frame_003.png",
+          "animations/Walking-c24f11d7/north-east/frame_004.png",
+          "animations/Walking-c24f11d7/north-east/frame_005.png"
+        ],
+        "west": [
+          "animations/Walking-c24f11d7/west/frame_000.png",
+          "animations/Walking-c24f11d7/west/frame_001.png",
+          "animations/Walking-c24f11d7/west/frame_002.png",
+          "animations/Walking-c24f11d7/west/frame_003.png",
+          "animations/Walking-c24f11d7/west/frame_004.png",
+          "animations/Walking-c24f11d7/west/frame_005.png"
+        ],
+        "north-west-e9f7dd6c": [
+          "animations/Walking-c24f11d7/north-west-e9f7dd6c/frame_000.png",
+          "animations/Walking-c24f11d7/north-west-e9f7dd6c/frame_001.png",
+          "animations/Walking-c24f11d7/north-west-e9f7dd6c/frame_002.png",
+          "animations/Walking-c24f11d7/north-west-e9f7dd6c/frame_003.png",
+          "animations/Walking-c24f11d7/north-west-e9f7dd6c/frame_004.png",
+          "animations/Walking-c24f11d7/north-west-e9f7dd6c/frame_005.png"
+        ],
+        "south-west": [
+          "animations/Walking-c24f11d7/south-west/frame_000.png",
+          "animations/Walking-c24f11d7/south-west/frame_001.png",
+          "animations/Walking-c24f11d7/south-west/frame_002.png",
+          "animations/Walking-c24f11d7/south-west/frame_003.png",
+          "animations/Walking-c24f11d7/south-west/frame_004.png",
+          "animations/Walking-c24f11d7/south-west/frame_005.png"
+        ],
+        "south": [
+          "animations/Walking-c24f11d7/south/frame_000.png",
+          "animations/Walking-c24f11d7/south/frame_001.png",
+          "animations/Walking-c24f11d7/south/frame_002.png",
+          "animations/Walking-c24f11d7/south/frame_003.png",
+          "animations/Walking-c24f11d7/south/frame_004.png",
+          "animations/Walking-c24f11d7/south/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-10T17:03:57.487064"
+}
