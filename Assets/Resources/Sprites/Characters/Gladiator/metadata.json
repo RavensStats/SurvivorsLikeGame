@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "406c12d7-d046-4611-ac46-c3c770c0e3a9",
+    "name": "Gladiator",
+    "prompt": "A roman gladiator with clenched fists",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-12T07:12:28.766416+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "animation-f7ba7bbc": {
+        "east": [
+          "animations/animation-f7ba7bbc/east/frame_000.png",
+          "animations/animation-f7ba7bbc/east/frame_001.png",
+          "animations/animation-f7ba7bbc/east/frame_002.png",
+          "animations/animation-f7ba7bbc/east/frame_003.png",
+          "animations/animation-f7ba7bbc/east/frame_004.png",
+          "animations/animation-f7ba7bbc/east/frame_005.png"
+        ],
+        "south": [
+          "animations/animation-f7ba7bbc/south/frame_000.png",
+          "animations/animation-f7ba7bbc/south/frame_001.png",
+          "animations/animation-f7ba7bbc/south/frame_002.png",
+          "animations/animation-f7ba7bbc/south/frame_003.png",
+          "animations/animation-f7ba7bbc/south/frame_004.png",
+          "animations/animation-f7ba7bbc/south/frame_005.png"
+        ],
+        "west": [
+          "animations/animation-f7ba7bbc/west/frame_000.png",
+          "animations/animation-f7ba7bbc/west/frame_001.png",
+          "animations/animation-f7ba7bbc/west/frame_002.png",
+          "animations/animation-f7ba7bbc/west/frame_003.png",
+          "animations/animation-f7ba7bbc/west/frame_004.png",
+          "animations/animation-f7ba7bbc/west/frame_005.png"
+        ],
+        "north": [
+          "animations/animation-f7ba7bbc/north/frame_000.png",
+          "animations/animation-f7ba7bbc/north/frame_001.png",
+          "animations/animation-f7ba7bbc/north/frame_002.png",
+          "animations/animation-f7ba7bbc/north/frame_003.png",
+          "animations/animation-f7ba7bbc/north/frame_004.png",
+          "animations/animation-f7ba7bbc/north/frame_005.png"
+        ],
+        "south-east": [
+          "animations/animation-f7ba7bbc/south-east/frame_000.png",
+          "animations/animation-f7ba7bbc/south-east/frame_001.png",
+          "animations/animation-f7ba7bbc/south-east/frame_002.png",
+          "animations/animation-f7ba7bbc/south-east/frame_003.png",
+          "animations/animation-f7ba7bbc/south-east/frame_004.png",
+          "animations/animation-f7ba7bbc/south-east/frame_005.png"
+        ],
+        "north-east": [
+          "animations/animation-f7ba7bbc/north-east/frame_000.png",
+          "animations/animation-f7ba7bbc/north-east/frame_001.png",
+          "animations/animation-f7ba7bbc/north-east/frame_002.png",
+          "animations/animation-f7ba7bbc/north-east/frame_003.png",
+          "animations/animation-f7ba7bbc/north-east/frame_004.png",
+          "animations/animation-f7ba7bbc/north-east/frame_005.png"
+        ],
+        "south-west": [
+          "animations/animation-f7ba7bbc/south-west/frame_000.png",
+          "animations/animation-f7ba7bbc/south-west/frame_001.png",
+          "animations/animation-f7ba7bbc/south-west/frame_002.png",
+          "animations/animation-f7ba7bbc/south-west/frame_003.png",
+          "animations/animation-f7ba7bbc/south-west/frame_004.png",
+          "animations/animation-f7ba7bbc/south-west/frame_005.png"
+        ],
+        "north-west": [
+          "animations/animation-f7ba7bbc/north-west/frame_000.png",
+          "animations/animation-f7ba7bbc/north-west/frame_001.png",
+          "animations/animation-f7ba7bbc/north-west/frame_002.png",
+          "animations/animation-f7ba7bbc/north-west/frame_003.png",
+          "animations/animation-f7ba7bbc/north-west/frame_004.png",
+          "animations/animation-f7ba7bbc/north-west/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-12T07:22:25.153671"
+}

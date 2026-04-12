@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "389bb31f-1434-4b6b-b0db-a1c0c8b9f6bf",
+    "name": "Engineer",
+    "prompt": "An engineer with goggles ",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-12T07:26:42.721332+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "animation-daaabd6e": {
+        "south-east": [
+          "animations/animation-daaabd6e/south-east/frame_000.png",
+          "animations/animation-daaabd6e/south-east/frame_001.png",
+          "animations/animation-daaabd6e/south-east/frame_002.png",
+          "animations/animation-daaabd6e/south-east/frame_003.png",
+          "animations/animation-daaabd6e/south-east/frame_004.png",
+          "animations/animation-daaabd6e/south-east/frame_005.png"
+        ],
+        "north-east": [
+          "animations/animation-daaabd6e/north-east/frame_000.png",
+          "animations/animation-daaabd6e/north-east/frame_001.png",
+          "animations/animation-daaabd6e/north-east/frame_002.png",
+          "animations/animation-daaabd6e/north-east/frame_003.png",
+          "animations/animation-daaabd6e/north-east/frame_004.png",
+          "animations/animation-daaabd6e/north-east/frame_005.png"
+        ],
+        "north": [
+          "animations/animation-daaabd6e/north/frame_000.png",
+          "animations/animation-daaabd6e/north/frame_001.png",
+          "animations/animation-daaabd6e/north/frame_002.png",
+          "animations/animation-daaabd6e/north/frame_003.png",
+          "animations/animation-daaabd6e/north/frame_004.png",
+          "animations/animation-daaabd6e/north/frame_005.png"
+        ],
+        "south": [
+          "animations/animation-daaabd6e/south/frame_000.png",
+          "animations/animation-daaabd6e/south/frame_001.png",
+          "animations/animation-daaabd6e/south/frame_002.png",
+          "animations/animation-daaabd6e/south/frame_003.png",
+          "animations/animation-daaabd6e/south/frame_004.png",
+          "animations/animation-daaabd6e/south/frame_005.png"
+        ],
+        "west": [
+          "animations/animation-daaabd6e/west/frame_000.png",
+          "animations/animation-daaabd6e/west/frame_001.png",
+          "animations/animation-daaabd6e/west/frame_002.png",
+          "animations/animation-daaabd6e/west/frame_003.png",
+          "animations/animation-daaabd6e/west/frame_004.png",
+          "animations/animation-daaabd6e/west/frame_005.png"
+        ],
+        "north-west": [
+          "animations/animation-daaabd6e/north-west/frame_000.png",
+          "animations/animation-daaabd6e/north-west/frame_001.png",
+          "animations/animation-daaabd6e/north-west/frame_002.png",
+          "animations/animation-daaabd6e/north-west/frame_003.png",
+          "animations/animation-daaabd6e/north-west/frame_004.png",
+          "animations/animation-daaabd6e/north-west/frame_005.png"
+        ],
+        "east": [
+          "animations/animation-daaabd6e/east/frame_000.png",
+          "animations/animation-daaabd6e/east/frame_001.png",
+          "animations/animation-daaabd6e/east/frame_002.png",
+          "animations/animation-daaabd6e/east/frame_003.png",
+          "animations/animation-daaabd6e/east/frame_004.png",
+          "animations/animation-daaabd6e/east/frame_005.png"
+        ],
+        "south-west": [
+          "animations/animation-daaabd6e/south-west/frame_000.png",
+          "animations/animation-daaabd6e/south-west/frame_001.png",
+          "animations/animation-daaabd6e/south-west/frame_002.png",
+          "animations/animation-daaabd6e/south-west/frame_003.png",
+          "animations/animation-daaabd6e/south-west/frame_004.png",
+          "animations/animation-daaabd6e/south-west/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-12T07:33:51.363946"
+}
