@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "f1d4b872-2e99-43d2-bcde-cd0965dfe378",
+    "name": "PlagueDoctor",
+    "prompt": "a medieval plague doctor with plague mask",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-13T12:14:48.380457+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "Walking-c3ea30fe": {
+        "north": [
+          "animations/Walking-c3ea30fe/north/frame_000.png",
+          "animations/Walking-c3ea30fe/north/frame_001.png",
+          "animations/Walking-c3ea30fe/north/frame_002.png",
+          "animations/Walking-c3ea30fe/north/frame_003.png",
+          "animations/Walking-c3ea30fe/north/frame_004.png",
+          "animations/Walking-c3ea30fe/north/frame_005.png"
+        ],
+        "south": [
+          "animations/Walking-c3ea30fe/south/frame_000.png",
+          "animations/Walking-c3ea30fe/south/frame_001.png",
+          "animations/Walking-c3ea30fe/south/frame_002.png",
+          "animations/Walking-c3ea30fe/south/frame_003.png",
+          "animations/Walking-c3ea30fe/south/frame_004.png",
+          "animations/Walking-c3ea30fe/south/frame_005.png"
+        ],
+        "south-east": [
+          "animations/Walking-c3ea30fe/south-east/frame_000.png",
+          "animations/Walking-c3ea30fe/south-east/frame_001.png",
+          "animations/Walking-c3ea30fe/south-east/frame_002.png",
+          "animations/Walking-c3ea30fe/south-east/frame_003.png",
+          "animations/Walking-c3ea30fe/south-east/frame_004.png",
+          "animations/Walking-c3ea30fe/south-east/frame_005.png"
+        ],
+        "east": [
+          "animations/Walking-c3ea30fe/east/frame_000.png",
+          "animations/Walking-c3ea30fe/east/frame_001.png",
+          "animations/Walking-c3ea30fe/east/frame_002.png",
+          "animations/Walking-c3ea30fe/east/frame_003.png",
+          "animations/Walking-c3ea30fe/east/frame_004.png",
+          "animations/Walking-c3ea30fe/east/frame_005.png"
+        ],
+        "north-east": [
+          "animations/Walking-c3ea30fe/north-east/frame_000.png",
+          "animations/Walking-c3ea30fe/north-east/frame_001.png",
+          "animations/Walking-c3ea30fe/north-east/frame_002.png",
+          "animations/Walking-c3ea30fe/north-east/frame_003.png",
+          "animations/Walking-c3ea30fe/north-east/frame_004.png",
+          "animations/Walking-c3ea30fe/north-east/frame_005.png"
+        ],
+        "north-west": [
+          "animations/Walking-c3ea30fe/north-west/frame_000.png",
+          "animations/Walking-c3ea30fe/north-west/frame_001.png",
+          "animations/Walking-c3ea30fe/north-west/frame_002.png",
+          "animations/Walking-c3ea30fe/north-west/frame_003.png",
+          "animations/Walking-c3ea30fe/north-west/frame_004.png",
+          "animations/Walking-c3ea30fe/north-west/frame_005.png"
+        ],
+        "west": [
+          "animations/Walking-c3ea30fe/west/frame_000.png",
+          "animations/Walking-c3ea30fe/west/frame_001.png",
+          "animations/Walking-c3ea30fe/west/frame_002.png",
+          "animations/Walking-c3ea30fe/west/frame_003.png",
+          "animations/Walking-c3ea30fe/west/frame_004.png",
+          "animations/Walking-c3ea30fe/west/frame_005.png"
+        ],
+        "south-west": [
+          "animations/Walking-c3ea30fe/south-west/frame_000.png",
+          "animations/Walking-c3ea30fe/south-west/frame_001.png",
+          "animations/Walking-c3ea30fe/south-west/frame_002.png",
+          "animations/Walking-c3ea30fe/south-west/frame_003.png",
+          "animations/Walking-c3ea30fe/south-west/frame_004.png",
+          "animations/Walking-c3ea30fe/south-west/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-13T12:20:41.918039"
+}

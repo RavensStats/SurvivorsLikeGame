@@ -23,7 +23,9 @@ public class ProjectileLogic : MonoBehaviour {
         // Load directional sprite from Resources when the SpriteRenderer has no sprite assigned
         var sr = GetComponent<SpriteRenderer>();
         if (sr != null && sr.sprite == null && !string.IsNullOrEmpty(item.spriteFolder)) {
-            Sprite spr = Resources.Load<Sprite>($"Sprites/Weapons/{item.spriteFolder}/East");
+            Sprite spr = item.spriteFolder.Contains("/")
+                ? Resources.Load<Sprite>($"Sprites/{item.spriteFolder}")
+                : Resources.Load<Sprite>($"Sprites/Weapons/{item.spriteFolder}/East");
             if (spr != null) sr.sprite = spr;
         }
     }

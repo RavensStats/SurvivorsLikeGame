@@ -40,6 +40,7 @@ public class POIInstance : MonoBehaviour {
     }
 
     void OnPlayerEnter() {
+        BiomePOIBanner.Show(type.ToString());
         switch (type) {
             case POIType.Graveyard:
                 _sms.isInsideGraveyard = true;

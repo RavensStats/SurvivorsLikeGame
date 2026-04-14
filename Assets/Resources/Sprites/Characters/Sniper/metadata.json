@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "1be58195-8754-4ff6-a738-9ef5bf34a9ec",
+    "name": "Sniper ",
+    "prompt": "A sniper with an eyepatch",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-12T07:34:19.934064+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "animation-91549432": {
+        "south": [
+          "animations/animation-91549432/south/frame_000.png",
+          "animations/animation-91549432/south/frame_001.png",
+          "animations/animation-91549432/south/frame_002.png",
+          "animations/animation-91549432/south/frame_003.png",
+          "animations/animation-91549432/south/frame_004.png",
+          "animations/animation-91549432/south/frame_005.png"
+        ],
+        "west": [
+          "animations/animation-91549432/west/frame_000.png",
+          "animations/animation-91549432/west/frame_001.png",
+          "animations/animation-91549432/west/frame_002.png",
+          "animations/animation-91549432/west/frame_003.png",
+          "animations/animation-91549432/west/frame_004.png",
+          "animations/animation-91549432/west/frame_005.png"
+        ],
+        "north-west": [
+          "animations/animation-91549432/north-west/frame_000.png",
+          "animations/animation-91549432/north-west/frame_001.png",
+          "animations/animation-91549432/north-west/frame_002.png",
+          "animations/animation-91549432/north-west/frame_003.png",
+          "animations/animation-91549432/north-west/frame_004.png",
+          "animations/animation-91549432/north-west/frame_005.png"
+        ],
+        "north-east": [
+          "animations/animation-91549432/north-east/frame_000.png",
+          "animations/animation-91549432/north-east/frame_001.png",
+          "animations/animation-91549432/north-east/frame_002.png",
+          "animations/animation-91549432/north-east/frame_003.png",
+          "animations/animation-91549432/north-east/frame_004.png",
+          "animations/animation-91549432/north-east/frame_005.png"
+        ],
+        "east": [
+          "animations/animation-91549432/east/frame_000.png",
+          "animations/animation-91549432/east/frame_001.png",
+          "animations/animation-91549432/east/frame_002.png",
+          "animations/animation-91549432/east/frame_003.png",
+          "animations/animation-91549432/east/frame_004.png",
+          "animations/animation-91549432/east/frame_005.png"
+        ],
+        "south-east": [
+          "animations/animation-91549432/south-east/frame_000.png",
+          "animations/animation-91549432/south-east/frame_001.png",
+          "animations/animation-91549432/south-east/frame_002.png",
+          "animations/animation-91549432/south-east/frame_003.png",
+          "animations/animation-91549432/south-east/frame_004.png",
+          "animations/animation-91549432/south-east/frame_005.png"
+        ],
+        "north": [
+          "animations/animation-91549432/north/frame_000.png",
+          "animations/animation-91549432/north/frame_001.png",
+          "animations/animation-91549432/north/frame_002.png",
+          "animations/animation-91549432/north/frame_003.png",
+          "animations/animation-91549432/north/frame_004.png",
+          "animations/animation-91549432/north/frame_005.png"
+        ],
+        "south-west": [
+          "animations/animation-91549432/south-west/frame_000.png",
+          "animations/animation-91549432/south-west/frame_001.png",
+          "animations/animation-91549432/south-west/frame_002.png",
+          "animations/animation-91549432/south-west/frame_003.png",
+          "animations/animation-91549432/south-west/frame_004.png",
+          "animations/animation-91549432/south-west/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-13T10:59:16.980182"
+}

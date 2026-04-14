@@ -1,3 +1,4 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -15,6 +16,7 @@ public class WorldGenerator : MonoBehaviour {
 
     private Dictionary<Vector2Int, GameObject> chunks = new Dictionary<Vector2Int, GameObject>();
     private Vector2Int lastPlayerCell = new Vector2Int(-999, -999);
+    private int _lastBiomeIndex = -1;
 
     // Expose chunk data for enemy spawner
     public IEnumerable<Vector2Int> ActiveChunkKeys => chunks.Keys;
@@ -44,6 +46,22 @@ public class WorldGenerator : MonoBehaviour {
                 foreach (var key in toRemove) {
                     Destroy(chunks[key]);
                     chunks.Remove(key);
+                }
+            }
+
+            // Sample biome at player's world-centre position, changing at chunk midpoints
+            // (RoundToInt fires at 15 units in rather than at the edge)
+            if (biomes != null && biomes.Count > 0) {
+                Vector3 wpos = SurvivorMasterScript.Instance.player.position;
+                Vector2Int displayCell = new Vector2Int(
+                    Mathf.RoundToInt(wpos.x / 30f),
+                    Mathf.RoundToInt(wpos.y / 30f)
+                );
+                float bNoise = Mathf.PerlinNoise((displayCell.x + 1000) * biomeNoiseScale, (displayCell.y + 1000) * biomeNoiseScale);
+                int bIdx = Mathf.Clamp(Mathf.FloorToInt(bNoise * biomes.Count), 0, biomes.Count - 1);
+                if (bIdx != _lastBiomeIndex) {
+                    _lastBiomeIndex = bIdx;
+                    BiomePOIBanner.Show(biomes[bIdx].biomeName);
                 }
             }
 

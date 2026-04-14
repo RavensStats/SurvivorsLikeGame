@@ -61,8 +61,9 @@ public class WeaponSystem : MonoBehaviour {
 
     void Fire(ItemData w) {
         // Non-projectile modes are handled first (no prefab needed)
-        if (w.fireMode == FireMode.ArcSwing) { FireArcSwing(w); return; }
-        if (w.fireMode == FireMode.Orbit)    { FireOrbit(w);    return; }
+        if (w.fireMode == FireMode.ArcSwing)   { FireArcSwing(w);   return; }
+        if (w.fireMode == FireMode.Orbit)       { FireOrbit(w);      return; }
+        if (w.fireMode == FireMode.RisingFist)  { StartCoroutine(FireRisingFist(w)); return; }
 
         if (w.projectilePrefab == null && string.IsNullOrEmpty(w.spriteFolder)) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab or spriteFolder assigned."); return; }
         switch (w.fireMode) {
@@ -110,7 +111,9 @@ public class WeaponSystem : MonoBehaviour {
                 }
             }
             if (!string.IsNullOrEmpty(w.spriteFolder)) {
-                Sprite spr = Resources.Load<Sprite>($"Sprites/Weapons/{w.spriteFolder}/{w.spriteFolder}");
+                Sprite spr = w.spriteFolder.Contains("/")
+                    ? Resources.Load<Sprite>($"Sprites/{w.spriteFolder}")
+                    : Resources.Load<Sprite>($"Sprites/Weapons/{w.spriteFolder}/{w.spriteFolder}");
                 if (spr != null) StartCoroutine(SwordSlide(spr, pos, swingDir, range));
             }
         }
@@ -177,7 +180,9 @@ public class WeaponSystem : MonoBehaviour {
             sr.sortingOrder = 6;
             // Load sprite from the weapon's spriteFolder if set; fall back to tinted circle.
             if (!string.IsNullOrEmpty(w.spriteFolder)) {
-                Sprite spr = Resources.Load<Sprite>($"Sprites/Weapons/{w.spriteFolder}/{w.spriteFolder}");
+                Sprite spr = w.spriteFolder.Contains("/")
+                    ? Resources.Load<Sprite>($"Sprites/{w.spriteFolder}")
+                    : Resources.Load<Sprite>($"Sprites/Weapons/{w.spriteFolder}/{w.spriteFolder}");
                 if (spr != null) {
                     sr.sprite = spr;
                     orb.transform.localScale = Vector3.one * 4f;   // 400 % scale for sprite orbs
@@ -320,6 +325,77 @@ public class WeaponSystem : MonoBehaviour {
         if (activeWeapons.Count == 0) return;
         _disabledWeapon = activeWeapons[Random.Range(0, activeWeapons.Count)].itemName;
         _disableTimer   = duration;
+    }
+
+    // Spawns a giant fist sprite aimed at the nearest enemy and drives it forward,
+    // damaging and knocking back every enemy it overlaps along the way.
+    // Scale and knockback grow with weapon level.
+    IEnumerator FireRisingFist(ItemData w) {
+        Vector3 playerPos = PlayerPos;
+        var targets = SurvivorMasterScript.Instance.Grid.GetNearby(playerPos);
+        targets.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
+        targets = targets.Distinct().ToList();
+        if (targets.Count == 0) yield break;
+
+        // Pick the nearest enemy as the strike target position
+        targets.Sort((a, b) =>
+            (a.transform.position - playerPos).sqrMagnitude
+            .CompareTo((b.transform.position - playerPos).sqrMagnitude));
+        Vector3 strikePos = targets[0].transform.position;
+
+        // Build the fist visual
+        Sprite fistSprite = Resources.Load<Sprite>($"Sprites/Weapons/{w.spriteFolder}/{w.spriteFolder}");
+        var fist = new GameObject("RisingFist_VFX");
+        var sr   = fist.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 8;
+        if (fistSprite != null) {
+            sr.sprite = fistSprite;
+            // Scale: 1.5× at level 1, growing by 0.5× per level (3.5× at level 5)
+            float scale = w.projectileScale * (1.5f + (w.level - 1) * 0.5f);
+            fist.transform.localScale = Vector3.one * scale;
+        }
+
+        // 45° diagonal rise: bottom-left → top-right
+        float riseHeight   = 6f;
+        float riseDuration = 1.0f;
+        Vector3 startPos = new Vector3(strikePos.x - riseHeight, strikePos.y - riseHeight, 0f);
+        Vector3 endPos   = new Vector3(strikePos.x + riseHeight * 0.25f, strikePos.y + riseHeight * 0.25f, 0f);
+        fist.transform.position = startPos;
+
+        var hitSet = new HashSet<EnemyEntity>();
+        float elapsed = 0f;
+        float dmgBase = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f)
+                        * (1f + RunUpgrades.DamageBonus);
+        // Knockback equals the weapon level (1 at L1, 2 at L2 … 5 at L5)
+        float knockbackForce = (float)w.level;
+
+        while (elapsed < riseDuration) {
+            elapsed += Time.deltaTime;
+            float t = Mathf.Clamp01(elapsed / riseDuration);
+            // Ease-out interpolation so it slams to a halt at the end
+            float eased = 1f - (1f - t) * (1f - t);
+            fist.transform.position = Vector3.Lerp(startPos, endPos, eased);
+
+            // Check overlaps every frame using a physics circle at fist centre
+            float radius = fist.transform.localScale.x * 0.4f;
+            var hits = Physics2D.OverlapCircleAll(fist.transform.position, radius);
+            foreach (var col in hits) {
+                if (!col.CompareTag("Enemy")) continue;
+                var e = col.GetComponent<EnemyEntity>();
+                if (e == null || e.isDead || hitSet.Contains(e)) continue;
+                hitSet.Add(e);
+                e.TakeDamage(dmgBase);
+                // Knock away from the fist centre
+                Vector2 knockDir = ((Vector2)(e.transform.position - fist.transform.position)).normalized;
+                if (knockDir == Vector2.zero) knockDir = Vector2.up;
+                e.ApplyKnockback(knockDir, knockbackForce);
+            }
+            yield return null;
+        }
+
+        // Brief flash then destroy
+        yield return new WaitForSeconds(0.15f);
+        if (fist != null) Destroy(fist);
     }
 
     // Freeze + disable are checked in Update before ticking cooldowns.

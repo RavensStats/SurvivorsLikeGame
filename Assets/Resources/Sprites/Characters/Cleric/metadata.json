@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "45eccfe8-ac2a-4dba-9d55-c5708c71f88b",
+    "name": "Cleric",
+    "prompt": "A robed, hooded cleric in crimson and cream",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-13T12:23:29.629569+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "Walking-b400e3f6": {
+        "north-east": [
+          "animations/Walking-b400e3f6/north-east/frame_000.png",
+          "animations/Walking-b400e3f6/north-east/frame_001.png",
+          "animations/Walking-b400e3f6/north-east/frame_002.png",
+          "animations/Walking-b400e3f6/north-east/frame_003.png",
+          "animations/Walking-b400e3f6/north-east/frame_004.png",
+          "animations/Walking-b400e3f6/north-east/frame_005.png"
+        ],
+        "south": [
+          "animations/Walking-b400e3f6/south/frame_000.png",
+          "animations/Walking-b400e3f6/south/frame_001.png",
+          "animations/Walking-b400e3f6/south/frame_002.png",
+          "animations/Walking-b400e3f6/south/frame_003.png",
+          "animations/Walking-b400e3f6/south/frame_004.png",
+          "animations/Walking-b400e3f6/south/frame_005.png"
+        ],
+        "east": [
+          "animations/Walking-b400e3f6/east/frame_000.png",
+          "animations/Walking-b400e3f6/east/frame_001.png",
+          "animations/Walking-b400e3f6/east/frame_002.png",
+          "animations/Walking-b400e3f6/east/frame_003.png",
+          "animations/Walking-b400e3f6/east/frame_004.png",
+          "animations/Walking-b400e3f6/east/frame_005.png"
+        ],
+        "south-east": [
+          "animations/Walking-b400e3f6/south-east/frame_000.png",
+          "animations/Walking-b400e3f6/south-east/frame_001.png",
+          "animations/Walking-b400e3f6/south-east/frame_002.png",
+          "animations/Walking-b400e3f6/south-east/frame_003.png",
+          "animations/Walking-b400e3f6/south-east/frame_004.png",
+          "animations/Walking-b400e3f6/south-east/frame_005.png"
+        ],
+        "north-west": [
+          "animations/Walking-b400e3f6/north-west/frame_000.png",
+          "animations/Walking-b400e3f6/north-west/frame_001.png",
+          "animations/Walking-b400e3f6/north-west/frame_002.png",
+          "animations/Walking-b400e3f6/north-west/frame_003.png",
+          "animations/Walking-b400e3f6/north-west/frame_004.png",
+          "animations/Walking-b400e3f6/north-west/frame_005.png"
+        ],
+        "west": [
+          "animations/Walking-b400e3f6/west/frame_000.png",
+          "animations/Walking-b400e3f6/west/frame_001.png",
+          "animations/Walking-b400e3f6/west/frame_002.png",
+          "animations/Walking-b400e3f6/west/frame_003.png",
+          "animations/Walking-b400e3f6/west/frame_004.png",
+          "animations/Walking-b400e3f6/west/frame_005.png"
+        ],
+        "north": [
+          "animations/Walking-b400e3f6/north/frame_000.png",
+          "animations/Walking-b400e3f6/north/frame_001.png",
+          "animations/Walking-b400e3f6/north/frame_002.png",
+          "animations/Walking-b400e3f6/north/frame_003.png",
+          "animations/Walking-b400e3f6/north/frame_004.png",
+          "animations/Walking-b400e3f6/north/frame_005.png"
+        ],
+        "south-west": [
+          "animations/Walking-b400e3f6/south-west/frame_000.png",
+          "animations/Walking-b400e3f6/south-west/frame_001.png",
+          "animations/Walking-b400e3f6/south-west/frame_002.png",
+          "animations/Walking-b400e3f6/south-west/frame_003.png",
+          "animations/Walking-b400e3f6/south-west/frame_004.png",
+          "animations/Walking-b400e3f6/south-west/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-13T12:28:42.775794"
+}
