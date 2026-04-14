@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class WorldGenerator : MonoBehaviour {
+    public static WorldGenerator Instance { get; private set; }
+
     public GameObject floorPrefab;
     public List<BiomeData> biomes;
     [Tooltip("Whether distant chunks are destroyed to save memory")]
@@ -16,14 +18,57 @@ public class WorldGenerator : MonoBehaviour {
 
     private Dictionary<Vector2Int, GameObject> chunks = new Dictionary<Vector2Int, GameObject>();
     private Vector2Int lastPlayerCell = new Vector2Int(-999, -999);
-    private int _lastBiomeIndex = -1;
+    private string _lastBiomeName = null;
+    private bool _gameActive = false;
 
     // Expose chunk data for enemy spawner
     public IEnumerable<Vector2Int> ActiveChunkKeys => chunks.Keys;
     public Vector3 GetChunkWorldCenter(Vector2Int key) => new Vector3(key.x * 30f + 15f, key.y * 30f + 15f, 0f);
     public const float ChunkSize = 30f;
 
+    void Awake() {
+        Instance = this;
+    }
+
+    /// <summary>
+    /// Resets and starts the world. Call this from OnCharacterSelected and OnPlayAgain.
+    /// Clears all existing chunks, resets biome state, teleports the player to origin,
+    /// and pre-warms the banner canvas so the first show has no layout delay.
+    /// </summary>
+    public void StartGame() {
+        // Destroy all chunks from any previous run
+        foreach (var kvp in chunks)
+            if (kvp.Value != null) Destroy(kvp.Value);
+        chunks.Clear();
+
+        lastPlayerCell = new Vector2Int(-999, -999);
+        _lastBiomeName = null;
+
+        // Teleport player back to origin for a clean start
+        if (SurvivorMasterScript.Instance != null && SurvivorMasterScript.Instance.player != null)
+            SurvivorMasterScript.Instance.player.position = Vector3.zero;
+
+        // Pre-warm the banner canvas so the first biome show has no setup delay
+        BiomePOIBanner.EnsureInstance();
+
+        _gameActive = true;
+    }
+
+    // Called by BiomeChunkTrigger when the player physically enters a biome chunk.
+    public void OnPlayerEnteredBiomeChunk(string biomeName) {
+        if (biomeName == _lastBiomeName) return;
+        _lastBiomeName = biomeName;
+        BiomePOIBanner.Show(biomeName);
+    }
+
+    // Re-shows the current biome banner; called when the player exits a POI.
+    public void ShowCurrentBiome() {
+        if (!string.IsNullOrEmpty(_lastBiomeName))
+            BiomePOIBanner.Show(_lastBiomeName);
+    }
+
     void Update() {
+        if (!_gameActive) return;
         Vector2Int currentCell = new Vector2Int(
             Mathf.FloorToInt(SurvivorMasterScript.Instance.player.position.x / 30f),
             Mathf.FloorToInt(SurvivorMasterScript.Instance.player.position.y / 30f)
@@ -46,22 +91,6 @@ public class WorldGenerator : MonoBehaviour {
                 foreach (var key in toRemove) {
                     Destroy(chunks[key]);
                     chunks.Remove(key);
-                }
-            }
-
-            // Sample biome at player's world-centre position, changing at chunk midpoints
-            // (RoundToInt fires at 15 units in rather than at the edge)
-            if (biomes != null && biomes.Count > 0) {
-                Vector3 wpos = SurvivorMasterScript.Instance.player.position;
-                Vector2Int displayCell = new Vector2Int(
-                    Mathf.RoundToInt(wpos.x / 30f),
-                    Mathf.RoundToInt(wpos.y / 30f)
-                );
-                float bNoise = Mathf.PerlinNoise((displayCell.x + 1000) * biomeNoiseScale, (displayCell.y + 1000) * biomeNoiseScale);
-                int bIdx = Mathf.Clamp(Mathf.FloorToInt(bNoise * biomes.Count), 0, biomes.Count - 1);
-                if (bIdx != _lastBiomeIndex) {
-                    _lastBiomeIndex = bIdx;
-                    BiomePOIBanner.Show(biomes[bIdx].biomeName);
                 }
             }
 
@@ -88,6 +117,21 @@ public class WorldGenerator : MonoBehaviour {
         float noise = Mathf.PerlinNoise((c.x + 1000) * biomeNoiseScale, (c.y + 1000) * biomeNoiseScale);
         int biomeIndex = Mathf.Clamp(Mathf.FloorToInt(noise * biomes.Count), 0, biomes.Count - 1);
         sr.color = biomes[biomeIndex].groundColor;
+        string biomeName = biomes[biomeIndex].biomeName;
+
+        // Biome trigger — fires exactly when the player's collider enters this chunk,
+        // identical pattern to POI triggers so there's no oscillation at boundaries.
+        var triggerGO = new GameObject("BiomeTrigger");
+        triggerGO.transform.SetParent(chunk.transform, false);
+        triggerGO.transform.localPosition = new Vector3(15f, 15f, 0f); // chunk centre
+        var brb = triggerGO.AddComponent<Rigidbody2D>();
+        brb.bodyType    = RigidbodyType2D.Kinematic;
+        brb.gravityScale = 0f;
+        var bcol = triggerGO.AddComponent<BoxCollider2D>();
+        bcol.isTrigger  = true;
+        bcol.size       = new Vector2(30f, 30f);
+        var bct = triggerGO.AddComponent<BiomeChunkTrigger>();
+        bct.biomeName   = biomeName;
 
         // 5% chance to place a POI on this chunk
         if (Random.value < 0.05f) SpawnPOI(p + new Vector3(15f, 15f, 0f));
@@ -108,6 +152,11 @@ public class WorldGenerator : MonoBehaviour {
         sr.sortingOrder = 1;
         sr.color = POIColor(chosen);
         poi.transform.localScale = Vector3.one * 24f;
+
+        // Kinematic Rigidbody2D is required for OnTriggerEnter2D to fire on a static object
+        var rb = poi.AddComponent<Rigidbody2D>();
+        rb.bodyType   = RigidbodyType2D.Kinematic;
+        rb.gravityScale = 0f;
 
         // Trigger collider — player activates on contact
         CircleCollider2D col = poi.AddComponent<CircleCollider2D>();
@@ -159,5 +208,20 @@ public class WorldGenerator : MonoBehaviour {
         }
         tex.Apply();
         return Sprite.Create(tex, new Rect(0, 0, diameter, diameter), new Vector2(0.5f, 0.5f), diameter);
+    }
+}
+
+/// <summary>
+/// Attached to a trigger zone inside every biome chunk.
+/// Shows the biome banner when the player physically enters the chunk,
+/// with no oscillation at boundaries (same pattern as POIInstance).
+/// </summary>
+public class BiomeChunkTrigger : MonoBehaviour {
+    public string biomeName;
+
+    void OnTriggerEnter2D(Collider2D other) {
+        if (other.transform != SurvivorMasterScript.Instance.player) return;
+        if (WorldGenerator.Instance != null)
+            WorldGenerator.Instance.OnPlayerEnteredBiomeChunk(biomeName);
     }
 }

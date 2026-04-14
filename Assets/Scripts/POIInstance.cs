@@ -28,13 +28,14 @@ public class POIInstance : MonoBehaviour {
     // ─────────────────────────────────────────────────────────────────────────
 
     void OnTriggerEnter2D(Collider2D other) {
-        if (!other.CompareTag("Player")) return;
+        Debug.Log($"[POIInstance] OnTriggerEnter2D hit by '{other.gameObject.name}' tag='{other.tag}' type={type}");
+        if (other.transform != SurvivorMasterScript.Instance.player) return;
         _playerInside = true;
         OnPlayerEnter();
     }
 
     void OnTriggerExit2D(Collider2D other) {
-        if (!other.CompareTag("Player")) return;
+        if (other.transform != SurvivorMasterScript.Instance.player) return;
         _playerInside = false;
         OnPlayerExit();
     }
@@ -133,6 +134,10 @@ public class POIInstance : MonoBehaviour {
     }
 
     void OnPlayerExit() {
+        // Return to showing the biome the player is standing in
+        if (WorldGenerator.Instance != null)
+            WorldGenerator.Instance.ShowCurrentBiome();
+
         switch (type) {
             case POIType.Graveyard:
                 _sms.isInsideGraveyard = false;

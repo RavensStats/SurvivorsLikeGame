@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "0d614b9b-c345-43f3-880c-438dab73319b",
+    "name": "Tactician",
+    "prompt": "A tactician in a cape and glasses",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-14T11:15:10.231985+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "animation-7173d6c7": {
+        "south": [
+          "animations/animation-7173d6c7/south/frame_000.png",
+          "animations/animation-7173d6c7/south/frame_001.png",
+          "animations/animation-7173d6c7/south/frame_002.png",
+          "animations/animation-7173d6c7/south/frame_003.png",
+          "animations/animation-7173d6c7/south/frame_004.png",
+          "animations/animation-7173d6c7/south/frame_005.png"
+        ],
+        "north": [
+          "animations/animation-7173d6c7/north/frame_000.png",
+          "animations/animation-7173d6c7/north/frame_001.png",
+          "animations/animation-7173d6c7/north/frame_002.png",
+          "animations/animation-7173d6c7/north/frame_003.png",
+          "animations/animation-7173d6c7/north/frame_004.png",
+          "animations/animation-7173d6c7/north/frame_005.png"
+        ],
+        "east": [
+          "animations/animation-7173d6c7/east/frame_000.png",
+          "animations/animation-7173d6c7/east/frame_001.png",
+          "animations/animation-7173d6c7/east/frame_002.png",
+          "animations/animation-7173d6c7/east/frame_003.png",
+          "animations/animation-7173d6c7/east/frame_004.png",
+          "animations/animation-7173d6c7/east/frame_005.png"
+        ],
+        "south-east": [
+          "animations/animation-7173d6c7/south-east/frame_000.png",
+          "animations/animation-7173d6c7/south-east/frame_001.png",
+          "animations/animation-7173d6c7/south-east/frame_002.png",
+          "animations/animation-7173d6c7/south-east/frame_003.png",
+          "animations/animation-7173d6c7/south-east/frame_004.png",
+          "animations/animation-7173d6c7/south-east/frame_005.png"
+        ],
+        "north-east": [
+          "animations/animation-7173d6c7/north-east/frame_000.png",
+          "animations/animation-7173d6c7/north-east/frame_001.png",
+          "animations/animation-7173d6c7/north-east/frame_002.png",
+          "animations/animation-7173d6c7/north-east/frame_003.png",
+          "animations/animation-7173d6c7/north-east/frame_004.png",
+          "animations/animation-7173d6c7/north-east/frame_005.png"
+        ],
+        "north-west": [
+          "animations/animation-7173d6c7/north-west/frame_000.png",
+          "animations/animation-7173d6c7/north-west/frame_001.png",
+          "animations/animation-7173d6c7/north-west/frame_002.png",
+          "animations/animation-7173d6c7/north-west/frame_003.png",
+          "animations/animation-7173d6c7/north-west/frame_004.png",
+          "animations/animation-7173d6c7/north-west/frame_005.png"
+        ],
+        "south-west": [
+          "animations/animation-7173d6c7/south-west/frame_000.png",
+          "animations/animation-7173d6c7/south-west/frame_001.png",
+          "animations/animation-7173d6c7/south-west/frame_002.png",
+          "animations/animation-7173d6c7/south-west/frame_003.png",
+          "animations/animation-7173d6c7/south-west/frame_004.png",
+          "animations/animation-7173d6c7/south-west/frame_005.png"
+        ],
+        "west": [
+          "animations/animation-7173d6c7/west/frame_000.png",
+          "animations/animation-7173d6c7/west/frame_001.png",
+          "animations/animation-7173d6c7/west/frame_002.png",
+          "animations/animation-7173d6c7/west/frame_003.png",
+          "animations/animation-7173d6c7/west/frame_004.png",
+          "animations/animation-7173d6c7/west/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-14T11:18:41.839983"
+}

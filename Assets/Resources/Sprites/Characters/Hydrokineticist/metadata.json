@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "9f30014c-7838-4384-8538-b2f082e40f4e",
+    "name": "HydroKineticist",
+    "prompt": "a hydrokineticist clad in shimmering sea-toned silks, perpetually wreathed in a swirling veil of mist and orbiting droplets",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-14T11:00:50.887869+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "Walking-9f16f43a": {
+        "south": [
+          "animations/Walking-9f16f43a/south/frame_000.png",
+          "animations/Walking-9f16f43a/south/frame_001.png",
+          "animations/Walking-9f16f43a/south/frame_002.png",
+          "animations/Walking-9f16f43a/south/frame_003.png",
+          "animations/Walking-9f16f43a/south/frame_004.png",
+          "animations/Walking-9f16f43a/south/frame_005.png"
+        ],
+        "east": [
+          "animations/Walking-9f16f43a/east/frame_000.png",
+          "animations/Walking-9f16f43a/east/frame_001.png",
+          "animations/Walking-9f16f43a/east/frame_002.png",
+          "animations/Walking-9f16f43a/east/frame_003.png",
+          "animations/Walking-9f16f43a/east/frame_004.png",
+          "animations/Walking-9f16f43a/east/frame_005.png"
+        ],
+        "north": [
+          "animations/Walking-9f16f43a/north/frame_000.png",
+          "animations/Walking-9f16f43a/north/frame_001.png",
+          "animations/Walking-9f16f43a/north/frame_002.png",
+          "animations/Walking-9f16f43a/north/frame_003.png",
+          "animations/Walking-9f16f43a/north/frame_004.png",
+          "animations/Walking-9f16f43a/north/frame_005.png"
+        ],
+        "north-east": [
+          "animations/Walking-9f16f43a/north-east/frame_000.png",
+          "animations/Walking-9f16f43a/north-east/frame_001.png",
+          "animations/Walking-9f16f43a/north-east/frame_002.png",
+          "animations/Walking-9f16f43a/north-east/frame_003.png",
+          "animations/Walking-9f16f43a/north-east/frame_004.png",
+          "animations/Walking-9f16f43a/north-east/frame_005.png"
+        ],
+        "south-east": [
+          "animations/Walking-9f16f43a/south-east/frame_000.png",
+          "animations/Walking-9f16f43a/south-east/frame_001.png",
+          "animations/Walking-9f16f43a/south-east/frame_002.png",
+          "animations/Walking-9f16f43a/south-east/frame_003.png",
+          "animations/Walking-9f16f43a/south-east/frame_004.png",
+          "animations/Walking-9f16f43a/south-east/frame_005.png"
+        ],
+        "north-west": [
+          "animations/Walking-9f16f43a/north-west/frame_000.png",
+          "animations/Walking-9f16f43a/north-west/frame_001.png",
+          "animations/Walking-9f16f43a/north-west/frame_002.png",
+          "animations/Walking-9f16f43a/north-west/frame_003.png",
+          "animations/Walking-9f16f43a/north-west/frame_004.png",
+          "animations/Walking-9f16f43a/north-west/frame_005.png"
+        ],
+        "west": [
+          "animations/Walking-9f16f43a/west/frame_000.png",
+          "animations/Walking-9f16f43a/west/frame_001.png",
+          "animations/Walking-9f16f43a/west/frame_002.png",
+          "animations/Walking-9f16f43a/west/frame_003.png",
+          "animations/Walking-9f16f43a/west/frame_004.png",
+          "animations/Walking-9f16f43a/west/frame_005.png"
+        ],
+        "south-west": [
+          "animations/Walking-9f16f43a/south-west/frame_000.png",
+          "animations/Walking-9f16f43a/south-west/frame_001.png",
+          "animations/Walking-9f16f43a/south-west/frame_002.png",
+          "animations/Walking-9f16f43a/south-west/frame_003.png",
+          "animations/Walking-9f16f43a/south-west/frame_004.png",
+          "animations/Walking-9f16f43a/south-west/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-14T11:05:40.036070"
+}

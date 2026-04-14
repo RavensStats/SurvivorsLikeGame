@@ -27,7 +27,7 @@ public class BiomePOIBanner : MonoBehaviour {
         BuildUI();
     }
 
-    static void EnsureInstance() {
+    public static void EnsureInstance() {
         if (Instance != null) return;
         Debug.Log("[BiomePOIBanner] Creating new singleton instance.");
         new GameObject("BiomePOIBanner").AddComponent<BiomePOIBanner>();

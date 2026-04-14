@@ -650,6 +650,9 @@ public class MainMenuManager : MonoBehaviour {
         WeaponSystem ws = WeaponSystem.Instance;
         if (ws != null) ws.ResetForNewRun();
 
+        // Reset world: destroys old chunks and teleports player to origin before gems spawn
+        if (WorldGenerator.Instance != null) WorldGenerator.Instance.StartGame();
+
         // Reset run state (stats, timer, regen, XP, HP).
         SurvivorMasterScript sms = SurvivorMasterScript.Instance;
         if (sms != null) {
@@ -857,6 +860,8 @@ public class MainMenuManager : MonoBehaviour {
             if (sms.player != null)
                 XpGem.SpawnStartingGems(sms.player.position, 3);
         }
+        // Reset and start world generation
+        if (WorldGenerator.Instance != null) WorldGenerator.Instance.StartGame();
         // Start enemy spawner
         EnemySpawner spawner = Object.FindFirstObjectByType<EnemySpawner>();
         if (spawner != null) spawner.StartSpawning();
