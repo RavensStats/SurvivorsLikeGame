@@ -43,6 +43,14 @@ public class SpatialGrid {
     // Used by Ultimates and Weapons to find targets efficiently
     public List<EnemyEntity> GetNearby(Vector3 position) {
         List<EnemyEntity> nearbyEntities = new List<EnemyEntity>();
+        GetNearby(position, nearbyEntities);
+        return nearbyEntities;
+    }
+
+    // Allocation-free overload: clears and fills the caller-supplied list so no
+    // heap allocation is needed on every call. Use this in hot paths.
+    public void GetNearby(Vector3 position, List<EnemyEntity> result) {
+        result.Clear();
         Vector2Int centerCell = new Vector2Int(
             Mathf.FloorToInt(position.x / cellSize),
             Mathf.FloorToInt(position.y / cellSize)
@@ -53,10 +61,9 @@ public class SpatialGrid {
             for (int y = -1; y <= 1; y++) {
                 Vector2Int targetCell = centerCell + new Vector2Int(x, y);
                 if (cells.ContainsKey(targetCell)) {
-                    nearbyEntities.AddRange(cells[targetCell]);
+                    result.AddRange(cells[targetCell]);
                 }
             }
         }
-        return nearbyEntities;
     }
 }

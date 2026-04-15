@@ -85,6 +85,9 @@ public class EnemyEntity : MonoBehaviour {
     // Cached nearest Linker partner – re-queried only when it dies.
     private EnemyEntity _cachedLinkerPartner;
 
+    // Cached PlayerMovement – avoids GetComponent<> call inside Update every frame.
+    private PlayerMovement _playerMovement;
+
     // Commander – speed-aura radius
     private float _commanderAuraTimer = 0f;
 
@@ -99,6 +102,17 @@ public class EnemyEntity : MonoBehaviour {
     private float      _hpVisTimer;
     private static Sprite _pixelSprite;
 
+    // Cached HP-bar visibility settings – refreshed once at run start (and when
+    // the player changes settings) instead of calling PlayerPrefs every 0.5 s.
+    private static bool _showHpNormal   = false;
+    private static bool _showHpMiniBoss = true;
+    private static bool _showHpBoss     = true;
+    public static void RefreshHPBarSettings() {
+        _showHpNormal   = PlayerPrefs.GetInt("showHpNormal",   0) == 1;
+        _showHpMiniBoss = PlayerPrefs.GetInt("showHpMiniBoss", 1) == 1;
+        _showHpBoss     = PlayerPrefs.GetInt("showHpBoss",     1) == 1;
+    }
+
     void Start() {
         _sr = GetComponent<SpriteRenderer>();
         if (SurvivorMasterScript.Instance.nemesis.isPendingRevenge &&
@@ -107,7 +121,9 @@ public class EnemyEntity : MonoBehaviour {
         }
         _maxHp = hp;
         _pufferBaseScale  = transform.localScale.x;
-        _pufferBaseDamage = GetComponent<EnemyAttack>() != null ? GetComponent<EnemyAttack>().damage : 10f;
+        var _attack = GetComponent<EnemyAttack>();
+        _pufferBaseDamage = _attack != null ? _attack.damage : 10f;
+        _playerMovement = SurvivorMasterScript.Instance.player.GetComponent<PlayerMovement>();
         // Mimics impersonate an XP gem until the player is close
         if (behavior == EnemyBehavior.Mimic) {
             _mimicGemSprite = Resources.Load<Sprite>("Sprites/Gems/gem");
@@ -137,8 +153,7 @@ public class EnemyEntity : MonoBehaviour {
             _jockeyTimer -= Time.deltaTime;
             if (_jockeyTimer <= 0f) {
                 _jockeyLatched = false;
-                var pm = SurvivorMasterScript.Instance.player.GetComponent<PlayerMovement>();
-                if (pm != null) pm.inputScale = 1f;
+                if (_playerMovement != null) _playerMovement.inputScale = 1f;
                 // reposition self next to player
                 transform.position = pPos + (Vector3)Random.insideUnitCircle.normalized * 2f;
             }
@@ -234,8 +249,7 @@ public class EnemyEntity : MonoBehaviour {
                 transform.position += (dir + zigPerp * 0.7f).normalized * s * Time.deltaTime;
                 // Slow trail: check if player is near this position
                 if (Vector3.Distance(transform.position, pPos) < 1.5f) {
-                    var pm2 = SurvivorMasterScript.Instance.player.GetComponent<PlayerMovement>();
-                    if (pm2 != null) StartCoroutine(TempSlow(pm2, 0.5f, 2f));
+                    if (_playerMovement != null) StartCoroutine(TempSlow(_playerMovement, 0.5f, 2f));
                 }
                 break;
 
@@ -247,7 +261,7 @@ public class EnemyEntity : MonoBehaviour {
 
             // ── ShieldBearer – only moves when player faces away ──────────────
             case EnemyBehavior.ShieldBearer: {
-                Vector2 playerFacing = SurvivorMasterScript.Instance.player.GetComponent<PlayerMovement>()?.LastFacing ?? Vector2.down;
+                Vector2 playerFacing = _playerMovement?.LastFacing ?? Vector2.down;
                 Vector2 toEnemy      = ((Vector2)(transform.position - pPos)).normalized;
                 float   faceDot      = Vector2.Dot(playerFacing, toEnemy);
                 if (faceDot < 0f) // player not looking at us
@@ -406,8 +420,7 @@ public class EnemyEntity : MonoBehaviour {
                     transform.position += dir * (s * 2.5f) * Time.deltaTime;
                     if (dist < 0.8f) {
                         _latched = true; _latchTimer = 4f;
-                        var pm3 = SurvivorMasterScript.Instance.player.GetComponent<PlayerMovement>();
-                        if (pm3 != null) pm3.inputScale = 0.4f;
+                        if (_playerMovement != null) _playerMovement.inputScale = 0.4f;
                     }
                 } else {
                     transform.position = pPos; // ride the player
@@ -415,8 +428,7 @@ public class EnemyEntity : MonoBehaviour {
                     SurvivorMasterScript.Instance.TakeDamage(2f * Time.deltaTime);
                     if (_latchTimer <= 0f) {
                         _latched = false;
-                        var pm3 = SurvivorMasterScript.Instance.player.GetComponent<PlayerMovement>();
-                        if (pm3 != null) pm3.inputScale = 1f;
+                        if (_playerMovement != null) _playerMovement.inputScale = 1f;
                         transform.position = pPos + (Vector3)(Random.insideUnitCircle * 3f);
                     }
                 }
@@ -451,13 +463,12 @@ public class EnemyEntity : MonoBehaviour {
 
             // ── Jockey – flank rear, leap (reverse controls) ─────────────────
             case EnemyBehavior.Jockey: {
-                Vector2 pf = SurvivorMasterScript.Instance.player.GetComponent<PlayerMovement>()?.LastFacing ?? Vector2.down;
+                Vector2 pf = _playerMovement?.LastFacing ?? Vector2.down;
                 Vector3 behindPlayer = pPos - (Vector3)(pf.normalized * 1.5f);
                 transform.position = Vector3.MoveTowards(transform.position, behindPlayer, s * Time.deltaTime);
                 if (Vector3.Distance(transform.position, behindPlayer) < 0.5f && !_jockeyLatched) {
                     _jockeyLatched = true; _jockeyTimer = 3f;
-                    var pm4 = SurvivorMasterScript.Instance.player.GetComponent<PlayerMovement>();
-                    if (pm4 != null) pm4.inputScale = -1f;
+                    if (_playerMovement != null) _playerMovement.inputScale = -1f;
                 }
                 break;
             }
@@ -493,10 +504,8 @@ public class EnemyEntity : MonoBehaviour {
                 _webTrailTimer -= Time.deltaTime;
                 if (_webTrailTimer <= 0f) {
                     _webTrailTimer = 0.5f;
-                    if (dist < 1.5f) {
-                        var pm5 = SurvivorMasterScript.Instance.player.GetComponent<PlayerMovement>();
-                        if (pm5 != null) StartCoroutine(TempSlow(pm5, 0.5f, 2f));
-                    }
+                    if (dist < 1.5f && _playerMovement != null)
+                        StartCoroutine(TempSlow(_playerMovement, 0.5f, 2f));
                 }
                 break;
             }
@@ -578,7 +587,7 @@ public class EnemyEntity : MonoBehaviour {
         if (isDead) return;
         if (IsInvulnerable()) return;
         SurvivorMasterScript.Instance.RegisterDamageDealt(d);
-        var b = SurvivorMasterScript.Instance.bestiary.Find(x => x.behavior == behavior);
+        var b = SurvivorMasterScript.Instance.BestiaryLookup.TryGetValue(behavior, out var entry) ? entry : null;
         if (b != null && b.isHunterBonusUnlocked) d *= 1.15f;
         FloatingText.Spawn(transform.position, d);
         hp -= d;
@@ -705,9 +714,9 @@ public class EnemyEntity : MonoBehaviour {
 
     bool ShouldShowHealthBar() {
         switch (tier) {
-            case EnemyTier.MiniBoss: return PlayerPrefs.GetInt("showHpMiniBoss", 1) == 1;
-            case EnemyTier.Boss:     return PlayerPrefs.GetInt("showHpBoss",     1) == 1;
-            default:                 return PlayerPrefs.GetInt("showHpNormal",   0) == 1;
+            case EnemyTier.MiniBoss: return _showHpMiniBoss;
+            case EnemyTier.Boss:     return _showHpBoss;
+            default:                 return _showHpNormal;
         }
     }
 

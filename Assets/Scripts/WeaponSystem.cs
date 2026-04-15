@@ -63,6 +63,7 @@ public class WeaponSystem : MonoBehaviour {
         // Non-projectile modes are handled first (no prefab needed)
         if (w.fireMode == FireMode.ArcSwing)   { FireArcSwing(w);   return; }
         if (w.fireMode == FireMode.Orbit)       { FireOrbit(w);      return; }
+        if (w.fireMode == FireMode.ScytheOrbit) { StartCoroutine(FireScytheSwipe(w)); return; }
         if (w.fireMode == FireMode.RisingFist)  { StartCoroutine(FireRisingFist(w)); return; }
 
         if (w.projectilePrefab == null && string.IsNullOrEmpty(w.spriteFolder)) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab or spriteFolder assigned."); return; }
@@ -107,7 +108,6 @@ public class WeaponSystem : MonoBehaviour {
                     float dmg = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
                     e.TakeDamage(dmg);
                     alreadyHit.Add(e);
-                    Debug.Log($"[WeaponSystem] '{w.itemName}' hit {e.name} for {dmg:F1} dmg.");
                 }
             }
             if (!string.IsNullOrEmpty(w.spriteFolder)) {
@@ -150,7 +150,9 @@ public class WeaponSystem : MonoBehaviour {
 
     // Immediately rebuilds the orbs for an Orbit weapon so its sprite/count
     // reflects a just-applied upgrade without waiting for the next cooldown tick.
+    // ScytheOrbit is a one-shot swipe — no persistent objects to refresh.
     public void RefreshOrbitWeapon(ItemData w) {
+        if (w.fireMode == FireMode.ScytheOrbit) return; // nothing persistent to rebuild
         if (w.fireMode != FireMode.Orbit) return;
         if (activeOrbs.ContainsKey(w.itemName)) {
             foreach (var o in activeOrbs[w.itemName])
@@ -158,6 +160,71 @@ public class WeaponSystem : MonoBehaviour {
             activeOrbs[w.itemName].Clear();
         }
         FireOrbit(w);
+    }
+
+    // Spawns a scythe that sweeps one full clockwise rotation around the player then disappears.
+    // Scale, cooldown, and damage all increase substantially with level.
+    IEnumerator FireScytheSwipe(ItemData w) {
+        // Level-scaled cooldown (L1=5s → L5=1.5s, evenly spaced) — must be set before first yield.
+        w.cooldown = Mathf.Lerp(5f, 1.5f, (w.level - 1) / 4f);
+
+        // Level-scaled sprite scale (L1=2.5 → L5=4.0, evenly spaced).
+        float sprScale  = Mathf.Lerp(5f, 8f, (w.level - 1) / 4f);
+        const float orbitRadius   = 4f;
+        const float swipeDuration = 0.8f;            // fixed time for one full 360° sweep
+        const float orbitSpeed    = 360f / swipeDuration; // deg/sec
+
+        // Load sprite.
+        Sprite spr = null;
+        if (!string.IsNullOrEmpty(w.spriteFolder)) {
+            spr = w.spriteFolder.Contains("/")
+                ? Resources.Load<Sprite>($"Sprites/{w.spriteFolder}")
+                : Resources.Load<Sprite>($"Sprites/Weapons/{w.spriteFolder}/{w.spriteFolder}");
+        }
+
+        var scythe = new GameObject("ScytheSwipe_VFX");
+        var sr     = scythe.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 7;
+        if (spr != null) { sr.sprite = spr; }
+        else { sr.color = new Color(0.4f, 0f, 0.8f); }
+        scythe.transform.localScale = Vector3.one * sprScale;
+
+        float dmg = w.baseDamage * Mathf.Pow(2f, w.level - 1)
+                  * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        var hitSet = new HashSet<EnemyEntity>(); // each enemy hit at most once per swipe
+        float angle   = 0f;
+        float elapsed = 0f;
+
+        while (elapsed < swipeDuration) {
+            if (scythe == null) yield break;
+            var player = SurvivorMasterScript.Instance?.player;
+            if (player == null) break;
+
+            elapsed += Time.deltaTime;
+            angle   -= orbitSpeed * Time.deltaTime; // negative = clockwise
+
+            float rad    = angle * Mathf.Deg2Rad;
+            Vector2 offset = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * orbitRadius;
+            scythe.transform.position = (Vector2)player.position + offset;
+            // Bottom-left corner faces the player: sprite_Z = orbitAngle - 45°
+            scythe.transform.rotation = Quaternion.Euler(0f, 0f, angle - 45f);
+
+            // Damage check via physics overlap at scythe position.
+            float hitRadius = sprScale * 0.5f;
+            foreach (var col in Physics2D.OverlapCircleAll(scythe.transform.position, hitRadius)) {
+                if (!col.CompareTag("Enemy")) continue;
+                var e = col.GetComponent<EnemyEntity>();
+                if (e == null || e.isDead || hitSet.Contains(e)) continue;
+                hitSet.Add(e);
+                e.TakeDamage(dmg);
+            }
+
+            yield return null;
+        }
+
+        if (scythe != null) Destroy(scythe);
     }
 
     // Spawns/maintains N orbiting objects (N = weapon level) that deal periodic burn damage.
@@ -297,9 +364,11 @@ public class WeaponSystem : MonoBehaviour {
             };
             activeWeapons.Add(evolved);
             cardPool.RemoveAll(c => c.itemName == r.weaponA || c.itemName == r.itemB);
-            Debug.Log($"[WeaponSystem] Evolved {r.weaponA} + {r.itemB} → {r.resultName}");
         }
     }
+
+    // Shared scratch list – reused across InfernoAura ticks to avoid per-tick allocation.
+    private readonly List<EnemyEntity> _infernoScratch = new List<EnemyEntity>();
 
     IEnumerator InfernoAura() {
         float duration = 5f;
@@ -307,8 +376,8 @@ public class WeaponSystem : MonoBehaviour {
         float damagePerTick = 8f;
         float elapsed = 0f;
         while (elapsed < duration) {
-            var nearby = SurvivorMasterScript.Instance.Grid.GetNearby(PlayerPos);
-            foreach (var e in nearby)
+            SurvivorMasterScript.Instance.Grid.GetNearby(PlayerPos, _infernoScratch);
+            foreach (var e in _infernoScratch)
                 if (e != null) e.TakeDamage(damagePerTick);
             yield return new WaitForSeconds(tickInterval);
             elapsed += tickInterval;

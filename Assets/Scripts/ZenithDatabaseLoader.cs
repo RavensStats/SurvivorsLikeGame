@@ -77,7 +77,6 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         if (weapon == null) { Debug.LogWarning($"[ZenithDatabaseLoader] Starting weapon '{name}' not found in pool."); return; }
 
         ws.activeWeapons.Add(weapon);
-        Debug.Log($"[ZenithDatabaseLoader] Assigned '{name}' (Lv.{weapon.level}) as starting weapon for {cls}.");
     }
 
     /// <summary>Restores the card pool to its initial state (re-adds any items removed by evolution).</summary>
@@ -132,7 +131,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         AddWeapon(ws, "Wolf Claws",     "Rapid three-bite flurry in a tight arc.",                         Rarity.Common, 9f,  0.3f,  1, WeaponTrait.None,     new List<string>{"Physical","Melee"},    fireMode: FireMode.ArcSwing, range: 3f,  spriteFolder: "WolfClaws");
         AddWeapon(ws, "Time Manipulation", "Orbiting time shards that warp reality and slow nearby enemies.", Rarity.Rare, 6f, 3.5f, 99, WeaponTrait.Rotating, new List<string>{"Magic","Time"},        fireMode: FireMode.Orbit);
         AddWeapon(ws, "Void Orb",       "Gravity-well projectile that pulls nearby enemies on impact.",    Rarity.Rare,   14f, 1.8f,  1, WeaponTrait.Explosive,new List<string>{"Dark","Magic"},        fireMode: FireMode.NearestN);
-        AddWeapon(ws, "Scythe",         "Massive arc swing — spawns a skeleton on every kill.",            Rarity.Rare,   22f, 1.6f,  4, WeaponTrait.Piercing, new List<string>{"Physical","Melee"},    fireMode: FireMode.ArcSwing, range: 14f, spriteFolder: "Scythe");
+        AddWeapon(ws, "Scythe",         "Massive scythe orbits the player clockwise — spawns a skeleton on every kill.", Rarity.Rare,   22f, 5.0f,  4, WeaponTrait.Piercing, new List<string>{"Physical","Melee"},    fireMode: FireMode.ScytheOrbit, range: 14f, spriteFolder: "Scythe");
         AddWeapon(ws, "Arcane Arrow",   "Arrows leave a magic dust trail dealing damage over time.",       Rarity.Rare,   10f, 1.0f,  2, WeaponTrait.Piercing, new List<string>{"Magic","Ranged"},      fireMode: FireMode.RandomInRange, range: 40f, spriteFolder: "ArcaneArrow");
         AddWeapon(ws, "Plague Canister","Gas canister that explodes into a large lingering poison cloud.",  Rarity.Rare,   12f, 2.2f,  1, WeaponTrait.Explosive,new List<string>{"Poison","Ranged"},     fireMode: FireMode.RandomInRange, range: 20f, spriteFolder: "PoisonGas");
         AddWeapon(ws, "Dual Revolvers", "Rapidly fires at the two closest targets simultaneously.",        Rarity.Common, 12f, 0.4f,  1, WeaponTrait.None,     new List<string>{"Physical","Ranged"},   fireMode: FireMode.NearestN,  range: 25f);
@@ -160,8 +159,6 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         AddRecipe(ws, "Axe", "Heavy Bracers", "Death Spiral");
         AddRecipe(ws, "Pyromancy", "Mana Well", "Supernova");
         AddRecipe(ws, "Longsword", "Pyromancy", "Sword of Fire");
-
-        Debug.Log("Zenith Database Initialized: " + ws.cardPool.Count + " items loaded.");
     }
 
     void AddWeapon(WeaponSystem ws, string name, string desc, Rarity rare, float dmg, float cd, int pierce, WeaponTrait trait, List<string> tags, bool isWeapon = true, FireMode fireMode = FireMode.Default, float range = 0f, int level = 1, float knockback = 0f, string spriteFolder = null, float scale = 5f) {

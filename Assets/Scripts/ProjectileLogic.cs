@@ -52,7 +52,6 @@ public class ProjectileLogic : MonoBehaviour {
         if (entity == null || entity.isDead) return;
         float dmg = d.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
         entity.TakeDamage(dmg);
-        Debug.Log($"[ProjectileLogic] '{d.itemName}' hit {other.name} for {dmg:F1} dmg.");
         if (!entity.isDead && d.knockback > 0f) entity.ApplyKnockback(dir, d.knockback);
         if (d.trait == WeaponTrait.Bouncy) { dir = Random.insideUnitCircle.normalized; hit.Clear(); }
         p--; if (p <= 0 && d.trait != WeaponTrait.Bouncy) { _dead = true; Destroy(gameObject); }

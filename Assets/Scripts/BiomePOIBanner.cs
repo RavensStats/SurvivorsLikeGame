@@ -29,13 +29,11 @@ public class BiomePOIBanner : MonoBehaviour {
 
     public static void EnsureInstance() {
         if (Instance != null) return;
-        Debug.Log("[BiomePOIBanner] Creating new singleton instance.");
         new GameObject("BiomePOIBanner").AddComponent<BiomePOIBanner>();
     }
 
     void BuildUI() {
         Font font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        Debug.Log($"[BiomePOIBanner] BuildUI — font null? {font == null}");
 
         // Canvas must be a root-level GameObject for ScreenSpaceOverlay to render reliably.
         // We call DontDestroyOnLoad on it separately so it persists alongside this object.
@@ -45,7 +43,6 @@ public class BiomePOIBanner : MonoBehaviour {
         canvas.renderMode  = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 10;
         cgo.AddComponent<CanvasScaler>();
-        Debug.Log($"[BiomePOIBanner] Canvas created, sortingOrder={canvas.sortingOrder}");
 
         // Text element — anchored to the top-centre of the screen
         var tgo = new GameObject("BannerLabel");
@@ -57,7 +54,6 @@ public class BiomePOIBanner : MonoBehaviour {
         _label.fontStyle   = FontStyle.Bold;
         _label.alignment   = TextAnchor.UpperCenter;
         _label.color       = new Color(1f, 1f, 0.75f, 0f); // fully transparent until shown
-        Debug.Log($"[BiomePOIBanner] Text component created, font null? {_label.font == null}");
 
         var rt             = tgo.GetComponent<RectTransform>();
         rt.anchorMin       = new Vector2(0f, 1f);
@@ -65,7 +61,6 @@ public class BiomePOIBanner : MonoBehaviour {
         rt.pivot           = new Vector2(0.5f, 1f);
         rt.sizeDelta       = new Vector2(0f, 60f);
         rt.anchoredPosition = new Vector2(0f, -10f);
-        Debug.Log("[BiomePOIBanner] BuildUI complete.");
     }
 
     // ── Public API ────────────────────────────────────────────────────────────
@@ -75,7 +70,6 @@ public class BiomePOIBanner : MonoBehaviour {
     /// CamelCase strings are auto-split into words.
     /// </summary>
     public static void Show(string rawLabel) {
-        Debug.Log($"[BiomePOIBanner] Show(\"{rawLabel}\") called. Instance null? {Instance == null}");
         EnsureInstance();
         Instance.ShowLabel(FormatLabel(rawLabel));
     }
@@ -83,7 +77,6 @@ public class BiomePOIBanner : MonoBehaviour {
     // ── Internals ─────────────────────────────────────────────────────────────
 
     void ShowLabel(string text) {
-        Debug.Log($"[BiomePOIBanner] ShowLabel(\"{text}\") — _label null? {_label == null}");
         if (_label == null) return;
         _label.text = text;
         if (_fadeRoutine != null) StopCoroutine(_fadeRoutine);
@@ -91,7 +84,6 @@ public class BiomePOIBanner : MonoBehaviour {
     }
 
     IEnumerator FadeRoutine() {
-        Debug.Log($"[BiomePOIBanner] FadeRoutine started for \"{_label.text}\"");
         SetAlpha(1f);
         yield return new WaitForSeconds(HoldTime);
 

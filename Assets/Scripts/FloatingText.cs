@@ -8,8 +8,14 @@ using UnityEngine;
 /// </summary>
 public class FloatingText : MonoBehaviour {
 
+    // Cached once at startup (or when settings change) to avoid a PlayerPrefs
+    // lookup on every single damage event.
+    public static bool ShowDamageNumbers = true;
+    public static void RefreshSettings() =>
+        ShowDamageNumbers = PlayerPrefs.GetInt("showDamageNumbers", 1) == 1;
+
     public static void Spawn(Vector3 worldPos, float damage) {
-        if (PlayerPrefs.GetInt("showDamageNumbers", 1) != 1) return;
+        if (!ShowDamageNumbers) return;
         var go = new GameObject("FloatDmg");
         go.AddComponent<FloatingText>().Init(worldPos, damage);
     }

@@ -28,7 +28,6 @@ public class POIInstance : MonoBehaviour {
     // ─────────────────────────────────────────────────────────────────────────
 
     void OnTriggerEnter2D(Collider2D other) {
-        Debug.Log($"[POIInstance] OnTriggerEnter2D hit by '{other.gameObject.name}' tag='{other.tag}' type={type}");
         if (other.transform != SurvivorMasterScript.Instance.player) return;
         _playerInside = true;
         OnPlayerEnter();

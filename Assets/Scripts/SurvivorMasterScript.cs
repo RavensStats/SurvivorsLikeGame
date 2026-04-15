@@ -24,6 +24,8 @@ public class SurvivorMasterScript : MonoBehaviour {
     public float playerHP = 100, xp, xpMax = 100;
     public int playerLevel = 1;
     public List<BestiaryEntry> bestiary = new List<BestiaryEntry>();
+    // O(1) lookup companion to the bestiary list – populated alongside it in RegisterKill().
+    public Dictionary<EnemyBehavior, BestiaryEntry> BestiaryLookup = new Dictionary<EnemyBehavior, BestiaryEntry>();
     public NemesisData nemesis;
     public static int GlobalGold;
     public bool isInsideGraveyard, isInvulnerable;
@@ -49,11 +51,15 @@ public class SurvivorMasterScript : MonoBehaviour {
     public float UltCooldown => ultCooldown;
     public float HPRatio => maxPlayerHP > 0f ? Mathf.Clamp01(playerHP / maxPlayerHP) : 1f;
 
+    // Cached main camera – avoids repeated tag-based GameObject.FindWithTag("MainCamera")
+    // calls that Camera.main performs internally on every access.
+    private static Camera _mainCam;
+
     // Returns true when worldPos falls within the camera's current viewport.
     // Used to gate enemy movement and weapon targeting to on-screen entities only.
     public static bool IsOnScreen(Vector3 worldPos) {
-        if (Camera.main == null) return true;
-        Vector3 vp = Camera.main.WorldToViewportPoint(worldPos);
+        if (_mainCam == null) { _mainCam = Camera.main; if (_mainCam == null) return true; }
+        Vector3 vp = _mainCam.WorldToViewportPoint(worldPos);
         return vp.z > 0f && vp.x >= 0f && vp.x <= 1f && vp.y >= 0f && vp.y <= 1f;
     }
 
@@ -66,6 +72,7 @@ public class SurvivorMasterScript : MonoBehaviour {
 
     void Awake() {
         Instance = this;
+        _mainCam = Camera.main;
         Grid = new SpatialGrid(12f);
         XpGem.Init();
         if (LevelUpManager.Instance == null)
@@ -73,7 +80,6 @@ public class SurvivorMasterScript : MonoBehaviour {
         if (playerPrefab != null) {
             GameObject p = Instantiate(playerPrefab, Vector3.zero, Quaternion.identity);
             player = p.transform;
-            Debug.Log("[SurvivorMasterScript] Player instantiated at origin.");
             // Auto-assign to CameraFollow if present
             CameraFollow cam = Camera.main?.GetComponent<CameraFollow>();
             if (cam != null) cam.target = player;
@@ -81,6 +87,8 @@ public class SurvivorMasterScript : MonoBehaviour {
             Debug.LogWarning($"[SurvivorMasterScript] Player NOT instantiated. playerPrefab={(playerPrefab == null ? "NULL" : playerPrefab.name)}, player={(player == null ? "NULL" : player.name)}");
         }
         GlobalGold = PlayerPrefs.GetInt("TotalGold", 0);
+        FloatingText.RefreshSettings();
+        EnemyEntity.RefreshHPBarSettings();
         playerHP += PersistentUpgrades.MaxHPBonus;
         maxPlayerHP = playerHP;
         _baseMaxPlayerHP = maxPlayerHP;
@@ -162,8 +170,11 @@ public class SurvivorMasterScript : MonoBehaviour {
 
     public void RegisterKill(EnemyBehavior type) {
         totalEnemiesKilled++;
-        var b = bestiary.Find(x => x.behavior == type) ?? new BestiaryEntry { behavior = type };
-        if (!bestiary.Contains(b)) bestiary.Add(b);
+        if (!BestiaryLookup.TryGetValue(type, out var b)) {
+            b = new BestiaryEntry { behavior = type };
+            BestiaryLookup[type] = b;
+            bestiary.Add(b);
+        }
         b.kills++;
         if (b.kills >= 500) b.isHunterBonusUnlocked = true;
 

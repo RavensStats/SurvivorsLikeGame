@@ -265,6 +265,14 @@ public class LevelUpManager : MonoBehaviour {
                     string[] swingDescs = { "", "Attacks East only.", "Attacks East and West.",
                         "Attacks E, W, and North.", "Attacks E, W, N, and South.", "Attacks in all 8 directions." };
                     desc = swingDescs[nextLevel];
+                } else if (owned.fireMode == FireMode.ScytheOrbit) {
+                    string[] scytheDescs = { "",
+                        "One sweep every 5s (22 dmg, 2.5× scale).",
+                        "One sweep every 4.1s — damage doubles to 44 (2.9× scale).",
+                        "One sweep every 3.25s — damage doubles again to 88 (3.25× scale).",
+                        "One sweep every 2.4s — devastating 176 damage (3.6× scale).",
+                        "One sweep every 1.5s — death incarnate, 352 damage (4× scale)." };
+                    desc = scytheDescs[nextLevel];
                 } else {
                     string modeLabel = owned.fireMode == FireMode.NearestN ? "nearest" : "random";
                     desc = $"Now targets {nextLevel} {modeLabel} enem{(nextLevel == 1 ? "y" : "ies")} per attack.";

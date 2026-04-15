@@ -51,6 +51,7 @@ public class XpGem : MonoBehaviour {
 
     void OnDestroy() {
         AllGems.Remove(this);
+        merging.Remove(this); // clear stale entry so the HashSet doesn't hold destroyed refs
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -62,7 +63,6 @@ public class XpGem : MonoBehaviour {
         PickupRadiusMultiplier = 1f;
         TierBonus = 0;
         ratchetTime = Random.Range(90f, 150f);
-        Debug.Log($"[XpGem] Ratchet period = {ratchetTime:F0}s");
     }
 
     public static void Spawn(Vector3 pos) => SpawnTier(Mathf.Min(PickTier() + TierBonus, 8), pos);
@@ -130,7 +130,8 @@ public class XpGem : MonoBehaviour {
     void Update() {
         var g = SurvivorMasterScript.Instance;
         if (g == null || g.player == null) return;
-        if (Vector3.Distance(transform.position, g.player.position) <= CollectRadius * PickupRadiusMultiplier) {
+        float threshold = CollectRadius * PickupRadiusMultiplier;
+        if ((transform.position - g.player.position).sqrMagnitude <= threshold * threshold) {
             g.GainXP(XpValues[tier - 1]);
             Destroy(gameObject);
         }
@@ -152,11 +153,10 @@ public class XpGem : MonoBehaviour {
 
     void TryMerge() {
         if (tier >= 8) return;
-        if (!AllGems.Contains(this)) return;
         foreach (XpGem other in AllGems) {
             if (other == this || other == null || other.tier != tier) continue;
             if (merging.Contains(this) || merging.Contains(other)) continue;
-            if (Vector3.Distance(transform.position, other.transform.position) <= MergeRadius) {
+            if ((transform.position - other.transform.position).sqrMagnitude <= MergeRadius * MergeRadius) {
                 merging.Add(this);
                 merging.Add(other);
                 Vector3 mid = (transform.position + other.transform.position) * 0.5f;
