@@ -135,6 +135,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerMovement
   moveSpeed: 10
+  inputScale: 1
+  LastFacing: {x: 0, y: -1}
 --- !u!114 &2179728247122495185
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -148,6 +150,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerAnimator
   fps: 10
+  characterSizeMultiplier: 1.01
 --- !u!61 &2139981422084761396
 BoxCollider2D:
   m_ObjectHideFlags: 0

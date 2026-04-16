@@ -64,7 +64,8 @@ public class WeaponSystem : MonoBehaviour {
         if (w.fireMode == FireMode.ArcSwing)   { FireArcSwing(w);   return; }
         if (w.fireMode == FireMode.Orbit)       { FireOrbit(w);      return; }
         if (w.fireMode == FireMode.ScytheOrbit) { StartCoroutine(FireScytheSwipe(w)); return; }
-        if (w.fireMode == FireMode.RisingFist)  { StartCoroutine(FireRisingFist(w)); return; }
+        if (w.fireMode == FireMode.RisingFist)     { StartCoroutine(FireRisingFist(w));     return; }
+        if (w.fireMode == FireMode.ChainLightning)  { StartCoroutine(FireChainLightning(w)); return; }
 
         if (w.projectilePrefab == null && string.IsNullOrEmpty(w.spriteFolder)) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab or spriteFolder assigned."); return; }
         switch (w.fireMode) {
@@ -72,6 +73,43 @@ public class WeaponSystem : MonoBehaviour {
             case FireMode.RandomInRange: FireRandomInRange(w); break;
             default:                     FireDefault(w);       break;
         }
+    }
+
+    // Returns all sprite frames for a weapon spriteFolder, sorted by name for correct frame order.
+    // Supports two layouts:
+    //   (a) A single sprite-sheet asset (spriteMode:2) with multiple slices — loaded by file path.
+    //   (b) Individual per-frame PNGs (Name_0.png, Name_1.png…) in the weapon folder — loaded by folder path.
+    // Unity does NOT decode animated GIFs into multiple frames; use individual PNGs for animation.
+    static Sprite[] LoadWeaponSprites(string spriteFolder) {
+        if (string.IsNullOrEmpty(spriteFolder)) return null;
+
+        // (a) Try loading sub-sprites from the specific asset (handles sprite-sheet PNGs).
+        string assetPath = spriteFolder.Contains("/")
+            ? $"Sprites/{spriteFolder}"
+            : $"Sprites/Weapons/{spriteFolder}/{spriteFolder}";
+        Sprite[] frames = Resources.LoadAll<Sprite>(assetPath);
+
+        // (b) If the asset only yielded 0–1 sprites, try loading every sprite in the folder.
+        //     This picks up individual frame PNGs (Name_0.png, Name_1.png, …).
+        if (frames == null || frames.Length <= 1) {
+            string folderPath = spriteFolder.Contains("/")
+                ? $"Sprites/{System.IO.Path.GetDirectoryName(spriteFolder).Replace('\\', '/')}"
+                : $"Sprites/Weapons/{spriteFolder}";
+            Sprite[] folderFrames = Resources.LoadAll<Sprite>(folderPath);
+            if (folderFrames != null && folderFrames.Length > (frames?.Length ?? 0))
+                frames = folderFrames;
+        }
+
+        // Sort by name so frames always play in the correct order regardless of load order.
+        if (frames != null && frames.Length > 1)
+            System.Array.Sort(frames, (a, b) =>
+                string.Compare(a.name, b.name, System.StringComparison.Ordinal));
+
+        if (frames != null && frames.Length > 0) return frames;
+
+        // Final fallback: single directional sprite (e.g. Arrow East).
+        Sprite east = Resources.Load<Sprite>($"Sprites/Weapons/{spriteFolder}/East");
+        return east != null ? new[] { east } : null;
     }
 
     // Fixed attack directions per level: Lv1=E, Lv2=E+W, Lv3=E+W+N, Lv4=E+W+N+S, Lv5=all 8.
@@ -111,10 +149,9 @@ public class WeaponSystem : MonoBehaviour {
                 }
             }
             if (!string.IsNullOrEmpty(w.spriteFolder)) {
-                Sprite spr = w.spriteFolder.Contains("/")
-                    ? Resources.Load<Sprite>($"Sprites/{w.spriteFolder}")
-                    : Resources.Load<Sprite>($"Sprites/Weapons/{w.spriteFolder}/{w.spriteFolder}");
-                if (spr != null) StartCoroutine(SwordSlide(spr, pos, swingDir, range));
+                Sprite[] swingFrames = LoadWeaponSprites(w.spriteFolder);
+                if (swingFrames != null && swingFrames.Length > 0)
+                    StartCoroutine(SwordSlide(swingFrames[0], pos, swingDir, range));
             }
         }
     }
@@ -175,17 +212,16 @@ public class WeaponSystem : MonoBehaviour {
         const float orbitSpeed    = 360f / swipeDuration; // deg/sec
 
         // Load sprite.
-        Sprite spr = null;
-        if (!string.IsNullOrEmpty(w.spriteFolder)) {
-            spr = w.spriteFolder.Contains("/")
-                ? Resources.Load<Sprite>($"Sprites/{w.spriteFolder}")
-                : Resources.Load<Sprite>($"Sprites/Weapons/{w.spriteFolder}/{w.spriteFolder}");
-        }
+        Sprite[] scytheFrames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (scytheFrames != null && scytheFrames.Length > 0) ? scytheFrames[0] : null;
 
         var scythe = new GameObject("ScytheSwipe_VFX");
         var sr     = scythe.AddComponent<SpriteRenderer>();
         sr.sortingOrder = 7;
-        if (spr != null) { sr.sprite = spr; }
+        if (spr != null) {
+            sr.sprite = spr;
+            if (scytheFrames.Length > 1) { var anim = scythe.AddComponent<WeaponSpriteAnimator>(); anim.Init(scytheFrames, duration: swipeDuration); }
+        }
         else { sr.color = new Color(0.4f, 0f, 0.8f); }
         scythe.transform.localScale = Vector3.one * sprScale;
 
@@ -246,16 +282,11 @@ public class WeaponSystem : MonoBehaviour {
             var sr = orb.AddComponent<SpriteRenderer>();
             sr.sortingOrder = 6;
             // Load sprite from the weapon's spriteFolder if set; fall back to tinted circle.
-            if (!string.IsNullOrEmpty(w.spriteFolder)) {
-                Sprite spr = w.spriteFolder.Contains("/")
-                    ? Resources.Load<Sprite>($"Sprites/{w.spriteFolder}")
-                    : Resources.Load<Sprite>($"Sprites/Weapons/{w.spriteFolder}/{w.spriteFolder}");
-                if (spr != null) {
-                    sr.sprite = spr;
-                    orb.transform.localScale = Vector3.one * 4f;   // 400 % scale for sprite orbs
-                } else {
-                    sr.color  = new Color(1f, 0.45f, 0.05f);
-                }
+            Sprite[] orbFrames = LoadWeaponSprites(w.spriteFolder);
+            if (orbFrames != null && orbFrames.Length > 0) {
+                sr.sprite = orbFrames[0];
+                orb.transform.localScale = Vector3.one * 4f;   // 400 % scale for sprite orbs
+                if (orbFrames.Length > 1) { var anim = orb.AddComponent<WeaponSpriteAnimator>(); anim.Init(orbFrames); }
             } else {
                 sr.color = new Color(1f, 0.45f, 0.05f);
             }
@@ -329,6 +360,71 @@ public class WeaponSystem : MonoBehaviour {
         for (int i = 0; i < count; i++) {
             Vector2 dir = (targets[i].transform.position - pos).normalized;
             SpawnProjectile(w, pos).GetComponent<ProjectileLogic>().Setup(w, dir, targets[i]);
+        }
+    }
+
+    // Arc lightning beam from origin to target, stretched and rotated to fit.
+    // The sprite is oriented vertically, so we add 90° to align its long axis with the beam.
+    // displayDuration: how long the beam will live — used to scale fps so all GIF frames are shown exactly once.
+    GameObject CreateLightningBeam(Vector3 from, Vector3 to, Sprite[] frames, float displayDuration) {
+        var go = new GameObject("ChainLightningBeam");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 8;
+        sr.sprite = frames[0];
+        go.transform.position = (from + to) * 0.5f;
+        float dist  = Vector2.Distance(from, to);
+        float angle = Mathf.Atan2(to.y - from.y, to.x - from.x) * Mathf.Rad2Deg;
+        go.transform.rotation = Quaternion.Euler(0f, 0f, angle + 90f);
+        float naturalH = frames[0].rect.height / frames[0].pixelsPerUnit;
+        float scaleY   = naturalH > 0f ? dist / naturalH : 1f;
+        go.transform.localScale = new Vector3(5f, scaleY, 1f);
+        if (frames.Length > 1) { var anim = go.AddComponent<WeaponSpriteAnimator>(); anim.Init(frames, duration: displayDuration); }
+        return go;
+    }
+
+    // Returns the nearest alive, unstruk enemy within range of origin, or null.
+    EnemyEntity FindNearestUnstruck(Vector3 origin, HashSet<EnemyEntity> struck, float range) {
+        var candidates = SurvivorMasterScript.Instance.Grid.GetNearby(origin);
+        float rangeSq = range * range;
+        EnemyEntity best = null;
+        float bestSq = float.MaxValue;
+        foreach (var e in candidates) {
+            if (e == null || e.isDead || struck.Contains(e)) continue;
+            float d = (e.transform.position - origin).sqrMagnitude;
+            if (d <= rangeSq && d < bestSq) { bestSq = d; best = e; }
+        }
+        return best;
+    }
+
+    // Fires one bolt to a random enemy in range, then chains up to w.level additional times.
+    // Each hop shows a stretched GIF beam for 0.2 s before moving to the next target.
+    IEnumerator FireChainLightning(ItemData w) {
+        Vector3 playerPos = PlayerPos;
+        var targets = SurvivorMasterScript.Instance.Grid.GetNearby(playerPos);
+        targets.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
+        float rangeSq = w.range * w.range;
+        targets = targets.Where(e => (e.transform.position - playerPos).sqrMagnitude <= rangeSq).ToList();
+        if (targets.Count == 0) yield break;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        float dmg = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+        var struck = new HashSet<EnemyEntity>();
+        EnemyEntity cur = targets[Random.Range(0, targets.Count)];
+        Vector3 strikeFrom = playerPos;
+
+        int totalStrikes = w.level + 1; // first strike + w.level chains
+        const float hopDuration = 0.2f; // TEST: slowed down to verify all GIF frames display
+        for (int i = 0; i < totalStrikes; i++) {
+            if (cur == null || cur.isDead || struck.Contains(cur)) break;
+            cur.TakeDamage(dmg);
+            struck.Add(cur);
+            GameObject beam = (frames != null && frames.Length > 0)
+                ? CreateLightningBeam(strikeFrom, cur.transform.position, frames, hopDuration) : null;
+            strikeFrom = cur.transform.position;
+            yield return new WaitForSeconds(hopDuration);
+            if (beam != null) Destroy(beam);
+            if (i < totalStrikes - 1)
+                cur = FindNearestUnstruck(strikeFrom, struck, w.range);
         }
     }
 

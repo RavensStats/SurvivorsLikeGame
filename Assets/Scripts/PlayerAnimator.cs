@@ -12,7 +12,7 @@ public class PlayerAnimator : MonoBehaviour {
     public float fps = 10f;
 
     [Tooltip("Uniform size multiplier applied to all characters. 1.0 = reference 32px size. Reduce to shrink all characters.")]
-    [SerializeField] [Range(0.1f, 2f)] private float characterSizeMultiplier = 0.667f;
+    [SerializeField] [Range(0.1f, 2f)] private float characterSizeMultiplier = 1.01f;
 
     // ── Internals ──────────────────────────────────────────────────────────────
     private SpriteRenderer sr;

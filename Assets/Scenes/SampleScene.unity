@@ -666,7 +666,7 @@ MonoBehaviour:
   enableChunkUnloading: 0
   unloadRadius: 3
   spawnRadius: 3
-  biomeNoiseScale: 0.02
+  biomeNoiseScale: 0.025
 --- !u!114 &1573701117
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -834,7 +834,7 @@ MonoBehaviour:
     tier: 0
   - enemyTypeName: Puffer
     behavior: 25
-    hp: 500
+    hp: 1000
     moveSpeed: 2.5
     damage: 10
     attackRange: 3

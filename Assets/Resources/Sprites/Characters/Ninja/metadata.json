@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "9758f125-059a-4ad9-b71c-d69527200176",
+    "name": "Ninja",
+    "prompt": "Cloaked in form-fitting dark fabric, a ninja is a silent shadow with only a sharp gaze visible through a narrow mask",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-16T08:01:35.824497+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "Walking-513295a2": {
+        "south": [
+          "animations/Walking-513295a2/south/frame_000.png",
+          "animations/Walking-513295a2/south/frame_001.png",
+          "animations/Walking-513295a2/south/frame_002.png",
+          "animations/Walking-513295a2/south/frame_003.png",
+          "animations/Walking-513295a2/south/frame_004.png",
+          "animations/Walking-513295a2/south/frame_005.png"
+        ],
+        "east": [
+          "animations/Walking-513295a2/east/frame_000.png",
+          "animations/Walking-513295a2/east/frame_001.png",
+          "animations/Walking-513295a2/east/frame_002.png",
+          "animations/Walking-513295a2/east/frame_003.png",
+          "animations/Walking-513295a2/east/frame_004.png",
+          "animations/Walking-513295a2/east/frame_005.png"
+        ],
+        "south-east": [
+          "animations/Walking-513295a2/south-east/frame_000.png",
+          "animations/Walking-513295a2/south-east/frame_001.png",
+          "animations/Walking-513295a2/south-east/frame_002.png",
+          "animations/Walking-513295a2/south-east/frame_003.png",
+          "animations/Walking-513295a2/south-east/frame_004.png",
+          "animations/Walking-513295a2/south-east/frame_005.png"
+        ],
+        "north": [
+          "animations/Walking-513295a2/north/frame_000.png",
+          "animations/Walking-513295a2/north/frame_001.png",
+          "animations/Walking-513295a2/north/frame_002.png",
+          "animations/Walking-513295a2/north/frame_003.png",
+          "animations/Walking-513295a2/north/frame_004.png",
+          "animations/Walking-513295a2/north/frame_005.png"
+        ],
+        "north-east": [
+          "animations/Walking-513295a2/north-east/frame_000.png",
+          "animations/Walking-513295a2/north-east/frame_001.png",
+          "animations/Walking-513295a2/north-east/frame_002.png",
+          "animations/Walking-513295a2/north-east/frame_003.png",
+          "animations/Walking-513295a2/north-east/frame_004.png",
+          "animations/Walking-513295a2/north-east/frame_005.png"
+        ],
+        "north-west": [
+          "animations/Walking-513295a2/north-west/frame_000.png",
+          "animations/Walking-513295a2/north-west/frame_001.png",
+          "animations/Walking-513295a2/north-west/frame_002.png",
+          "animations/Walking-513295a2/north-west/frame_003.png",
+          "animations/Walking-513295a2/north-west/frame_004.png",
+          "animations/Walking-513295a2/north-west/frame_005.png"
+        ],
+        "south-west": [
+          "animations/Walking-513295a2/south-west/frame_000.png",
+          "animations/Walking-513295a2/south-west/frame_001.png",
+          "animations/Walking-513295a2/south-west/frame_002.png",
+          "animations/Walking-513295a2/south-west/frame_003.png",
+          "animations/Walking-513295a2/south-west/frame_004.png",
+          "animations/Walking-513295a2/south-west/frame_005.png"
+        ],
+        "west": [
+          "animations/Walking-513295a2/west/frame_000.png",
+          "animations/Walking-513295a2/west/frame_001.png",
+          "animations/Walking-513295a2/west/frame_002.png",
+          "animations/Walking-513295a2/west/frame_003.png",
+          "animations/Walking-513295a2/west/frame_004.png",
+          "animations/Walking-513295a2/west/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-16T09:43:50.141833"
+}

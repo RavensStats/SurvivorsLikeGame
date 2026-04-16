@@ -574,7 +574,12 @@ public class MainMenuManager : MonoBehaviour {
     // GAME OVER
     // ═════════════════════════════════════════════════════════════════════════
     void BuildGameOver(RunRecord record = null) {
-        if (gameOverPanel != null) Destroy(gameOverPanel);
+        if (gameOverPanel != null) {
+            // Deactivate immediately (Destroy is deferred) so it can't block raycasts
+            // on the new panel during the one frame before destruction is processed.
+            gameOverPanel.SetActive(false);
+            Destroy(gameOverPanel);
+        }
         gameOverPanel = MakeFullPanel("GameOverPanel");
 
         MakeText(gameOverPanel.transform, "YOU DIED", 56, FontStyle.Bold, new Color(0.9f, 0.1f, 0.1f, 1f),
@@ -684,6 +689,7 @@ public class MainMenuManager : MonoBehaviour {
         LevelUpManager.Instance?.ForceClose();
         SetGameplayUIVisible(false);
         canvas.gameObject.SetActive(true);
+        ShowPanel(null); // hide any panel that was active when the canvas was deactivated
         BuildGameOver(record);
         ShowPanel(gameOverPanel);
     }

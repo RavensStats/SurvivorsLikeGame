@@ -143,10 +143,7 @@ public class EnemySpawner : MonoBehaviour {
         float biomeDmgMult    = 1f;
         float biomeSpeedMult  = 1f;
         if (worldGen != null && worldGen.biomes != null && worldGen.biomes.Count > 0) {
-            float noise = Mathf.PerlinNoise(
-                (pos.x / WorldGenerator.ChunkSize + 1000f) * worldGen.biomeNoiseScale,
-                (pos.y / WorldGenerator.ChunkSize + 1000f) * worldGen.biomeNoiseScale);
-            int biomeIdx = Mathf.Clamp(Mathf.FloorToInt(noise * worldGen.biomes.Count), 0, worldGen.biomes.Count - 1);
+            int biomeIdx = worldGen.GetBiomeIndex(pos);
             BiomeData b   = worldGen.biomes[biomeIdx];
             // Guard against 0: Inspector-created BiomeData may serialize 0 for unset fields
             biomeHPMult    = b.enemyDamageMultiplier  > 0f ? b.enemyDamageMultiplier  : 1f;

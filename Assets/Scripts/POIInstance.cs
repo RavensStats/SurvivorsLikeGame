@@ -27,19 +27,8 @@ public class POIInstance : MonoBehaviour {
     // Trigger enter / exit — called by CircleCollider2D isTrigger
     // ─────────────────────────────────────────────────────────────────────────
 
-    void OnTriggerEnter2D(Collider2D other) {
-        if (other.transform != SurvivorMasterScript.Instance.player) return;
-        _playerInside = true;
-        OnPlayerEnter();
-    }
-
-    void OnTriggerExit2D(Collider2D other) {
-        if (other.transform != SurvivorMasterScript.Instance.player) return;
-        _playerInside = false;
-        OnPlayerExit();
-    }
-
     void OnPlayerEnter() {
+        WorldGenerator.Instance?.SetPoiActive(true);
         BiomePOIBanner.Show(type.ToString());
         switch (type) {
             case POIType.Graveyard:
@@ -133,6 +122,7 @@ public class POIInstance : MonoBehaviour {
     }
 
     void OnPlayerExit() {
+        WorldGenerator.Instance?.SetPoiActive(false);
         // Return to showing the biome the player is standing in
         if (WorldGenerator.Instance != null)
             WorldGenerator.Instance.ShowCurrentBiome();
@@ -223,6 +213,15 @@ public class POIInstance : MonoBehaviour {
     // Update — Time Rift fluctuation (runs regardless of player inside)
     // ─────────────────────────────────────────────────────────────────────────
     void Update() {
+        // Distance-based enter/exit so the banner fires when the player's CENTRE crosses
+        // the zone boundary, not when their physics collider edge touches it.
+        var sms = SurvivorMasterScript.Instance;
+        if (sms?.player != null) {
+            bool inside = Vector2.Distance(sms.player.position, transform.position) <= ZoneRadius;
+            if (inside && !_playerInside)  { _playerInside = true;  OnPlayerEnter(); }
+            else if (!inside && _playerInside) { _playerInside = false; OnPlayerExit(); }
+        }
+
         if (_playerInside && type == POIType.TimeRift) {
             float t = Mathf.PingPong(Time.unscaledTime * 0.25f, 1f);
             Time.timeScale = Mathf.Lerp(0.5f, 1.5f, t);

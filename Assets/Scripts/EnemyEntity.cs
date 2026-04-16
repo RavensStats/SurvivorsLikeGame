@@ -9,6 +9,8 @@ public class EnemyEntity : MonoBehaviour {
     public float attackRange = 1.0f;
     public bool  isDead = false;
     public Vector2Int currentCell = new Vector2Int(-99, -99);
+    // Multiplicative bonus applied to all incoming damage (stacks additively across sources).
+    public float damageTakenMult = 1f;
 
     // ── Behavior timers / state ────────────────────────────────────────────────
     private float chargeTimer    = 0f;
@@ -586,9 +588,10 @@ public class EnemyEntity : MonoBehaviour {
     public void TakeDamage(float d) {
         if (isDead) return;
         if (IsInvulnerable()) return;
-        SurvivorMasterScript.Instance.RegisterDamageDealt(d);
         var b = SurvivorMasterScript.Instance.BestiaryLookup.TryGetValue(behavior, out var entry) ? entry : null;
         if (b != null && b.isHunterBonusUnlocked) d *= 1.15f;
+        d *= damageTakenMult;
+        SurvivorMasterScript.Instance.RegisterDamageDealt(d);
         FloatingText.Spawn(transform.position, d);
         hp -= d;
         UpdateHealthBar();

@@ -16,17 +16,29 @@ public class ProjectileLogic : MonoBehaviour {
     public void Setup(ItemData item, Vector2 direction, EnemyEntity target = null) {
         d = item; dir = direction; p = item.pierceCount; _target = target; Destroy(gameObject, 5f);
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        // Arcane Arrow sprite is drawn at 45° (front faces top-right), so subtract 45° to align with travel direction.
+        if (item.itemName == "Arcane Arrow") angle -= 45f;
         transform.rotation = Quaternion.Euler(0f, 0f, angle);
         // Apply per-weapon scale for runtime-built projectiles (prefab instances keep their authored scale).
         if (item.projectilePrefab == null)
             transform.localScale = Vector3.one * item.projectileScale;
-        // Load directional sprite from Resources when the SpriteRenderer has no sprite assigned
+        // Load directional sprite from Resources when the SpriteRenderer has no sprite assigned.
+        // Tries the folder-name convention first (e.g. Dart/Dart.png, Shuriken/Shuriken.png)
+        // then falls back to a directional "East" sprite (e.g. Arrow/East.png).
         var sr = GetComponent<SpriteRenderer>();
         if (sr != null && sr.sprite == null && !string.IsNullOrEmpty(item.spriteFolder)) {
-            Sprite spr = item.spriteFolder.Contains("/")
-                ? Resources.Load<Sprite>($"Sprites/{item.spriteFolder}")
-                : Resources.Load<Sprite>($"Sprites/Weapons/{item.spriteFolder}/East");
-            if (spr != null) sr.sprite = spr;
+            string path = item.spriteFolder.Contains("/")
+                ? $"Sprites/{item.spriteFolder}"
+                : $"Sprites/Weapons/{item.spriteFolder}/{item.spriteFolder}";
+            Sprite[] frames = Resources.LoadAll<Sprite>(path);
+            if (frames == null || frames.Length == 0) {
+                Sprite east = Resources.Load<Sprite>($"Sprites/Weapons/{item.spriteFolder}/East");
+                frames = east != null ? new[] { east } : null;
+            }
+            if (frames != null && frames.Length > 0) {
+                sr.sprite = frames[0];
+                if (frames.Length > 1) { var anim = gameObject.AddComponent<WeaponSpriteAnimator>(); anim.Init(frames); }
+            }
         }
     }
     void Update() {
@@ -52,6 +64,9 @@ public class ProjectileLogic : MonoBehaviour {
         if (entity == null || entity.isDead) return;
         float dmg = d.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
         entity.TakeDamage(dmg);
+        // Arcane Arrow: spawn a magic pool at the hit location (cap = weapon level).
+        if (d.itemName == "Arcane Arrow")
+            ArcanePool.Spawn(other.transform.position, d.level);
         if (!entity.isDead && d.knockback > 0f) entity.ApplyKnockback(dir, d.knockback);
         if (d.trait == WeaponTrait.Bouncy) { dir = Random.insideUnitCircle.normalized; hit.Clear(); }
         p--; if (p <= 0 && d.trait != WeaponTrait.Bouncy) { _dead = true; Destroy(gameObject); }
