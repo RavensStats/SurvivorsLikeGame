@@ -16,8 +16,8 @@ public class ProjectileLogic : MonoBehaviour {
     public void Setup(ItemData item, Vector2 direction, EnemyEntity target = null) {
         d = item; dir = direction; p = item.pierceCount; _target = target; Destroy(gameObject, 5f);
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
-        // Arcane Arrow sprite is drawn at 45° (front faces top-right), so subtract 45° to align with travel direction.
-        if (item.itemName == "Arcane Arrow") angle -= 45f;
+        // Arcane Arrow and Blowgun (Dart) sprites are drawn at 45° (front faces top-right), so subtract 45° to align with travel direction.
+        if (item.itemName == "Arcane Arrow" || item.itemName == "Blowgun") angle -= 45f;
         transform.rotation = Quaternion.Euler(0f, 0f, angle);
         // Apply per-weapon scale for runtime-built projectiles (prefab instances keep their authored scale).
         if (item.projectilePrefab == null)

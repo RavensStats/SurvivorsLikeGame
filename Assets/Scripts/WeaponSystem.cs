@@ -66,6 +66,12 @@ public class WeaponSystem : MonoBehaviour {
         if (w.fireMode == FireMode.ScytheOrbit) { StartCoroutine(FireScytheSwipe(w)); return; }
         if (w.fireMode == FireMode.RisingFist)     { StartCoroutine(FireRisingFist(w));     return; }
         if (w.fireMode == FireMode.ChainLightning)  { StartCoroutine(FireChainLightning(w)); return; }
+        if (w.fireMode == FireMode.VoidOrb)         { StartCoroutine(FireVoidOrb(w));         return; }
+        if (w.fireMode == FireMode.HolySword)        { StartCoroutine(FireHolySword(w));        return; }
+        if (w.fireMode == FireMode.AnimatedStrike)   { StartCoroutine(FireAnimatedStrike(w));   return; }
+        if (w.fireMode == FireMode.OracleBeam)        { StartCoroutine(FireOracleBeam(w));        return; }
+        if (w.fireMode == FireMode.SpectralBeam)      { StartCoroutine(FireSpectralBeam(w));      return; }
+        if (w.fireMode == FireMode.TidalWave)          { StartCoroutine(FireTidalWave(w));          return; }
 
         if (w.projectilePrefab == null && string.IsNullOrEmpty(w.spriteFolder)) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab or spriteFolder assigned."); return; }
         switch (w.fireMode) {
@@ -426,6 +432,574 @@ public class WeaponSystem : MonoBehaviour {
             if (i < totalStrikes - 1)
                 cur = FindNearestUnstruck(strikeFrom, struck, w.range);
         }
+    }
+
+    // Fires a single spinning VoidOrb projectile toward the nearest enemy.
+    // On hit: deals damage, then splits into (level + 2) smaller orbs.
+    // Each split orb arcs outward in a parabolic bounce to a random point on a circle
+    // of randomized radius around the hit location, then despawns.
+    IEnumerator FireVoidOrb(ItemData w) {
+        Vector3 origin = PlayerPos;
+
+        // Find nearest on-screen enemy.
+        var candidates = SurvivorMasterScript.Instance.Grid.GetNearby(origin);
+        candidates.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
+        if (candidates.Count == 0) yield break;
+        candidates.Sort((a, b) =>
+            (a.transform.position - origin).sqrMagnitude
+            .CompareTo((b.transform.position - origin).sqrMagnitude));
+        EnemyEntity target = candidates[0];
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        // Build the main orb GameObject.
+        var orb = new GameObject("VoidOrb_Main");
+        orb.transform.position = origin;
+        var sr = orb.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 8;
+        if (spr != null) sr.sprite = spr;
+        float orbScale = w.projectileScale > 0f ? w.projectileScale : 5f;
+        orb.transform.localScale = Vector3.one * orbScale;
+
+        const float speed     = 12f;
+        const float spinSpeed = 360f;  // degrees per second
+        const float hitRadius = 1.0f;
+        bool didHit = false;
+
+        while (orb != null) {
+            if (target == null || target.isDead) { Destroy(orb); yield break; }
+
+            Vector2 delta = (Vector2)(target.transform.position - orb.transform.position);
+            float step = speed * Time.deltaTime;
+            orb.transform.Rotate(0f, 0f, spinSpeed * Time.deltaTime);
+
+            if (delta.magnitude <= step + hitRadius) {
+                didHit = true;
+                break; // close enough — register the hit
+            }
+            orb.transform.position += (Vector3)(delta.normalized * step);
+            yield return null;
+        }
+
+        if (!didHit || orb == null) { if (orb != null) Destroy(orb); yield break; }
+
+        Vector3 hitPos = target.transform.position;
+        Destroy(orb);
+
+        // Deal main-orb damage.
+        float dmg = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+        if (!target.isDead) {
+            target.TakeDamage(dmg);
+        }
+
+        // Spawn (level + 2) split orbs, each landing on a random point on a circle of
+        // randomized radius around the hit position.
+        int splitCount  = w.level + 2;
+        float splitScale = orbScale * 1.0f;
+        float splitDmg   = dmg * 0.5f;
+        for (int i = 0; i < splitCount; i++) {
+            float angle  = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            float radius = Random.Range(0.5f, 7.5f);
+            Vector3 landAt = hitPos + new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0f);
+            StartCoroutine(VoidOrbSplitArc(hitPos, landAt, spr, splitScale, splitDmg));
+        }
+    }
+
+    // Moves a split VoidOrb in a parabolic arc from 'from' to 'to', spinning as it travels.
+    // Deals splitDmg to any enemy at the landing point, then despawns.
+    IEnumerator VoidOrbSplitArc(Vector3 from, Vector3 to, Sprite spr, float scale, float splitDmg) {
+        var go = new GameObject("VoidOrb_Split");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 8;
+        if (spr != null) sr.sprite = spr;
+        go.transform.localScale = Vector3.one * scale;
+
+        float duration  = Random.Range(0.35f, 0.6f);
+        float arcHeight = Random.Range(0.8f, 2.0f);
+        // Randomize spin direction so orbs feel chaotic.
+        float spinSpeed = Random.Range(200f, 500f) * (Random.value < 0.5f ? 1f : -1f);
+        float elapsed   = 0f;
+
+        while (elapsed < duration) {
+            if (go == null) yield break;
+            float t   = elapsed / duration;
+            // Lerp horizontally, add a sine-curve vertical arc (peaks at t=0.5, zero at t=0 and t=1).
+            Vector3 pos = Vector3.Lerp(from, to, t);
+            pos.y += arcHeight * Mathf.Sin(t * Mathf.PI);
+            go.transform.position = pos;
+            go.transform.Rotate(0f, 0f, spinSpeed * Time.deltaTime);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (go != null) Destroy(go);
+
+        // Deal damage to the first enemy found at the landing point.
+        if (splitDmg > 0f) {
+            foreach (var col in Physics2D.OverlapCircleAll(to, 0.6f)) {
+                if (!col.CompareTag("Enemy")) continue;
+                var e = col.GetComponent<EnemyEntity>();
+                if (e == null || e.isDead) continue;
+                e.TakeDamage(splitDmg);
+                break;
+            }
+        }
+    }
+
+    // Tracks which enemies are currently being targeted by an in-flight HolySword strike,
+    // so concurrent strikes never double-target the same enemy.
+    private readonly HashSet<EnemyEntity> _holySwordTargeted = new HashSet<EnemyEntity>();
+
+    // Spawns w.level simultaneous HolySword strikes, each targeting the nearest un-targeted enemy.
+    // Each sword appears above the target, drops rapidly downward, damages all enemies it passes
+    // through, then despawns.
+    IEnumerator FireHolySword(ItemData w) {
+        Vector3 playerPos = PlayerPos;
+        var candidates = SurvivorMasterScript.Instance.Grid.GetNearby(playerPos);
+        candidates.RemoveAll(e => e == null || e.isDead
+            || !SurvivorMasterScript.IsOnScreen(e.transform.position)
+            || _holySwordTargeted.Contains(e));
+        candidates.Sort((a, b) =>
+            (a.transform.position - playerPos).sqrMagnitude
+            .CompareTo((b.transform.position - playerPos).sqrMagnitude));
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+        float dmg = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        int strikes = Mathf.Min(w.level, candidates.Count);
+        for (int i = 0; i < strikes; i++) {
+            EnemyEntity target = candidates[i];
+            _holySwordTargeted.Add(target);
+            StartCoroutine(HolySwordDrop(target, spr, dmg, w.knockback));
+        }
+        yield break;
+    }
+
+    // Drops a single HolySword sprite from above the target downward, dealing damage
+    // to every enemy whose collider it overlaps during the fall, then despawns.
+    IEnumerator HolySwordDrop(EnemyEntity target, Sprite spr, float dmg, float knockback) {
+        const float spawnHeightAboveTarget = 5f;   // world-units above target
+        const float dropDistance           = 8f;   // total downward travel
+        const float dropSpeed              = 22f;  // world-units per second
+        const float hitRadius             = 0.7f;  // overlap check radius
+
+        Vector3 startPos = target.transform.position + Vector3.up * spawnHeightAboveTarget;
+
+        var go = new GameObject("HolySword_VFX");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 9;
+        if (spr != null) sr.sprite = spr;
+        go.transform.position = startPos;
+        // Scale to a reasonable world size (~2 units tall).
+        if (spr != null) {
+            float naturalH = spr.rect.height / spr.pixelsPerUnit;
+            float scale = naturalH > 0f ? 10f / naturalH : 1f;
+            go.transform.localScale = Vector3.one * scale;
+        }
+
+        // Brief pause — sword tracks the enemy's live position during the hover.
+        float hoverElapsed = 0f;
+        const float hoverDuration = 0.35f;
+        while (hoverElapsed < hoverDuration) {
+            if (go == null) { _holySwordTargeted.Remove(target); yield break; }
+            if (target != null && !target.isDead)
+                go.transform.position = target.transform.position + Vector3.up * spawnHeightAboveTarget;
+            hoverElapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        float traveled = 0f;
+        var alreadyHit = new HashSet<EnemyEntity>();
+
+        while (traveled < dropDistance) {
+            if (go == null) break;
+            float step = dropSpeed * Time.deltaTime;
+            go.transform.position += Vector3.down * step;
+            traveled += step;
+
+            // Damage every enemy overlapping the sword's current position.
+            foreach (var col in Physics2D.OverlapCircleAll(go.transform.position, hitRadius)) {
+                if (!col.CompareTag("Enemy")) continue;
+                var e = col.GetComponent<EnemyEntity>();
+                if (e == null || e.isDead || alreadyHit.Contains(e)) continue;
+                alreadyHit.Add(e);
+                e.TakeDamage(dmg);
+                if (knockback > 0f) e.ApplyKnockback(Vector2.down, knockback);
+            }
+
+            yield return null;
+        }
+
+        _holySwordTargeted.Remove(target);
+        if (go != null) Destroy(go);
+    }
+
+    // Generic animated-strike attack: finds up to w.level targets within w.range, spawns a sprite
+    // VFX at each one that tracks the enemy and plays through all frames, then deals damage and despawns.
+    // Used by: Spectral Beam, Oracle Beam, Psychic Blast, Creeping Vines, Tidal Wave,
+    //           Sentry Gun, Blood Pool, Spirit Aura.
+    IEnumerator FireAnimatedStrike(ItemData w) {
+        const float displayDuration = 0.5f;
+
+        Vector3 playerPos = PlayerPos;
+        var candidates = SurvivorMasterScript.Instance.Grid.GetNearby(playerPos);
+        candidates.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
+        if (w.range > 0f) {
+            float rangeSq = w.range * w.range;
+            candidates = candidates.Where(e => (e.transform.position - playerPos).sqrMagnitude <= rangeSq).ToList();
+        }
+        if (candidates.Count == 0) yield break;
+
+        candidates.Sort((a, b) =>
+            (a.transform.position - playerPos).sqrMagnitude
+            .CompareTo((b.transform.position - playerPos).sqrMagnitude));
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        float dmg   = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+        float scale = w.projectileScale > 0f ? w.projectileScale : 3f;
+        int count   = Mathf.Min(w.level, candidates.Count);
+
+        for (int i = 0; i < count; i++)
+            StartCoroutine(AnimatedStrikeVFX(candidates[i], frames, scale, displayDuration, dmg));
+
+        yield break;
+    }
+
+    // Spawns an animated VFX at the target enemy, tracks its position, plays all frames over
+    // displayDuration, deals damage immediately, then despawns.
+    IEnumerator AnimatedStrikeVFX(EnemyEntity target, Sprite[] frames, float scale, float duration, float dmg) {
+        if (target == null || target.isDead) yield break;
+
+        // Deal damage up-front (like ChainLightning).
+        target.TakeDamage(dmg);
+
+        if (frames == null || frames.Length == 0) yield break;
+
+        var go = new GameObject("AnimatedStrike_VFX");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 8;
+        sr.sprite = frames[0];
+        go.transform.localScale = Vector3.one * scale;
+        go.transform.position = target != null ? target.transform.position : go.transform.position;
+
+        if (frames.Length > 1) {
+            var anim = go.AddComponent<WeaponSpriteAnimator>();
+            anim.Init(frames, duration: duration);
+        }
+
+        float elapsed = 0f;
+        while (elapsed < duration) {
+            if (go == null) yield break;
+            // Track the enemy's live position so the VFX stays centred on them.
+            if (target != null && !target.isDead)
+                go.transform.position = target.transform.position;
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (go != null) Destroy(go);
+    }
+
+    // Tracks which enemies are currently being targeted by an in-flight OracleBeam,
+    // so concurrent beams never double-target the same enemy.
+    private readonly HashSet<EnemyEntity> _oracleBeamTargeted = new HashSet<EnemyEntity>();
+
+    // Persistent angle for SpectralBeam; advances 45° CCW each attack.
+    private float _spectralBeamAngle = 0f;
+
+    // Fires w.level simultaneous OracleBeam strikes at the nearest un-targeted enemies.
+    IEnumerator FireOracleBeam(ItemData w) {
+        Vector3 playerPos = PlayerPos;
+        var candidates = SurvivorMasterScript.Instance.Grid.GetNearby(playerPos);
+        candidates.RemoveAll(e => e == null || e.isDead
+            || !SurvivorMasterScript.IsOnScreen(e.transform.position)
+            || _oracleBeamTargeted.Contains(e));
+        if (w.range > 0f) {
+            float rangeSq = w.range * w.range;
+            candidates = candidates.Where(e => (e.transform.position - playerPos).sqrMagnitude <= rangeSq).ToList();
+        }
+        candidates.Sort((a, b) =>
+            (a.transform.position - playerPos).sqrMagnitude
+            .CompareTo((b.transform.position - playerPos).sqrMagnitude));
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        float dmg = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        int strikes = Mathf.Min(w.level, candidates.Count);
+        for (int i = 0; i < strikes; i++) {
+            EnemyEntity target = candidates[i];
+            _oracleBeamTargeted.Add(target);
+            StartCoroutine(OracleBeamVFX(target, frames, dmg));
+        }
+        yield break;
+    }
+
+    // Hovers the OracleBeam sprite above the target's head, tracking their live position,
+    // plays through all frames once, deals damage, then despawns.
+    IEnumerator OracleBeamVFX(EnemyEntity target, Sprite[] frames, float dmg) {
+        const float heightAboveHead = 7f;     // world-units above enemy centre (anchors the top of the last frame)
+        const float displayDuration = 0.6f;   // total time the beam is visible
+        const float spriteScale     = 30f;    // uniform scale applied to sprite
+
+        if (frames == null || frames.Length == 0) {
+            if (target != null && !target.isDead) target.TakeDamage(dmg);
+            _oracleBeamTargeted.Remove(target);
+            yield break;
+        }
+
+        var go = new GameObject("OracleBeam_VFX");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 9;
+        sr.sprite = frames[0];
+        go.transform.localScale = Vector3.one * spriteScale;
+
+        // Pre-compute the scaled height of every frame so we can do top-anchor math each frame.
+        // The "fixed top" is the top edge of the last (tallest/full) frame, held at heightAboveHead
+        // above the enemy.  Each frame is repositioned so its top stays at that same world-Y.
+        float[] frameHeights = new float[frames.Length];
+        for (int fi = 0; fi < frames.Length; fi++)
+            frameHeights[fi] = (frames[fi].rect.height / frames[fi].pixelsPerUnit) * spriteScale;
+
+        float lastFrameH = frameHeights[frames.Length - 1];
+
+        // Manual frame timer (mirrors WeaponSpriteAnimator logic but with top-anchor repositioning).
+        float frameInterval = frames.Length > 1 ? displayDuration / frames.Length : displayDuration;
+        int   currentFrame  = 0;
+        float frameTimer    = 0f;
+        float elapsed       = 0f;
+
+        while (elapsed < displayDuration) {
+            if (go == null) { _oracleBeamTargeted.Remove(target); yield break; }
+
+            // Determine the world-Y of the fixed top edge: enemy Y + heightAboveHead puts the
+            // top of the last frame there.  top = anchorTopY, so centre = top - halfH.
+            Vector3 enemyPos = (target != null && !target.isDead)
+                ? target.transform.position
+                : go.transform.position;
+            float anchorTopY = enemyPos.y + heightAboveHead;
+            float halfH      = frameHeights[currentFrame] * 0.5f;
+            go.transform.position = new Vector3(enemyPos.x, anchorTopY - halfH, 0f);
+
+            // Advance frame.
+            frameTimer += Time.deltaTime;
+            while (frameTimer >= frameInterval && currentFrame < frames.Length - 1) {
+                frameTimer -= frameInterval;
+                currentFrame++;
+                sr.sprite = frames[currentFrame];
+            }
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        // Deal damage once the full animation has played.
+        if (target != null && !target.isDead)
+            target.TakeDamage(dmg);
+
+        _oracleBeamTargeted.Remove(target);
+        if (go != null) Destroy(go);
+    }
+
+    // Fires a spectral beam from the player outward at _spectralBeamAngle,
+    // rotating 45° CCW each attack. Cooldown decreases with level.
+    IEnumerator FireSpectralBeam(ItemData w)
+    {
+        // Scale cooldown: level 1 = baseCooldown, level 5 = 20% of baseCooldown.
+        float baseCooldown = 1.4f;
+        w.cooldown = Mathf.Lerp(baseCooldown, baseCooldown * 0.2f, (w.level - 1) / 4f);
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        if (frames == null || frames.Length == 0) yield break;
+
+        float displayDuration = 0.75f;
+        float beamAngle = _spectralBeamAngle; // snapshot angle for this attack
+        _spectralBeamAngle = (_spectralBeamAngle + 45f) % 360f;
+
+        // Direction the beam points (CCW from right).
+        float angleRad = beamAngle * Mathf.Deg2Rad;
+        Vector2 beamDir = new Vector2(Mathf.Cos(angleRad), Mathf.Sin(angleRad));
+
+        float scale = 35f;
+        const float gapFromPlayer = 2.5f;
+
+        // Pre-compute scaled dimensions per frame (frames may vary in height).
+        float[] frameHeights = new float[frames.Length];
+        float[] frameWidths  = new float[frames.Length];
+        for (int fi = 0; fi < frames.Length; fi++)
+        {
+            float ppu = frames[fi].pixelsPerUnit;
+            frameHeights[fi] = (frames[fi].rect.height / ppu) * scale;
+            frameWidths[fi]  = (frames[fi].rect.width  / ppu) * scale;
+        }
+
+        // The bottom (player-side) edge anchors gapFromPlayer units ahead of the player,
+        // recalculated every frame so the beam tracks player movement.
+        // Rotation: local +Y along beamDir, so local -Y (bottom) points back toward player.
+        float rotZ = Mathf.Atan2(beamDir.y, beamDir.x) * Mathf.Rad2Deg - 90f;
+
+        // Spawn the beam GameObject.
+        GameObject go = new GameObject("SpectralBeam");
+        go.transform.rotation   = Quaternion.Euler(0f, 0f, rotZ);
+        go.transform.localScale = new Vector3(scale, scale, 1f);
+
+        SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite          = frames[0];
+        sr.sortingLayerName = "Default";
+        sr.sortingOrder    = 5;
+
+        // Manual frame loop — repositions sprite center so bottom edge tracks with player.
+        float dmg           = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+        var   alreadyHit    = new HashSet<EnemyEntity>();
+        float frameInterval = displayDuration / frames.Length;
+        int   currentFrame  = 0;
+        float frameTimer    = 0f;
+        float elapsed       = 0f;
+
+        while (elapsed < displayDuration)
+        {
+            if (go == null) yield break;
+
+            // Recompute anchor from live player position each frame.
+            Vector3 anchorBottom = PlayerPos + (Vector3)(beamDir * gapFromPlayer);
+
+            // Pin bottom edge: center = anchorBottom + beamDir * halfHeight.
+            float halfH = frameHeights[currentFrame] * 0.5f;
+            go.transform.position = anchorBottom + (Vector3)(beamDir * halfH);
+
+            // Hit detection using current frame's exact box.
+            foreach (Collider2D col in Physics2D.OverlapBoxAll(
+                go.transform.position,
+                new Vector2(frameWidths[currentFrame], frameHeights[currentFrame]),
+                rotZ))
+            {
+                if (!col.CompareTag("Enemy")) continue;
+                EnemyEntity e = col.GetComponent<EnemyEntity>();
+                if (e == null || e.isDead || alreadyHit.Contains(e)) continue;
+                alreadyHit.Add(e);
+                e.TakeDamage(dmg);
+            }
+
+            // Advance frame.
+            frameTimer += Time.deltaTime;
+            while (frameTimer >= frameInterval && currentFrame < frames.Length - 1)
+            {
+                frameTimer -= frameInterval;
+                currentFrame++;
+                sr.sprite = frames[currentFrame];
+            }
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (go != null) Destroy(go);
+    }
+
+    // Fires multiple wave projectiles outward from the player at random angles.
+    // Wave count: 3 at level 1, +1 per level up to level 4, then +5 at level 5 (total 11).
+    IEnumerator FireTidalWave(ItemData w)
+    {
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        if (frames == null || frames.Length == 0) yield break;
+
+        int waveCount = w.level switch
+        {
+            1 => 3,
+            2 => 4,
+            3 => 5,
+            4 => 6,
+            _ => 11  // level 5+
+        };
+
+        float dmg = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        for (int i = 0; i < waveCount; i++)
+        {
+            float angle = Random.Range(0f, 360f);
+            StartCoroutine(TidalWaveProjectile(w, frames, angle, dmg));
+        }
+
+        yield break;
+    }
+
+    IEnumerator TidalWaveProjectile(ItemData w, Sprite[] frames, float angleDeg, float dmg)
+    {
+        const float startOffset  = 2f;   // world units from player at spawn
+        const float spriteScale  = 6f;
+        const float moveSpeed    = 10f;
+        const float animDuration = 0.4f; // time to play all frames once
+
+        float angleRad = angleDeg * Mathf.Deg2Rad;
+        Vector2 dir    = new Vector2(Mathf.Cos(angleRad), Mathf.Sin(angleRad));
+        float maxRange = w.range;
+
+        // Measure native sprite size.
+        float ppu         = frames[0].pixelsPerUnit;
+        float spriteW     = (frames[0].rect.width  / ppu) * spriteScale;
+        float spriteH     = (frames[0].rect.height / ppu) * spriteScale;
+
+        // Rotate: sprite +X points along travel direction.
+        float rotZ = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+
+        GameObject go = new GameObject("TidalWave");
+        go.transform.rotation   = Quaternion.Euler(0f, 0f, rotZ);
+        go.transform.localScale = new Vector3(spriteScale, spriteScale, 1f);
+
+        SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
+        sr.sprite           = frames[0];
+        sr.sortingLayerName = "Default";
+        sr.sortingOrder     = 5;
+        // Flip vertically for waves traveling between 90° and 270° so the sprite stays upright.
+        sr.flipY = angleDeg >= 90f && angleDeg <= 270f;
+
+        float frameInterval = frames.Length > 1 ? animDuration / frames.Length : animDuration;
+        int   currentFrame  = 0;
+        float frameTimer    = 0f;
+
+        float traveled   = 0f;
+        var   alreadyHit = new HashSet<EnemyEntity>();
+
+        // Start just outside the player.
+        Vector3 spawnPos = PlayerPos + (Vector3)(dir * startOffset);
+        go.transform.position = spawnPos;
+        traveled = 0f;
+
+        while (traveled < maxRange)
+        {
+            if (go == null) yield break;
+
+            float step = moveSpeed * Time.deltaTime;
+            go.transform.position += (Vector3)(dir * step);
+            traveled += step;
+
+            // Damage enemies overlapping the sprite's current footprint.
+            foreach (Collider2D col in Physics2D.OverlapBoxAll(
+                go.transform.position,
+                new Vector2(spriteW, spriteH),
+                rotZ))
+            {
+                if (!col.CompareTag("Enemy")) continue;
+                EnemyEntity e = col.GetComponent<EnemyEntity>();
+                if (e == null || e.isDead || alreadyHit.Contains(e)) continue;
+                alreadyHit.Add(e);
+                e.TakeDamage(dmg);
+            }
+
+            // Advance animation (loops if wave travels further than one cycle).
+            frameTimer += Time.deltaTime;
+            while (frameTimer >= frameInterval)
+            {
+                frameTimer -= frameInterval;
+                currentFrame = (currentFrame + 1) % frames.Length;
+                sr.sprite = frames[currentFrame];
+            }
+
+            yield return null;
+        }
+
+        if (go != null) Destroy(go);
     }
 
     public void CheckSynergies() {

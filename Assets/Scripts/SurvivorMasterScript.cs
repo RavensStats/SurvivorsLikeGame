@@ -134,7 +134,12 @@ public class SurvivorMasterScript : MonoBehaviour {
         float actual = amt * PersistentUpgrades.XPRateMult * (1f + RunUpgrades.XPRateBonus);
         xp += actual;
         totalXPGained += actual;
-        if (xp >= xpMax) { xp = 0; xpMax *= 1.2f; playerLevel++; LevelUpManager.Instance?.Show(3 + poiExtraCards); }
+        while (xp >= xpMax) {
+            xp -= xpMax;   // carry overflow into next level
+            xpMax *= 1.2f;
+            playerLevel++;
+            LevelUpManager.Instance?.Show(3 + poiExtraCards);
+        }
     }
 
     public void RegisterDamageDealt(float amt) => totalDamageDealt += amt;

@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 18d05e2c7c27017498e449ddaa3b402c
+guid: 4d8bef091cf36fa4d8943baf148dc9a9
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: 3708151244641688243
-    second: Psychic_0
+      213: 5095838038995998396
+    second: frame_0007_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -139,13 +139,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Psychic_0
+      name: frame_0007_0
       rect:
         serializedVersion: 2
-        x: 0
-        y: 0
-        width: 32
-        height: 32
+        x: 11
+        y: 12
+        width: 9
+        height: 9
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -154,8 +154,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 3ba5a4e09eff57330800000000000000
-      internalID: 3708151244641688243
+      spriteID: cb6974392bd08b640800000000000000
+      internalID: 5095838038995998396
       vertices: []
       indices: 
       edges: []
@@ -174,7 +174,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Psychic_0: 3708151244641688243
+      frame_0007_0: 5095838038995998396
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

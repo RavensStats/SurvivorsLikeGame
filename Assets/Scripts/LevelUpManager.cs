@@ -110,6 +110,11 @@ public class LevelUpManager : MonoBehaviour {
         cgo.AddComponent<GraphicRaycaster>();
     }
 
+    // Queue of pending upgrade screens when multiple level-ups happen at once.
+    private readonly Queue<(int cardCount, List<UpgradeOption> customOptions)> _showQueue
+        = new Queue<(int, List<UpgradeOption>)>();
+    private bool _isShowing = false;
+
     // ─────────────────────────────────────────────────────────────────────────
     // Public API
     // ─────────────────────────────────────────────────────────────────────────
@@ -119,6 +124,14 @@ public class LevelUpManager : MonoBehaviour {
 
     /// <summary>Show a specific list of upgrade cards.  Pass null to use the random pool.</summary>
     public void Show(int cardCount, List<UpgradeOption> customOptions) {
+        _showQueue.Enqueue((cardCount, customOptions));
+        if (!_isShowing) ShowNext();
+    }
+
+    void ShowNext() {
+        if (_showQueue.Count == 0) { _isShowing = false; return; }
+        _isShowing = true;
+        var (cardCount, customOptions) = _showQueue.Dequeue();
         Time.timeScale = 0f;
         var options = customOptions ?? GetRandomOptions(cardCount);
         BuildPanel(options);
@@ -210,11 +223,18 @@ public class LevelUpManager : MonoBehaviour {
 
     void Close() {
         if (panel != null) Destroy(panel);
-        Time.timeScale = 1f;
+        if (_showQueue.Count > 0)
+            ShowNext();   // chain the next pending upgrade screen
+        else {
+            _isShowing = false;
+            Time.timeScale = 1f;
+        }
     }
 
     /// <summary>Destroy the panel without resuming time – called when the player dies mid-selection.</summary>
     public void ForceClose() {
+        _showQueue.Clear();
+        _isShowing = false;
         if (panel != null) Destroy(panel);
     }
 
