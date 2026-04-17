@@ -99,7 +99,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
 
         // --- 1. POPULATE WEAPONS & ITEMS ---
         AddWeapon(ws, "Magician's Wand", "Fires a bolt at the nearest N enemies (N = level).",               Rarity.Common, 20f, 1.2f, 1,  WeaponTrait.None,     new List<string>{"Magic", "Projectiles"},  fireMode: FireMode.NearestN,      knockback: 1f, spriteFolder: "Wand", scale: 10f);
-        AddWeapon(ws, "Hunter's Bow",    "Fires an arrow at up to N random enemies in range (N = level).",   Rarity.Common, 8f,  1.8f, 1,  WeaponTrait.None,     new List<string>{"Physical", "Ranged"},    fireMode: FireMode.RandomInRange,  range: 35f,  spriteFolder: "Arrow", scale: 10f);
+        AddWeapon(ws, "Hunter's Bow",    "Fires an arrow at up to N random enemies in range (N = level).",   Rarity.Common, 8f,  1.8f, 1,  WeaponTrait.None,     new List<string>{"Physical", "Ranged"},    fireMode: FireMode.RangerArrow,    range: 35f,  spriteFolder: "Arrow", scale: 10f);
         AddWeapon(ws, "Longsword",        "Slashes nearby enemies in a quick arc.",                           Rarity.Common, 12f, 0.8f, 1,  WeaponTrait.None,     new List<string>{"Physical", "Melee"},    fireMode: FireMode.ArcSwing,       range: 12f, spriteFolder: "Sword");
         AddWeapon(ws, "Axe",              "Swings in a high-damage arc.",                                     Rarity.Common, 15f, 2.5f, 3,  WeaponTrait.Piercing, new List<string>{"Physical", "Melee"},    fireMode: FireMode.ArcSwing,       range: 4f, spriteFolder: "Axe");
         AddWeapon(ws, "Pyromancy",        "Orbits the player, burning enemies.",                              Rarity.Rare,   8f,  3.0f, 99, WeaponTrait.Rotating, new List<string>{"Fire", "Magic"},       fireMode: FireMode.Orbit, spriteFolder: "Flame");
@@ -114,7 +114,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         AddWeapon(ws, "Acid Flask",     "Thrown flask that shatters, leaving lingering acid.",             Rarity.Common, 12f, 1.5f,  1, WeaponTrait.Explosive,new List<string>{"Poison","Ranged"},     fireMode: FireMode.RandomInRange, range: 18f, spriteFolder: "PoisonPool");
         AddWeapon(ws, "Gold Coin",      "Tosses sharp coins that ricochet between up to 3 enemies.",       Rarity.Common, 9f,  0.6f,  3, WeaponTrait.Bouncy,   new List<string>{"Physical","Ranged"},   fireMode: FireMode.NearestN,  spriteFolder: "Misc/GoldCoin");
         AddWeapon(ws, "Spectral Beam",  "Pierces every enemy in a straight line.",                         Rarity.Rare,   15f, 1.4f,  999,WeaponTrait.Piercing,new List<string>{"Magic","Ranged"},      fireMode: FireMode.SpectralBeam, range: 25f, spriteFolder: "SpectralBeam");
-        AddWeapon(ws, "Blood Pool",     "Life-stealing bite — heals the player on every 5th kill.",        Rarity.Rare,   14f, 0.7f,  1, WeaponTrait.None,     new List<string>{"Physical","Melee"},    fireMode: FireMode.AnimatedStrike, range: 3f,  spriteFolder: "BloodPool");
+        AddWeapon(ws, "Blood Pool",     "Summons a vampiric blood pool that drains life from all enemies within it.", Rarity.Rare, 14f, 7.0f, 99, WeaponTrait.None, new List<string>{"Physical","Melee"}, fireMode: FireMode.BloodPool, range: 12f, spriteFolder: "BloodPool");
         AddWeapon(ws, "Katana",         "Dash-slash in a straight path, hitting all enemies in line.",     Rarity.Rare,   20f, 1.0f,  5, WeaponTrait.Piercing, new List<string>{"Physical","Melee"},    fireMode: FireMode.ArcSwing, range: 15f, spriteFolder: "Katana");
         AddWeapon(ws, "Ballad",            "Spiraling notes orbit the player, confusing enemies on contact.", Rarity.Common, 7f,  2.5f,  99,WeaponTrait.Rotating, new List<string>{"Magic","Support"},     fireMode: FireMode.Orbit,    spriteFolder: "MusicNote");
         AddWeapon(ws, "Sniper Rifle",      "Long-range bolt targeting the highest-HP enemy, high pierce.",    Rarity.Rare,   35f, 3.0f,  3, WeaponTrait.Piercing, new List<string>{"Physical","Ranged"},   fireMode: FireMode.RandomInRange, range: 60f, spriteFolder: "SniperReticle");
@@ -141,7 +141,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         AddWeapon(ws, "Shadow Clone",   "Creates a mirror clone that mimics all weapon attacks.",          Rarity.Rare,   10f, 2.0f,  1, WeaponTrait.None,     new List<string>{"Dark","Magic"},        fireMode: FireMode.NearestN);
 
         // ── Pool-only weapons ──────────────────────────────────────────────────
-        AddWeapon(ws, "Spirit Aura",    "A swirling spiritual ring that orbits and burns nearby enemies.",    Rarity.Rare,   6f,  2.0f, 99, WeaponTrait.Rotating, new List<string>{"Magic","Spirit"},      fireMode: FireMode.AnimatedStrike, range: 6f,  spriteFolder: "Aura");
+        AddWeapon(ws, "Spirit Aura",    "A swirling spiritual ring that orbits and burns nearby enemies.",    Rarity.Rare,   6f,  2.8f, 99, WeaponTrait.Rotating, new List<string>{"Magic","Spirit"},      fireMode: FireMode.MagicAura,     range: 6f,  spriteFolder: "Aura");
         AddWeapon(ws, "Caltrop Throw",  "Scatters spiked caltrops that slow and damage enemies on contact.", Rarity.Common, 10f, 1.5f,  2, WeaponTrait.None,     new List<string>{"Physical","Ranged"},   fireMode: FireMode.RandomInRange,     range: 18f, spriteFolder: "Caltrop");
 
         // ── New character starting weapons ─────────────────────────────────────

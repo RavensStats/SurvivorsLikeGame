@@ -66,7 +66,9 @@ public class EnemySpawner : MonoBehaviour {
     };
 
     [Tooltip("Minimum distance from the player that an enemy can spawn")]
-    public float minSpawnDistFromPlayer = 12f;
+    public float minSpawnDistFromPlayer = 17f;
+    [Tooltip("Maximum distance from the player that an enemy can spawn")]
+    public float maxSpawnDistFromPlayer = 22f;
 
     private WorldGenerator worldGen;
     private bool running = false;
@@ -215,7 +217,8 @@ public class EnemySpawner : MonoBehaviour {
         var candidates = new List<Vector2Int>();
         foreach (var key in worldGen.ActiveChunkKeys) {
             Vector3 center = worldGen.GetChunkWorldCenter(key);
-            if (Vector3.Distance(center, playerPos) >= minSpawnDistFromPlayer)
+            float dist = Vector3.Distance(center, playerPos);
+            if (dist >= minSpawnDistFromPlayer && dist <= maxSpawnDistFromPlayer)
                 candidates.Add(key);
         }
 

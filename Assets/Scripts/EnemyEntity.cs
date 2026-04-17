@@ -90,6 +90,9 @@ public class EnemyEntity : MonoBehaviour {
     // Cached PlayerMovement – avoids GetComponent<> call inside Update every frame.
     private PlayerMovement _playerMovement;
 
+    // Scratch list reused by the per-frame separation pass to avoid allocation.
+    private readonly List<EnemyEntity> _sepScratch = new List<EnemyEntity>();
+
     // Commander – speed-aura radius
     private float _commanderAuraTimer = 0f;
 
@@ -440,8 +443,10 @@ public class EnemyEntity : MonoBehaviour {
             case EnemyBehavior.Puffer: {
                 // Move toward the player so it can get in melee range; overlay gentle wander
                 if (dist > attackRange) transform.position += dir * s * 0.55f * Time.deltaTime;
+                // Normalize so wander magnitude is always 1 (Sin/Cos vector magnitude
+                // varies between 1 and √2 unnormalized, causing inconsistent drift).
                 Vector3 wander = new Vector3(Mathf.Sin(Time.time * 0.6f + GetInstanceID()),
-                                              Mathf.Cos(Time.time * 0.7f + GetInstanceID()), 0f);
+                                              Mathf.Cos(Time.time * 0.7f + GetInstanceID()), 0f).normalized;
                 transform.position += wander * s * 0.25f * Time.deltaTime;
 
                 // Grow +5% of base scale per second; explode at 350%
@@ -563,6 +568,21 @@ public class EnemyEntity : MonoBehaviour {
             default:
                 if (dist > attackRange) transform.position += dir * s * Time.deltaTime;
                 break;
+        }
+
+        // ── Separation – stop enemies piling directly on top of one another ──
+        // Queries the SpatialGrid (no allocation) and applies a small repulsion
+        // force from any nearby enemy that's overlapping our personal space.
+        // This prevents crowds from creating an impenetrable wall.
+        const float SEP_RADIUS = 1.0f;
+        const float SEP_FORCE  = 2.0f;
+        SurvivorMasterScript.Instance.Grid.GetNearby(transform.position, _sepScratch);
+        foreach (var other in _sepScratch) {
+            if (other == null || other == this || other.isDead) continue;
+            Vector3 away = transform.position - other.transform.position;
+            float   d    = away.magnitude;
+            if (d > 0f && d < SEP_RADIUS)
+                transform.position += away.normalized * SEP_FORCE * (1f - d / SEP_RADIUS) * Time.deltaTime;
         }
 
         // ── Health bar follow + periodic visibility refresh ──────────────────

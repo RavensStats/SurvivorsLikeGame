@@ -168,6 +168,11 @@ public class SurvivorMasterScript : MonoBehaviour {
         playerHP    += amount;
     }
 
+    // Restores HP up to the current maximum.
+    public void Heal(float amount) {
+        playerHP = Mathf.Min(playerHP + amount, maxPlayerHP);
+    }
+
     public void EnableRegen(float hpPerTick, float interval) {
         regenRate     += hpPerTick;
         regenInterval  = Mathf.Max(0.1f, interval);

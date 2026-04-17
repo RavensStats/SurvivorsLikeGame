@@ -864,7 +864,8 @@ MonoBehaviour:
     hpScalePerMinute: 5
     damageScalePerMinute: 1.2
     tier: 0
-  minSpawnDistFromPlayer: 12
+  minSpawnDistFromPlayer: 25
+  maxSpawnDistFromPlayer: 30
 --- !u!114 &1573701124
 MonoBehaviour:
   m_ObjectHideFlags: 0

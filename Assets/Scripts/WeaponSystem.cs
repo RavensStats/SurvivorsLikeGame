@@ -72,6 +72,9 @@ public class WeaponSystem : MonoBehaviour {
         if (w.fireMode == FireMode.OracleBeam)        { StartCoroutine(FireOracleBeam(w));        return; }
         if (w.fireMode == FireMode.SpectralBeam)      { StartCoroutine(FireSpectralBeam(w));      return; }
         if (w.fireMode == FireMode.TidalWave)          { StartCoroutine(FireTidalWave(w));          return; }
+        if (w.fireMode == FireMode.MagicAura)          { StartCoroutine(FireMagicAura(w));          return; }
+        if (w.fireMode == FireMode.BloodPool)          { StartCoroutine(FireBloodPool(w));          return; }
+        if (w.fireMode == FireMode.RangerArrow)        { FireRangerArrow(w);                        return; }
 
         if (w.projectilePrefab == null && string.IsNullOrEmpty(w.spriteFolder)) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab or spriteFolder assigned."); return; }
         switch (w.fireMode) {
@@ -1153,5 +1156,231 @@ public class WeaponSystem : MonoBehaviour {
             elapsed += Time.deltaTime;
             yield return null;
         }
+    }
+
+    // Battlemage custom attack: spawns a large magic aura centred on the player,
+    // animates it for its full duration, deals damage to all enemies in range every
+    // tick, and applies a moderate radial knockback away from the player each hit.
+    IEnumerator FireMagicAura(ItemData w) {
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        if (frames == null || frames.Length == 0) yield break;
+
+        int   lastFrame      = frames.Length - 1;
+        float displayDuration = w.cooldown > 0f ? w.cooldown : 1.0f;
+        float frameInterval  = frames.Length > 1 ? displayDuration / frames.Length : displayDuration;
+
+        // ── Level scaling ──────────────────────────────────────────────────────
+        // Lv2: aura 25% larger | Lv3: +1 dmg | Lv4: +1 knockback | Lv5: +1 dmg
+        float auraScale     = 20f * (w.level >= 2 ? 1.25f : 1f);
+        float knockbackForce = 2f + (w.level >= 4 ? 1f : 0f);
+        float dmg = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f)
+                    * (1f + RunUpgrades.DamageBonus)
+                    + (w.level >= 3 ? 1f : 0f)
+                    + (w.level >= 5 ? 1f : 0f);
+
+        // ── Build aura visual ─────────────────────────────────────────────────
+        var go = new GameObject("MagicAura_VFX");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 7;
+        sr.sprite = frames[0];
+        go.transform.localScale = Vector3.one * auraScale;
+        go.transform.position   = PlayerPos;
+
+        // ── Ring hit detection geometry ───────────────────────────────────────
+        // outerRadius is derived from the sprite's actual world-space size so
+        // the physics query matches the visible ring precisely.
+        Sprite refSprite        = frames[0];
+        float  spriteWorldSize  = Mathf.Max(refSprite.rect.width, refSprite.rect.height)
+                                  / refSprite.pixelsPerUnit;
+        float  outerRadius      = spriteWorldSize * auraScale * 0.5f;
+        float  outerRadiusSq    = outerRadius * outerRadius;
+        // innerRadius masks the transparent centre hole (~55% inward).
+        float  innerRadiusSq    = (outerRadius * 0.55f) * (outerRadius * 0.55f);
+
+        float tickRate = 0.2f;
+        float nextTick = 0f;
+        float elapsed  = 0f;
+        int   currentFrame = 0;
+
+        while (elapsed < displayDuration) {
+            if (go == null) yield break;
+
+            // ── Manual animation (gives us frame index for damage gating) ─────
+            int newFrame = Mathf.Min((int)(elapsed / frameInterval), lastFrame);
+            if (newFrame != currentFrame) {
+                currentFrame = newFrame;
+                sr.sprite    = frames[currentFrame];
+            }
+
+            Vector3 pos = PlayerPos;
+            go.transform.position = pos;
+
+            // ── Damage + knockback tick ───────────────────────────────────────
+            // Suppressed on the first and last frames (aura is still forming/fading).
+            // Enemies inside the ring band get normal knockback; enemies inside the
+            // transparent centre hole (standing on the player) also get hit with
+            // stronger knockback to push them out to the ring edge.
+            bool canHit = currentFrame > 0 && currentFrame < lastFrame;
+            if (canHit && elapsed >= nextTick) {
+                nextTick += tickRate;
+                foreach (Collider2D col in Physics2D.OverlapCircleAll(pos, outerRadius)) {
+                    if (!col.CompareTag("Enemy")) continue;
+                    var e = col.GetComponent<EnemyEntity>();
+                    if (e == null || e.isDead) continue;
+                    float distSq = ((Vector2)(e.transform.position - pos)).sqrMagnitude;
+                    if (distSq > outerRadiusSq) continue; // outside the aura entirely
+                    e.TakeDamage(dmg);
+                    Vector2 knockDir = ((Vector2)(e.transform.position - pos)).normalized;
+                    if (knockDir == Vector2.zero) knockDir = Vector2.right;
+                    // Enemies inside the centre hole get extra knockback to eject them.
+                    float force = distSq < innerRadiusSq ? knockbackForce * 2f : knockbackForce;
+                    e.ApplyKnockback(knockDir, force);
+                }
+            }
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (go != null) Destroy(go);
+    }
+
+    // Vampire custom attack: summons a blood pool centred on the player that persists
+    // for 7 seconds, damages every enemy within its radius each tick, and heals the
+    // player for 25% of all damage dealt.
+    IEnumerator FireBloodPool(ItemData w) {
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        if (frames == null || frames.Length == 0) yield break;
+
+        // ── Level scaling ──────────────────────────────────────────────────────
+        // Lv2: +25% size | Lv3: +1 dmg | Lv4: 6s duration | Lv5: 50% lifesteal
+        float displayDuration = w.level >= 4 ? 6f : 7f;
+        float auraScale       = 37.5f * (w.level >= 2 ? 1.25f : 1f);
+        float lifestealPct    = w.level >= 5 ? 0.50f : 0.25f;
+        const float damageCooldown = 2f;
+
+        int   lastFrame     = frames.Length - 1;
+        float frameInterval = frames.Length > 1 ? displayDuration / frames.Length : displayDuration;
+
+        // ── Build pool visual ─────────────────────────────────────────────────
+        var go = new GameObject("BloodPool_VFX");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 2; // above floor/chunks (0) and POI (1), below gems (4), enemies (5), player (6)
+        sr.sprite       = frames[0];
+        go.transform.localScale = Vector3.one * auraScale;
+        go.transform.position   = PlayerPos;
+
+        // ── Hit radius: driven by w.range, independent of sprite pixelsPerUnit
+        float hitRadius   = w.range > 0f ? w.range : 12f;
+        float hitRadiusSq = hitRadius * hitRadius;
+
+        float dmg = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f)
+                    * (1f + RunUpgrades.DamageBonus)
+                    + (w.level >= 3 ? 1f : 0f);
+        float nextTick = 0f;
+        float elapsed  = 0f;
+        int   currentFrame = 0;
+
+        while (elapsed < displayDuration) {
+            if (go == null) yield break;
+
+            // ── Keep pool centred on the player ───────────────────────────────
+            Vector3 pos = PlayerPos;
+            go.transform.position = pos;
+
+            // ── Manual animation ──────────────────────────────────────────────
+            int newFrame = Mathf.Min((int)(elapsed / frameInterval), lastFrame);
+            if (newFrame != currentFrame) {
+                currentFrame = newFrame;
+                sr.sprite    = frames[currentFrame];
+            }
+
+            // ── Damage tick every 2 seconds: all enemies inside the pool radius
+            if (elapsed >= nextTick) {
+                nextTick += damageCooldown;
+                float totalDmg = 0f;
+                foreach (Collider2D col in Physics2D.OverlapCircleAll(pos, hitRadius)) {
+                    if (!col.CompareTag("Enemy")) continue;
+                    var e = col.GetComponent<EnemyEntity>();
+                    if (e == null || e.isDead) continue;
+                    float distSq = ((Vector2)(e.transform.position - pos)).sqrMagnitude;
+                    if (distSq > hitRadiusSq) continue;
+                    e.TakeDamage(dmg);
+                    totalDmg += dmg;
+                }
+                if (totalDmg > 0f)
+                    SurvivorMasterScript.Instance?.Heal(totalDmg * lifestealPct);
+            }
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (go != null) Destroy(go);
+    }
+
+    // Ranger custom attack: fires arrows at random enemies in range with level-scaled
+    // bonus arrow chances.
+    //
+    // Level scaling:
+    //   Lv1 – 1 arrow, 25% chance for a 2nd
+    //   Lv2 – 2× damage, same 25% bonus chance
+    //   Lv3 – 50% chance for a bonus arrow
+    //   Lv4 – 100% chance for a bonus arrow (always 2 arrows minimum)
+    //   Lv5 – always 2 arrows + 25% chance for a 3rd
+    void FireRangerArrow(ItemData w) {
+        Vector3 pos = PlayerPos;
+
+        // Gather and shuffle targets in range (mirrors FireRandomInRange).
+        var targets = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
+        targets.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
+        if (w.range > 0f) {
+            float rangeSq = w.range * w.range;
+            targets.RemoveAll(e => (e.transform.position - pos).sqrMagnitude > rangeSq);
+        }
+        for (int i = targets.Count - 1; i > 0; i--) {
+            int j = Random.Range(0, i + 1);
+            var tmp = targets[i]; targets[i] = targets[j]; targets[j] = tmp;
+        }
+
+        // ── How many arrows to fire this attack? ──────────────────────────────
+        int arrowCount = 1;
+
+        if (w.level >= 5) {
+            // Always 2, 25% chance for a 3rd.
+            arrowCount = 2;
+            if (Random.value < 0.25f) arrowCount = 3;
+        } else if (w.level >= 4) {
+            // 100% bonus arrow → always 2.
+            arrowCount = 2;
+        } else if (w.level >= 3) {
+            // 50% bonus arrow.
+            if (Random.value < 0.50f) arrowCount++;
+        } else {
+            // Lv1–2: 25% bonus arrow.
+            if (Random.value < 0.25f) arrowCount++;
+        }
+
+        // ── Damage multiplier ─────────────────────────────────────────────────
+        // Build a temporary copy so we don't permanently alter baseDamage.
+        float originalDmg = w.baseDamage;
+        if (w.level >= 2) w.baseDamage *= 2f;
+
+        for (int i = 0; i < arrowCount; i++) {
+            if (targets.Count > 0) {
+                // Pick targets in order; wrap around if more arrows than targets.
+                EnemyEntity t = targets[i % targets.Count];
+                Vector2 dir = ((Vector2)(t.transform.position - pos)).normalized;
+                SpawnProjectile(w, pos).GetComponent<ProjectileLogic>().Setup(w, dir, t);
+            } else {
+                // No targets in range: fire in a random spread.
+                float spreadAngle = (i - (arrowCount - 1) * 0.5f) * 15f;
+                Vector2 dir = Quaternion.Euler(0f, 0f, spreadAngle) * Vector2.up;
+                SpawnProjectile(w, pos).GetComponent<ProjectileLogic>().Setup(w, dir);
+            }
+        }
+
+        // Restore base damage so the item card isn't permanently mutated.
+        w.baseDamage = originalDmg;
     }
 }
