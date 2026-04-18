@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "4bd43ad7-965b-4c02-be45-4110e6ab681a",
+    "name": "Rogue",
+    "prompt": "A Rogue with deep brown leathers and a dark blue hood",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-18T18:18:28.953527+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "Walking-3517e0c4": {
+        "north": [
+          "animations/Walking-3517e0c4/north/frame_000.png",
+          "animations/Walking-3517e0c4/north/frame_001.png",
+          "animations/Walking-3517e0c4/north/frame_002.png",
+          "animations/Walking-3517e0c4/north/frame_003.png",
+          "animations/Walking-3517e0c4/north/frame_004.png",
+          "animations/Walking-3517e0c4/north/frame_005.png"
+        ],
+        "north-west": [
+          "animations/Walking-3517e0c4/north-west/frame_000.png",
+          "animations/Walking-3517e0c4/north-west/frame_001.png",
+          "animations/Walking-3517e0c4/north-west/frame_002.png",
+          "animations/Walking-3517e0c4/north-west/frame_003.png",
+          "animations/Walking-3517e0c4/north-west/frame_004.png",
+          "animations/Walking-3517e0c4/north-west/frame_005.png"
+        ],
+        "north-east": [
+          "animations/Walking-3517e0c4/north-east/frame_000.png",
+          "animations/Walking-3517e0c4/north-east/frame_001.png",
+          "animations/Walking-3517e0c4/north-east/frame_002.png",
+          "animations/Walking-3517e0c4/north-east/frame_003.png",
+          "animations/Walking-3517e0c4/north-east/frame_004.png",
+          "animations/Walking-3517e0c4/north-east/frame_005.png"
+        ],
+        "east": [
+          "animations/Walking-3517e0c4/east/frame_000.png",
+          "animations/Walking-3517e0c4/east/frame_001.png",
+          "animations/Walking-3517e0c4/east/frame_002.png",
+          "animations/Walking-3517e0c4/east/frame_003.png",
+          "animations/Walking-3517e0c4/east/frame_004.png",
+          "animations/Walking-3517e0c4/east/frame_005.png"
+        ],
+        "south-east": [
+          "animations/Walking-3517e0c4/south-east/frame_000.png",
+          "animations/Walking-3517e0c4/south-east/frame_001.png",
+          "animations/Walking-3517e0c4/south-east/frame_002.png",
+          "animations/Walking-3517e0c4/south-east/frame_003.png",
+          "animations/Walking-3517e0c4/south-east/frame_004.png",
+          "animations/Walking-3517e0c4/south-east/frame_005.png"
+        ],
+        "south": [
+          "animations/Walking-3517e0c4/south/frame_000.png",
+          "animations/Walking-3517e0c4/south/frame_001.png",
+          "animations/Walking-3517e0c4/south/frame_002.png",
+          "animations/Walking-3517e0c4/south/frame_003.png",
+          "animations/Walking-3517e0c4/south/frame_004.png",
+          "animations/Walking-3517e0c4/south/frame_005.png"
+        ],
+        "south-west": [
+          "animations/Walking-3517e0c4/south-west/frame_000.png",
+          "animations/Walking-3517e0c4/south-west/frame_001.png",
+          "animations/Walking-3517e0c4/south-west/frame_002.png",
+          "animations/Walking-3517e0c4/south-west/frame_003.png",
+          "animations/Walking-3517e0c4/south-west/frame_004.png",
+          "animations/Walking-3517e0c4/south-west/frame_005.png"
+        ],
+        "west": [
+          "animations/Walking-3517e0c4/west/frame_000.png",
+          "animations/Walking-3517e0c4/west/frame_001.png",
+          "animations/Walking-3517e0c4/west/frame_002.png",
+          "animations/Walking-3517e0c4/west/frame_003.png",
+          "animations/Walking-3517e0c4/west/frame_004.png",
+          "animations/Walking-3517e0c4/west/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-18T19:18:03.723771"
+}

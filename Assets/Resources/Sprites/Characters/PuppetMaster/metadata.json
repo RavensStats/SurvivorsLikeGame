@@ -1,0 +1,97 @@
+{
+  "character": {
+    "id": "0059e4f1-5124-409d-9875-6fa5e7f1d3c3",
+    "name": "Puppetmaster",
+    "prompt": "The puppetmaster is a gaunt, elegant figure draped in velvet and tangled silken cords",
+    "size": {
+      "width": 68,
+      "height": 68
+    },
+    "template_id": "mannequin",
+    "directions": 8,
+    "view": "low top-down",
+    "created_at": "2026-04-18T19:19:28.964341+00:00"
+  },
+  "frames": {
+    "rotations": {
+      "south": "rotations/south.png",
+      "south-east": "rotations/south-east.png",
+      "east": "rotations/east.png",
+      "north-east": "rotations/north-east.png",
+      "north": "rotations/north.png",
+      "north-west": "rotations/north-west.png",
+      "west": "rotations/west.png",
+      "south-west": "rotations/south-west.png"
+    },
+    "animations": {
+      "Walking-371e6a7c": {
+        "north-east": [
+          "animations/Walking-371e6a7c/north-east/frame_000.png",
+          "animations/Walking-371e6a7c/north-east/frame_001.png",
+          "animations/Walking-371e6a7c/north-east/frame_002.png",
+          "animations/Walking-371e6a7c/north-east/frame_003.png",
+          "animations/Walking-371e6a7c/north-east/frame_004.png",
+          "animations/Walking-371e6a7c/north-east/frame_005.png"
+        ],
+        "south": [
+          "animations/Walking-371e6a7c/south/frame_000.png",
+          "animations/Walking-371e6a7c/south/frame_001.png",
+          "animations/Walking-371e6a7c/south/frame_002.png",
+          "animations/Walking-371e6a7c/south/frame_003.png",
+          "animations/Walking-371e6a7c/south/frame_004.png",
+          "animations/Walking-371e6a7c/south/frame_005.png"
+        ],
+        "south-east": [
+          "animations/Walking-371e6a7c/south-east/frame_000.png",
+          "animations/Walking-371e6a7c/south-east/frame_001.png",
+          "animations/Walking-371e6a7c/south-east/frame_002.png",
+          "animations/Walking-371e6a7c/south-east/frame_003.png",
+          "animations/Walking-371e6a7c/south-east/frame_004.png",
+          "animations/Walking-371e6a7c/south-east/frame_005.png"
+        ],
+        "east": [
+          "animations/Walking-371e6a7c/east/frame_000.png",
+          "animations/Walking-371e6a7c/east/frame_001.png",
+          "animations/Walking-371e6a7c/east/frame_002.png",
+          "animations/Walking-371e6a7c/east/frame_003.png",
+          "animations/Walking-371e6a7c/east/frame_004.png",
+          "animations/Walking-371e6a7c/east/frame_005.png"
+        ],
+        "west": [
+          "animations/Walking-371e6a7c/west/frame_000.png",
+          "animations/Walking-371e6a7c/west/frame_001.png",
+          "animations/Walking-371e6a7c/west/frame_002.png",
+          "animations/Walking-371e6a7c/west/frame_003.png",
+          "animations/Walking-371e6a7c/west/frame_004.png",
+          "animations/Walking-371e6a7c/west/frame_005.png"
+        ],
+        "north": [
+          "animations/Walking-371e6a7c/north/frame_000.png",
+          "animations/Walking-371e6a7c/north/frame_001.png",
+          "animations/Walking-371e6a7c/north/frame_002.png",
+          "animations/Walking-371e6a7c/north/frame_003.png",
+          "animations/Walking-371e6a7c/north/frame_004.png",
+          "animations/Walking-371e6a7c/north/frame_005.png"
+        ],
+        "north-west": [
+          "animations/Walking-371e6a7c/north-west/frame_000.png",
+          "animations/Walking-371e6a7c/north-west/frame_001.png",
+          "animations/Walking-371e6a7c/north-west/frame_002.png",
+          "animations/Walking-371e6a7c/north-west/frame_003.png",
+          "animations/Walking-371e6a7c/north-west/frame_004.png",
+          "animations/Walking-371e6a7c/north-west/frame_005.png"
+        ],
+        "south-west": [
+          "animations/Walking-371e6a7c/south-west/frame_000.png",
+          "animations/Walking-371e6a7c/south-west/frame_001.png",
+          "animations/Walking-371e6a7c/south-west/frame_002.png",
+          "animations/Walking-371e6a7c/south-west/frame_003.png",
+          "animations/Walking-371e6a7c/south-west/frame_004.png",
+          "animations/Walking-371e6a7c/south-west/frame_005.png"
+        ]
+      }
+    }
+  },
+  "export_version": "2.0",
+  "export_date": "2026-04-18T19:26:37.665912"
+}
