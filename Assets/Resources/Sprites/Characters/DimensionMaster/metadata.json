@@ -25,14 +25,6 @@
     },
     "animations": {
       "Walking-f3824d5e": {
-        "south": [
-          "animations/Walking-f3824d5e/south/frame_000.png",
-          "animations/Walking-f3824d5e/south/frame_001.png",
-          "animations/Walking-f3824d5e/south/frame_002.png",
-          "animations/Walking-f3824d5e/south/frame_003.png",
-          "animations/Walking-f3824d5e/south/frame_004.png",
-          "animations/Walking-f3824d5e/south/frame_005.png"
-        ],
         "east": [
           "animations/Walking-f3824d5e/east/frame_000.png",
           "animations/Walking-f3824d5e/east/frame_001.png",
@@ -88,10 +80,18 @@
           "animations/Walking-f3824d5e/north/frame_003.png",
           "animations/Walking-f3824d5e/north/frame_004.png",
           "animations/Walking-f3824d5e/north/frame_005.png"
+        ],
+        "south": [
+          "animations/Walking-f3824d5e/south/frame_000.png",
+          "animations/Walking-f3824d5e/south/frame_001.png",
+          "animations/Walking-f3824d5e/south/frame_002.png",
+          "animations/Walking-f3824d5e/south/frame_003.png",
+          "animations/Walking-f3824d5e/south/frame_004.png",
+          "animations/Walking-f3824d5e/south/frame_005.png"
         ]
       }
     }
   },
   "export_version": "2.0",
-  "export_date": "2026-04-18T19:48:47.422347"
+  "export_date": "2026-04-19T10:49:23.481509"
 }
