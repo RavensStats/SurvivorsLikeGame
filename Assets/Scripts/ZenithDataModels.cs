@@ -53,6 +53,7 @@ public class RunRecord {
 [System.Serializable]
 public class BiomeData {
     public string biomeName;
+    public string biomeSpriteName;
     public Color groundColor;
     public List<EnemyBehavior> biomeEnemies;
     public float enemySpeedMultiplier = 1.0f;

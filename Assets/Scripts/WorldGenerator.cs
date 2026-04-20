@@ -15,6 +15,8 @@ public class WorldGenerator : MonoBehaviour {
     public int spawnRadius = 3;
     [Tooltip("Scale of the Perlin noise used for biome blending. Higher = smaller biomes.")]
     public float biomeNoiseScale = 0.025f;
+    [Tooltip("Secondary palette-shift noise scale used to balance biome frequency (helps avoid edge-biome starvation).")]
+    public float biomePaletteShiftNoiseScale = 0.008f;
 
     // Per-run noise offset – randomised in StartGame() so every run starts in a different biome.
     private float _biomeOffsetX;
@@ -27,6 +29,8 @@ public class WorldGenerator : MonoBehaviour {
     private string _lastBiomeName = null;
     private bool _gameActive = false;
     private bool _poiActive  = false; // true while player is inside a POI
+    private readonly Dictionary<string, Sprite> _biomeSpriteCache = new Dictionary<string, Sprite>(System.StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _missingBiomeSpriteWarnings = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
 
     // Expose chunk data for enemy spawner
     public IEnumerable<Vector2Int> ActiveChunkKeys => chunks.Keys;
@@ -141,35 +145,116 @@ public class WorldGenerator : MonoBehaviour {
             Debug.LogWarning($"[WorldGenerator] SpriteRenderer on FloorChunk at {c} has no Sprite assigned.", chunk);
         }
 
-        // Perlin noise biome selection — offset by random run seed + 1000 to avoid the 0,0 flat spot
-        float noise = Mathf.PerlinNoise(
-            (c.x + _biomeOffsetX + 1000) * biomeNoiseScale,
-            (c.y + _biomeOffsetY + 1000) * biomeNoiseScale);
-        int biomeIndex = Mathf.Clamp(Mathf.FloorToInt(noise * biomes.Count), 0, biomes.Count - 1);
-        sr.color = biomes[biomeIndex].groundColor;
-        string biomeName = biomes[biomeIndex].biomeName;
+        // Biome selection uses primary Perlin + secondary palette-shift noise.
+        int biomeIndex = GetBiomeIndexForCell(c);
+        BiomeData biome = biomes[biomeIndex];
+        sr.color = biome.groundColor;
+
+        // Keep the base tile tint, then draw biome texture details on top.
+        SpriteRenderer overlay = GetOrCreateBiomeOverlayRenderer(chunk, sr);
+        if (overlay != null) {
+            overlay.sprite = LoadBiomeSprite(biome);
+            overlay.color = Color.white;
+            overlay.enabled = overlay.sprite != null;
+        }
 
         // 5% chance to place a POI on this chunk
         if (Random.value < 0.05f) SpawnPOI(p + new Vector3(15f, 15f, 0f));
+    }
+
+    SpriteRenderer GetOrCreateBiomeOverlayRenderer(GameObject chunk, SpriteRenderer baseRenderer) {
+        if (chunk == null || baseRenderer == null) return null;
+
+        Transform existing = chunk.transform.Find("BiomeOverlay");
+        SpriteRenderer overlay = existing != null ? existing.GetComponent<SpriteRenderer>() : null;
+        if (overlay == null) {
+            GameObject go = new GameObject("BiomeOverlay");
+            go.transform.SetParent(baseRenderer.transform.parent, false);
+            go.transform.localPosition = baseRenderer.transform.localPosition;
+            go.transform.localRotation = baseRenderer.transform.localRotation;
+            go.transform.localScale = baseRenderer.transform.localScale;
+            overlay = go.AddComponent<SpriteRenderer>();
+        }
+
+        overlay.sortingLayerID = baseRenderer.sortingLayerID;
+        overlay.sortingOrder = baseRenderer.sortingOrder + 1;
+        overlay.flipX = baseRenderer.flipX;
+        overlay.flipY = baseRenderer.flipY;
+        overlay.drawMode = SpriteDrawMode.Tiled;
+        overlay.size = GetOverlayChunkSize(baseRenderer);
+
+        return overlay;
+    }
+
+    Vector2 GetOverlayChunkSize(SpriteRenderer baseRenderer) {
+        if (baseRenderer != null && baseRenderer.drawMode != SpriteDrawMode.Simple &&
+            baseRenderer.size.x > 0.001f && baseRenderer.size.y > 0.001f)
+            return baseRenderer.size;
+
+        // Default to chunk dimensions so the biome texture repeats over the whole chunk.
+        return new Vector2(ChunkSize, ChunkSize);
+    }
+
+    Sprite LoadBiomeSprite(BiomeData biome) {
+        if (biome == null) return null;
+
+        string spriteName = string.IsNullOrWhiteSpace(biome.biomeSpriteName)
+            ? biome.biomeName
+            : biome.biomeSpriteName;
+
+        if (string.IsNullOrWhiteSpace(spriteName)) return null;
+        string trimmedName = spriteName.Trim();
+
+        if (_biomeSpriteCache.TryGetValue(trimmedName, out Sprite cached))
+            return cached;
+
+        Sprite sprite = Resources.Load<Sprite>($"Sprites/Biomes/{trimmedName}");
+        if (sprite == null) sprite = Resources.Load<Sprite>($"Sprites/Biomes/{trimmedName.Replace(" ", string.Empty)}");
+        if (sprite == null) sprite = Resources.Load<Sprite>($"Sprites/Biomes/{trimmedName.Replace(" ", "_")}");
+        if (sprite == null) sprite = Resources.Load<Sprite>($"Sprites/Biomes/{trimmedName.Replace(" ", "-")}");
+
+        _biomeSpriteCache[trimmedName] = sprite;
+
+        if (sprite == null && _missingBiomeSpriteWarnings.Add(trimmedName)) {
+            Debug.LogWarning($"[WorldGenerator] Missing biome sprite at Resources/Sprites/Biomes/{trimmedName}.png (Alt folder is intentionally ignored).");
+        }
+
+        return sprite;
+    }
+
+    int GetBiomeIndexForCell(Vector2 cell) {
+        if (biomes == null || biomes.Count == 0) return 0;
+
+        int biomeCount = biomes.Count;
+
+        // Primary contiguous biome field.
+        float primary = Mathf.PerlinNoise(
+            (cell.x + _biomeOffsetX + 1000f) * biomeNoiseScale,
+            (cell.y + _biomeOffsetY + 1000f) * biomeNoiseScale);
+        int primaryIndex = Mathf.Clamp(Mathf.FloorToInt(primary * biomeCount), 0, biomeCount - 1);
+
+        // Secondary low-frequency palette shift prevents the final list entry from
+        // being starved by Perlin's naturally sparse high-end tails.
+        float shiftNoise = Mathf.PerlinNoise(
+            (cell.x + _biomeOffsetX + 5000f) * biomePaletteShiftNoiseScale,
+            (cell.y + _biomeOffsetY + 5000f) * biomePaletteShiftNoiseScale);
+        int shift = Mathf.Clamp(Mathf.FloorToInt(shiftNoise * biomeCount), 0, biomeCount - 1);
+
+        return (primaryIndex + shift) % biomeCount;
     }
 
     // Returns the biome index at the given world position using the current run's noise offset.
     // EnemySpawner uses this so biome multipliers stay consistent with rendered biome colours.
     public int GetBiomeIndex(Vector3 worldPos) {
         if (biomes == null || biomes.Count == 0) return 0;
-        float noise = Mathf.PerlinNoise(
-            (worldPos.x / ChunkSize + _biomeOffsetX + 1000f) * biomeNoiseScale,
-            (worldPos.y / ChunkSize + _biomeOffsetY + 1000f) * biomeNoiseScale);
-        return Mathf.Clamp(Mathf.FloorToInt(noise * biomes.Count), 0, biomes.Count - 1);
+        Vector2 cell = new Vector2(worldPos.x / ChunkSize, worldPos.y / ChunkSize);
+        return GetBiomeIndexForCell(cell);
     }
 
     // Returns the biome name for a chunk grid cell using the exact same Perlin formula as Spawn().
     string GetBiomeNameForCell(Vector2Int cell) {
         if (biomes == null || biomes.Count == 0) return null;
-        float noise = Mathf.PerlinNoise(
-            (cell.x + _biomeOffsetX + 1000f) * biomeNoiseScale,
-            (cell.y + _biomeOffsetY + 1000f) * biomeNoiseScale);
-        int idx = Mathf.Clamp(Mathf.FloorToInt(noise * biomes.Count), 0, biomes.Count - 1);
+        int idx = GetBiomeIndexForCell(cell);
         return biomes[idx].biomeName;
     }
 

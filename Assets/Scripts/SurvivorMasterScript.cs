@@ -106,7 +106,10 @@ public class SurvivorMasterScript : MonoBehaviour {
         if (Keyboard.current != null && Keyboard.current.spaceKey.wasPressedThisFrame && ultTimer >= ultCooldown) ExecuteUltimate();
         if (regenRate > 0f) {
             regenTimer += Time.deltaTime;
-            if (regenTimer >= regenInterval) { playerHP = Mathf.Min(playerHP + regenRate, maxPlayerHP); regenTimer = 0f; }
+            if (regenTimer >= regenInterval) {
+                Heal(regenRate);
+                regenTimer = 0f;
+            }
         }
         UpdateUI();
     }
@@ -118,9 +121,9 @@ public class SurvivorMasterScript : MonoBehaviour {
             case CharacterClass.Mage: foreach(var e in targets) e.transform.position = player.position; break;
             case CharacterClass.Samurai: targets.ForEach(e => e.TakeDamage(999)); break;
             case CharacterClass.Cryomancer: StartCoroutine(TimeStop(5f)); break;
-            case CharacterClass.Vampire: playerHP += targets.Count * 2; break;
+            case CharacterClass.Vampire: Heal(targets.Count * 2f); break;
             case CharacterClass.Sniper: WeaponSystem.Instance.RapidFire(3f); break;
-            case CharacterClass.Cleric: playerHP = 100; break;
+            case CharacterClass.Cleric: Heal(maxPlayerHP); break;
             case CharacterClass.Bard: targets.ForEach(e => e.Stun(4f)); break;
             case CharacterClass.Merchant: GlobalGold += 100; break;
             // Additional classes use target.TakeDamage(100) as default
@@ -170,7 +173,12 @@ public class SurvivorMasterScript : MonoBehaviour {
 
     // Restores HP up to the current maximum.
     public void Heal(float amount) {
+        if (amount <= 0f) return;
+        float prev = playerHP;
         playerHP = Mathf.Min(playerHP + amount, maxPlayerHP);
+        float healed = playerHP - prev;
+        if (healed > 0f && player != null)
+            FloatingText.SpawnHeal(player.position, healed);
     }
 
     public void EnableRegen(float hpPerTick, float interval) {
@@ -190,13 +198,15 @@ public class SurvivorMasterScript : MonoBehaviour {
 
         // Vampire: restore 3 HP every 5th kill
         if (currentClass == CharacterClass.Vampire && totalEnemiesKilled % 5 == 0)
-            playerHP = Mathf.Min(playerHP + 3f, maxPlayerHP);
+            Heal(3f);
     }
 
     public void TakeDamage(float amt) {
         if (isInvulnerable) return;
         playerHP -= amt;
         totalDamageReceived += amt;
+        if (amt > 0f && player != null)
+            FloatingText.SpawnPlayerDamage(player.position, amt);
         if (playerHP <= 0) {
             playerHP = 0;
             Time.timeScale = 0f;

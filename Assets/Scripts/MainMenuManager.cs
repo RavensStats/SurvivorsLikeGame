@@ -1050,6 +1050,8 @@ public class MainMenuManager : MonoBehaviour {
         SectionHeader("GAMEPLAY");
 
         bool showDmgNums  = PlayerPrefs.GetInt("showDamageNumbers", 1) == 1;
+        bool showPlayerDmgNums = PlayerPrefs.GetInt("showPlayerDamageNumbers", 1) == 1;
+        bool showHealNums = PlayerPrefs.GetInt("showHealingNumbers", 1) == 1;
         bool showHpNormal = PlayerPrefs.GetInt("showHpNormal",      0) == 1;
         bool showHpMini   = PlayerPrefs.GetInt("showHpMiniBoss",    1) == 1;
         bool showHpBoss   = PlayerPrefs.GetInt("showHpBoss",        1) == 1;
@@ -1062,13 +1064,21 @@ public class MainMenuManager : MonoBehaviour {
             Color btnCol = current ? new Color(0.12f, 0.45f, 0.18f, 1f) : new Color(0.45f, 0.12f, 0.12f, 1f);
             MakeButton(r, current ? "ON" : "OFF", btnCol, WHITE, 16,
                 new Vector2(0.70f, 0.1f), new Vector2(0.86f, 0.9f),
-                () => { PlayerPrefs.SetInt(prefKey, current ? 0 : 1); PlayerPrefs.Save(); BuildSettings(); ShowPanel(settingsPanel); });
+                () => {
+                    PlayerPrefs.SetInt(prefKey, current ? 0 : 1);
+                    PlayerPrefs.Save();
+                    ApplySettings();
+                    BuildSettings();
+                    ShowPanel(settingsPanel);
+                });
         }
 
-        TogRow("Damage Numbers",       showDmgNums,  "showDamageNumbers");
-        TogRow("Enemy HP (Normal)",    showHpNormal, "showHpNormal");
-        TogRow("Enemy HP (Mini-Boss)", showHpMini,   "showHpMiniBoss");
-        TogRow("Enemy HP (Boss)",      showHpBoss,   "showHpBoss");
+        TogRow("Enemy Damage Numbers",  showDmgNums,       "showDamageNumbers");
+        TogRow("Player Damage Numbers", showPlayerDmgNums, "showPlayerDamageNumbers");
+        TogRow("Healing Numbers",       showHealNums,      "showHealingNumbers");
+        TogRow("Enemy HP (Normal)",     showHpNormal,      "showHpNormal");
+        TogRow("Enemy HP (Mini-Boss)",  showHpMini,        "showHpMiniBoss");
+        TogRow("Enemy HP (Boss)",       showHpBoss,        "showHpBoss");
 
         cur += 20f; // bottom padding
         cntRT.offsetMin = new Vector2(0f, -cur);
@@ -1123,6 +1133,10 @@ public class MainMenuManager : MonoBehaviour {
         }
         if (Time.timeScale > 0f && MinimapSystem.Instance != null)
             MinimapSystem.Instance.SetVisible(showMini);
+
+        FloatingText.RefreshSettings();
+        EnemyEntity.RefreshHPBarSettings();
+
         PlayerPrefs.Save();
     }
 

@@ -222,7 +222,7 @@ public class EnemyEntity : MonoBehaviour {
                 if (shamHealTimer <= 0f) {
                     shamHealTimer = 5f;
                     foreach (var e in SurvivorMasterScript.Instance.Grid.GetNearby(transform.position))
-                        if (e != null && !e.isDead && e != this) e.hp += 10f;
+                        if (e != null && !e.isDead && e != this) e.Heal(10f);
                 }
                 break;
 
@@ -612,10 +612,22 @@ public class EnemyEntity : MonoBehaviour {
         if (b != null && b.isHunterBonusUnlocked) d *= 1.15f;
         d *= damageTakenMult;
         SurvivorMasterScript.Instance.RegisterDamageDealt(d);
-        FloatingText.Spawn(transform.position, d);
+        FloatingText.SpawnEnemyDamage(transform.position, d);
         hp -= d;
         UpdateHealthBar();
         if (hp <= 0) Die();
+    }
+
+    public void Heal(float amount) {
+        if (isDead || amount <= 0f) return;
+        float prev = hp;
+        float maxHp = _maxHp > 0f ? _maxHp : hp;
+        hp = Mathf.Min(hp + amount, maxHp);
+        float healed = hp - prev;
+        if (healed <= 0f) return;
+
+        UpdateHealthBar();
+        FloatingText.SpawnHeal(transform.position, healed);
     }
 
     public void ApplyKnockback(Vector2 knockDir, float force) {
