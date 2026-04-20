@@ -99,8 +99,8 @@ public class POIInstance : MonoBehaviour {
                 StartCoroutine(ToxicPitRoutine());
                 break;
 
-            case POIType.Beehive:
-                StartCoroutine(BeehiveRoutine());
+            case POIType.Jungle:
+                StartCoroutine(JungleRoutine());
                 break;
 
             case POIType.GoldenStatue:
@@ -187,7 +187,7 @@ public class POIInstance : MonoBehaviour {
                 StopAllCoroutines();
                 break;
 
-            case POIType.Beehive:
+            case POIType.Jungle:
                 StopAllCoroutines();
                 break;
 
@@ -375,8 +375,8 @@ public class POIInstance : MonoBehaviour {
         }
     }
 
-    // Beehive — every 4s spawn a neutral bee that damages anything on contact
-    IEnumerator BeehiveRoutine() {
+    // Jungle — every 4s spawn a neutral bee that damages anything on contact
+    IEnumerator JungleRoutine() {
         while (_playerInside) {
             yield return new WaitForSeconds(4f);
             SpawnBee(transform.position + (Vector3)Random.insideUnitCircle * 3f);
@@ -468,7 +468,7 @@ public class FireballHazard : MonoBehaviour {
     }
 }
 
-/// <summary>Neutral bee spawned by Beehive. Damages both player and enemies on touch, then dies.</summary>
+/// <summary>Neutral bee spawned by Jungle. Damages both player and enemies on touch, then dies.</summary>
 public class BeeHazard : MonoBehaviour {
     void OnTriggerEnter2D(Collider2D other) {
         if (other.CompareTag("Player")) {

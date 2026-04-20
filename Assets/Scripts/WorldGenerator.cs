@@ -174,6 +174,8 @@ public class WorldGenerator : MonoBehaviour {
     }
 
     void SpawnPOI(Vector3 pos) {
+        const float targetWorldDiameter = 24f;
+
         // All 20 implemented POI types
         POIType[] all = (POIType[])System.Enum.GetValues(typeof(POIType));
         POIType chosen = all[Random.Range(0, all.Length)];
@@ -182,15 +184,35 @@ public class WorldGenerator : MonoBehaviour {
         poi.transform.position = pos;
         poi.transform.SetParent(transform, true);
 
-        // Visual indicator: colored circle
+        // Visual indicator: sprite from Resources/Sprites/POI, fallback to colored circle.
         SpriteRenderer sr = poi.AddComponent<SpriteRenderer>();
-        sr.sprite       = MakeCircleSprite(32);
+        string spriteName = GetPOISpriteName(chosen);
+        Sprite poiSprite = Resources.Load<Sprite>($"Sprites/POI/{spriteName}");
+        if (poiSprite != null) {
+            sr.sprite = poiSprite;
+            sr.color = Color.white;
+        } else {
+            sr.sprite = MakeCircleSprite(32);
+            sr.color = POIColor(chosen);
+            Debug.LogWarning($"[WorldGenerator] Missing POI sprite at Resources/Sprites/POI/{spriteName}.png; using fallback circle.");
+        }
         sr.sortingOrder = 1;
-        sr.color = POIColor(chosen);
-        poi.transform.localScale = Vector3.one * 24f;
+
+        // Normalize world-space icon size so different source PPUs/textures appear consistent.
+        float baseDiameter = Mathf.Max(sr.sprite.bounds.size.x, sr.sprite.bounds.size.y);
+        float safeBaseDiameter = Mathf.Max(0.0001f, baseDiameter);
+        float uniformScale = targetWorldDiameter / safeBaseDiameter;
+        poi.transform.localScale = Vector3.one * uniformScale;
 
         POIInstance inst = poi.AddComponent<POIInstance>();
         inst.type = chosen;
+    }
+
+    static string GetPOISpriteName(POIType t) {
+        switch (t) {
+            case POIType.Meteorite: return "MeteorStrike";
+            default: return t.ToString();
+        }
     }
 
     static Color POIColor(POIType t) {
@@ -210,7 +232,7 @@ public class WorldGenerator : MonoBehaviour {
             case POIType.Monolith:       return new Color(0.3f, 0.3f, 0.3f, 0.9f);
             case POIType.RadarStation:   return new Color(0.1f, 0.7f, 0.7f, 0.9f);
             case POIType.ToxicPit:       return new Color(0.3f, 0.7f, 0.1f, 0.9f);
-            case POIType.Beehive:        return new Color(1.0f, 0.75f, 0.0f, 0.9f);
+            case POIType.Jungle:         return new Color(1.0f, 0.75f, 0.0f, 0.9f);
             case POIType.GoldenStatue:   return new Color(1.0f, 0.9f, 0.2f, 0.9f);
             case POIType.TimeRift:       return new Color(0.7f, 0.1f, 1.0f, 0.9f);
             case POIType.Overgrowth:     return new Color(0.0f, 0.5f, 0.1f, 0.9f);
