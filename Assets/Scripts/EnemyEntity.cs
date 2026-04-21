@@ -11,6 +11,10 @@ public class EnemyEntity : MonoBehaviour {
     public Vector2Int currentCell = new Vector2Int(-99, -99);
     // Multiplicative bonus applied to all incoming damage (stacks additively across sources).
     public float damageTakenMult = 1f;
+    // Scales outgoing damage dealt by this enemy (additive debuff stacking; <1 reduces damage).
+    public float damageDealtMult = 1f;
+    // Scales attack interval (additive stacking; >1 slows attack rate).
+    public float attackIntervalMult = 1f;
 
     // ── Behavior timers / state ────────────────────────────────────────────────
     private float chargeTimer    = 0f;

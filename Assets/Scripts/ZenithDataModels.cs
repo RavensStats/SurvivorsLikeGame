@@ -3,7 +3,7 @@ using UnityEngine;
 
 public enum Rarity { Common, Rare, Epic, Legendary }
 public enum WeaponTrait { None, Piercing, Bouncy, Explosive, Homing, Rotating }
-public enum FireMode { Default, NearestN, RandomInRange, ArcSwing, Orbit, RisingFist, ScytheOrbit, ChainLightning, VoidOrb, HolySword, AnimatedStrike, OracleBeam, SpectralBeam, TidalWave, MagicAura, BloodPool, RangerArrow }
+public enum FireMode { Default, NearestN, RandomInRange, ArcSwing, Orbit, RisingFist, ScytheOrbit, ChainLightning, VoidOrb, HolySword, AnimatedStrike, OracleBeam, SpectralBeam, TidalWave, MagicAura, BloodPool, RangerArrow, PoisonPool }
 public enum CharacterClass { Knight, Mage, Rogue, Necromancer, Paladin, Engineer, Alchemist, Merchant, Berserker, Ghost, Vampire, Samurai, Bard, Sniper, Monk, Druid, Cyborg, Cleric, Pyromancer, Cryomancer, Ranger, Warlock, Assassin, Gladiator, Tactician, Chronomancer, VoidCaller, Beastmaster, NecroKnight, ArcaneArcher, PlagueDoctor, Gunslinger, Viking, Junker, Oracle, PuppetMaster, Enchanter, Artificer, Ninja, ArcticScout, Dwarf, Hydromancer, Hydrokineticist, Battlemage, Psychomancer }
 public enum POIType { Graveyard, Forge, HolyShrine, CursedAltar, ManaWell, MerchantCart, AncientLibrary, HealingSpring, ScrapHeap, VolcanicVent, FrozenObelisk, ThievesDen, Monolith, Jungle, RadarStation, ToxicPit, GoldenStatue, TimeRift, Overgrowth, Meteorite }
 public enum EnemyTier { Normal, MiniBoss, Boss }

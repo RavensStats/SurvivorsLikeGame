@@ -75,6 +75,7 @@ public class WeaponSystem : MonoBehaviour {
         if (w.fireMode == FireMode.MagicAura)          { StartCoroutine(FireMagicAura(w));          return; }
         if (w.fireMode == FireMode.BloodPool)          { StartCoroutine(FireBloodPool(w));          return; }
         if (w.fireMode == FireMode.RangerArrow)        { FireRangerArrow(w);                        return; }
+        if (w.fireMode == FireMode.PoisonPool)         { FirePoisonPool(w);                         return; }
 
         if (w.projectilePrefab == null && string.IsNullOrEmpty(w.spriteFolder)) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab or spriteFolder assigned."); return; }
         switch (w.fireMode) {
@@ -370,6 +371,23 @@ public class WeaponSystem : MonoBehaviour {
             Vector2 dir = (targets[i].transform.position - pos).normalized;
             SpawnProjectile(w, pos).GetComponent<ProjectileLogic>().Setup(w, dir, targets[i]);
         }
+    }
+
+    // Fires one flask at the single nearest enemy within range; AlchemistPool spawns on hit via ProjectileLogic.
+    void FirePoisonPool(ItemData w) {
+        Vector3 pos = PlayerPos;
+        var candidates = SurvivorMasterScript.Instance.Grid.GetNearby(pos);
+        candidates.RemoveAll(e => e == null || e.isDead);
+        float rangeSq = w.range * w.range;
+        EnemyEntity nearest = null;
+        float bestSq = float.MaxValue;
+        foreach (var e in candidates) {
+            float d = (e.transform.position - pos).sqrMagnitude;
+            if (d <= rangeSq && d < bestSq) { bestSq = d; nearest = e; }
+        }
+        if (nearest == null) return;
+        Vector2 dir = (nearest.transform.position - pos).normalized;
+        SpawnProjectile(w, pos).GetComponent<ProjectileLogic>().Setup(w, dir, nearest);
     }
 
     // Arc lightning beam from origin to target, stretched and rotated to fit.

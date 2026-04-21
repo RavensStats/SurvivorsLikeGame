@@ -67,6 +67,11 @@ public class ProjectileLogic : MonoBehaviour {
         // Arcane Arrow: spawn a magic pool at the hit location (cap = weapon level).
         if (d.itemName == "Arcane Arrow")
             ArcanePool.Spawn(other.transform.position, d.level);
+        // Acid Flask: drop an alchemist poison pool at the hit location, then die.
+        if (d.itemName == "Acid Flask") {
+            AlchemistPool.Spawn(other.transform.position, d.level, d.baseDamage);
+            _dead = true; Destroy(gameObject); return;
+        }
         if (!entity.isDead && d.knockback > 0f) entity.ApplyKnockback(dir, d.knockback);
         if (d.trait == WeaponTrait.Bouncy) { dir = Random.insideUnitCircle.normalized; hit.Clear(); }
         p--; if (p <= 0 && d.trait != WeaponTrait.Bouncy) { _dead = true; Destroy(gameObject); }

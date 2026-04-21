@@ -26,7 +26,8 @@ public class EnemyAttack : MonoBehaviour {
     void Update() {
         if (entity != null && entity.isDead) return;
         timer += Time.deltaTime;
-        if (timer >= attackInterval) {
+        float effectiveInterval = attackInterval * (entity != null ? entity.attackIntervalMult : 1f);
+        if (timer >= effectiveInterval) {
             ExecuteAttack();
             timer = 0;
         }
@@ -106,6 +107,7 @@ public class EnemyAttack : MonoBehaviour {
     }
 
     void DamagePlayer(float amt) {
-        SurvivorMasterScript.Instance.TakeDamage(amt);
+        float mult = entity != null ? entity.damageDealtMult : 1f;
+        SurvivorMasterScript.Instance.TakeDamage(amt * mult);
     }
 }
