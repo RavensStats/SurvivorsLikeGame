@@ -65,10 +65,12 @@ public class EnemySpawner : MonoBehaviour {
         new EnemySpawnConfig()   // default Creeper entry — edit in Inspector
     };
 
-    [Tooltip("Minimum distance from the player that an enemy can spawn")]
+    [Tooltip("Minimum distance from the player that an enemy can spawn (overridden upward by camera size when alwaysSpawnOffScreen is true)")]
     public float minSpawnDistFromPlayer = 17f;
     [Tooltip("Maximum distance from the player that an enemy can spawn")]
     public float maxSpawnDistFromPlayer = 22f;
+    [Tooltip("When true, adjusts minSpawnDistFromPlayer at runtime to guarantee enemies never appear on screen")]
+    public bool alwaysSpawnOffScreen = true;
 
     private WorldGenerator worldGen;
     private bool running = false;
@@ -207,18 +209,29 @@ public class EnemySpawner : MonoBehaviour {
     }
 
     // ── Position selection ─────────────────────────────────────────────────────
+
+    // Returns the screen half-diagonal in world units plus a padding buffer.
+    float GetOffScreenMinDist(float padding = 3f) {
+        if (!alwaysSpawnOffScreen || Camera.main == null) return minSpawnDistFromPlayer;
+        float halfH = Camera.main.orthographicSize;
+        float halfW = halfH * Camera.main.aspect;
+        float diag  = Mathf.Sqrt(halfW * halfW + halfH * halfH);
+        return Mathf.Max(minSpawnDistFromPlayer, diag + padding);
+    }
+
     Vector3 PickSpawnPosition() {
         if (worldGen == null || SurvivorMasterScript.Instance == null)
             return Vector3.zero;
 
         Vector3 playerPos = SurvivorMasterScript.Instance.player.position;
+        float effectiveMin = GetOffScreenMinDist();
 
         // Collect chunks that are far enough from the player
         var candidates = new List<Vector2Int>();
         foreach (var key in worldGen.ActiveChunkKeys) {
             Vector3 center = worldGen.GetChunkWorldCenter(key);
             float dist = Vector3.Distance(center, playerPos);
-            if (dist >= minSpawnDistFromPlayer && dist <= maxSpawnDistFromPlayer)
+            if (dist >= effectiveMin && dist <= maxSpawnDistFromPlayer)
                 candidates.Add(key);
         }
 

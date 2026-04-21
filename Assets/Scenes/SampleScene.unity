@@ -350,6 +350,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CameraFollow
   target: {fileID: 72205678016873730, guid: 488efcd378d156d448c894806ed32e72, type: 3}
   smoothSpeed: 8
+  pixelSnap: 1
+  pixelsPerUnit: 16
 --- !u!1 &619394800
 GameObject:
   m_ObjectHideFlags: 0
@@ -574,6 +576,7 @@ MonoBehaviour:
   floorPrefab: {fileID: 533467062515121443, guid: 71af634a3e9c2ce49a3f586df4d721b0, type: 3}
   biomes:
   - biomeName: Forest
+    biomeSpriteName: 
     groundColor: {r: 0.030978873, g: 0.86415094, b: 0.052685466, a: 1}
     biomeEnemies: 00000000
     enemySpeedMultiplier: 0
@@ -589,6 +592,7 @@ MonoBehaviour:
     biomeSpawnRateMultiplier: 1
     environmentalHazard: {fileID: 0}
   - biomeName: Mountains
+    biomeSpriteName: 
     groundColor: {r: 0.21960786, g: 0.21960786, b: 0.21960786, a: 1}
     biomeEnemies: 00000000
     enemySpeedMultiplier: 0
@@ -604,6 +608,7 @@ MonoBehaviour:
     biomeSpawnRateMultiplier: 1
     environmentalHazard: {fileID: 0}
   - biomeName: Volcano
+    biomeSpriteName: 
     groundColor: {r: 1, g: 0, b: 0, a: 1}
     biomeEnemies: 00000000
     enemySpeedMultiplier: 0
@@ -619,6 +624,7 @@ MonoBehaviour:
     biomeSpawnRateMultiplier: 1
     environmentalHazard: {fileID: 0}
   - biomeName: River
+    biomeSpriteName: 
     groundColor: {r: 0, g: 0.006503105, b: 1, a: 1}
     biomeEnemies: 00000000
     enemySpeedMultiplier: -40
@@ -634,6 +640,7 @@ MonoBehaviour:
     biomeSpawnRateMultiplier: 1
     environmentalHazard: {fileID: 0}
   - biomeName: Swamp
+    biomeSpriteName: 
     groundColor: {r: 0.3735848, g: 0.24469712, b: 0.0133926105, a: 1}
     biomeEnemies: 00000000
     enemySpeedMultiplier: -20
@@ -649,9 +656,10 @@ MonoBehaviour:
     biomeSpawnRateMultiplier: 1
     environmentalHazard: {fileID: 0}
   - biomeName: Plains
+    biomeSpriteName: 
     groundColor: {r: 1, g: 0.6920631, b: 0.1415093, a: 1}
     biomeEnemies: 00000000
-    enemySpeedMultiplier: 10
+    enemySpeedMultiplier: 1.5
     enemyAttackSpeedMultiplier: 1
     enemyDamageMultiplier: 1
     playerSpeedMultiplier: 1
@@ -667,6 +675,9 @@ MonoBehaviour:
   unloadRadius: 3
   spawnRadius: 3
   biomeNoiseScale: 0.025
+  biomePaletteShiftNoiseScale: 0.008
+  overlayTilesPerChunk: 3
+  overlayBrightness: 0.75
 --- !u!114 &1573701117
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -866,6 +877,7 @@ MonoBehaviour:
     tier: 0
   minSpawnDistFromPlayer: 25
   maxSpawnDistFromPlayer: 30
+  alwaysSpawnOffScreen: 1
 --- !u!114 &1573701124
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -158,12 +158,17 @@ public class SurvivorMasterScript : MonoBehaviour {
         regenTimer = 0f;
         // Reset per-run movement speed boost.
         player?.GetComponent<PlayerMovement>()?.ResetForNewRun();
-        poiDamageMult   = 1f;
-        poiCooldownMult = 1f;
-        poiGoldMult     = 1f;
-        poiExtraCards   = 0;
+        poiDamageMult     = 1f;
+        poiCooldownMult   = 1f;
+        poiGoldMult       = 1f;
+        poiExtraCards     = 0;
         poiBlockKnockback = false;
-        poiHalfSpeed    = false;
+        poiHalfSpeed      = false;
+        // Must be explicit — POIInstance.OnDestroy only resets this when the player was
+        // inside at destruction time, so dying outside the zone leaks the flag into the
+        // next run and makes every enemy permanently 1.57× faster.
+        isInsideGraveyard = false;
+        isInvulnerable    = false;
     }
 
     public void BonusMaxHP(float amount) {

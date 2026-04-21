@@ -95,6 +95,9 @@ public class EnemyEntity : MonoBehaviour {
 
     // Commander – speed-aura radius
     private float _commanderAuraTimer = 0f;
+    // Transient speed bonus granted by a Commander aura; decays when not refreshed.
+    [System.NonSerialized] public float commanderSpeedBonus = 0f;
+    private float _commanderBonusDecayTimer = 0f;
 
     // Reflector – shield active
 
@@ -151,7 +154,14 @@ public class EnemyEntity : MonoBehaviour {
         Vector3 pPos = SurvivorMasterScript.Instance.player.position;
         Vector3 dir  = (pPos - transform.position).normalized;
         float   dist = Vector3.Distance(transform.position, pPos);
-        float   s    = moveSpeed * (SurvivorMasterScript.Instance.isInsideGraveyard ? 1.57f : 1f);
+
+        // Decay Commander aura bonus — if no Commander refreshes it within 4 s it fades out.
+        if (commanderSpeedBonus > 0f) {
+            _commanderBonusDecayTimer -= Time.deltaTime;
+            if (_commanderBonusDecayTimer <= 0f) commanderSpeedBonus = 0f;
+        }
+
+        float   s    = (moveSpeed + commanderSpeedBonus) * (SurvivorMasterScript.Instance.isInsideGraveyard ? 1.57f : 1f);
 
         // ── Jockey control-reversal (inverts input via PlayerMovement hack) ──
         if (_jockeyLatched) {
@@ -319,7 +329,7 @@ public class EnemyEntity : MonoBehaviour {
                 if (moveSpeed < 0f) transform.position -= dir * Mathf.Abs(s) * 2f * Time.deltaTime;
                 break;
 
-            // ── Commander – buff nearby enemy speed ───────────────────────────
+            // ── Commander – buff nearby enemy speed (transient, decays without refresh) ──
             case EnemyBehavior.Commander:
                 // Hang back 8 units
                 if (dist < 8f)       transform.position -= dir * s * 0.5f * Time.deltaTime;
@@ -327,8 +337,16 @@ public class EnemyEntity : MonoBehaviour {
                 _commanderAuraTimer -= Time.deltaTime;
                 if (_commanderAuraTimer <= 0f) {
                     _commanderAuraTimer = 3f;
-                    foreach (var e in SurvivorMasterScript.Instance.Grid.GetNearby(transform.position))
-                        if (e != null && !e.isDead && e != this) e.moveSpeed = Mathf.Min(e.moveSpeed * 1.1f, 15f);
+                    foreach (var e in SurvivorMasterScript.Instance.Grid.GetNearby(transform.position)) {
+                        if (e == null || e.isDead || e == this) continue;
+                        // Grant a flat bonus capped at 50% of the target's base speed.
+                        // Writing to commanderSpeedBonus (not moveSpeed) means the buff
+                        // disappears 4 s after the Commander dies or moves out of range.
+                        e.commanderSpeedBonus = Mathf.Min(
+                            e.commanderSpeedBonus + e.moveSpeed * 0.1f,
+                            e.moveSpeed * 0.5f);
+                        e._commanderBonusDecayTimer = 4f;
+                    }
                 }
                 break;
 

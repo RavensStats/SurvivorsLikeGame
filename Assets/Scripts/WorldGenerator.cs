@@ -17,6 +17,10 @@ public class WorldGenerator : MonoBehaviour {
     public float biomeNoiseScale = 0.025f;
     [Tooltip("Secondary palette-shift noise scale used to balance biome frequency (helps avoid edge-biome starvation).")]
     public float biomePaletteShiftNoiseScale = 0.008f;
+    [Tooltip("How many times the biome texture tiles across one chunk per axis (1 = one full image per chunk, 3 = 3×3 grid).")]
+    [Range(1, 8)] public int overlayTilesPerChunk = 3;
+    [Tooltip("Brightness of the biome overlay tiles (1 = full brightness, 0.75 = 25% darker).")]
+    [Range(0f, 1f)] public float overlayBrightness = 0.75f;
 
     // Per-run noise offset – randomised in StartGame() so every run starts in a different biome.
     private float _biomeOffsetX;
@@ -31,6 +35,9 @@ public class WorldGenerator : MonoBehaviour {
     private bool _poiActive  = false; // true while player is inside a POI
     private readonly Dictionary<string, Sprite> _biomeSpriteCache = new Dictionary<string, Sprite>(System.StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _missingBiomeSpriteWarnings = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+    // All sprites in Resources/Sprites/Biomes/, keyed by both texture name and sprite name.
+    // Built once per run so LoadBiomeSprite never has to guess the path format.
+    private Dictionary<string, Sprite> _biomeSpritePool;
 
     // Expose chunk data for enemy spawner
     public IEnumerable<Vector2Int> ActiveChunkKeys => chunks.Keys;
@@ -39,6 +46,9 @@ public class WorldGenerator : MonoBehaviour {
 
     void Awake() {
         Instance = this;
+        // Seed offsets immediately so biome noise is never stuck at 0,0 if StartGame is delayed.
+        _biomeOffsetX = Random.Range(0f, 9000f);
+        _biomeOffsetY = Random.Range(0f, 9000f);
     }
 
     /// <summary>
@@ -68,6 +78,34 @@ public class WorldGenerator : MonoBehaviour {
         // Pre-warm the banner canvas so the first biome show has no setup delay
         BiomePOIBanner.EnsureInstance();
 
+        // Rebuild the sprite pool and cache for the new run.
+        _biomeSpriteCache.Clear();
+        BuildBiomeSpritePool();
+        StartCoroutine(PrewarmBiomeTextures());
+    }
+
+    IEnumerator PrewarmBiomeTextures() {
+        foreach (var biome in biomes)
+            LoadBiomeSprite(biome);
+
+        // Place near the camera so the frustum culling doesn't skip the render.
+        // Sorting order -9999 and near-zero alpha keep it invisible to the player.
+        Vector3 camPos = Camera.main != null ? Camera.main.transform.position : Vector3.zero;
+        GameObject go = new GameObject("_TexturePrewarm");
+        go.transform.position = new Vector3(camPos.x, camPos.y, 0f);
+        SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = -9999;
+        sr.color = new Color(1f, 1f, 1f, 0.01f);
+
+        foreach (var biome in biomes) {
+            Sprite s = LoadBiomeSprite(biome);
+            if (s != null) {
+                sr.sprite = s;
+                yield return null;
+            }
+        }
+
+        Destroy(go);
         _gameActive = true;
     }
 
@@ -133,7 +171,8 @@ public class WorldGenerator : MonoBehaviour {
     void Spawn(Vector2Int c) {
         if (chunks.ContainsKey(c)) return;
         Vector3 p = new Vector3(c.x * 30, c.y * 30, 0);
-        GameObject chunk = Instantiate(floorPrefab, p, Quaternion.identity, transform);
+        // Keep floor chunks in world space so they never inherit parent movement.
+        GameObject chunk = Instantiate(floorPrefab, p, Quaternion.identity);
         chunks.Add(c, chunk);
 
         SpriteRenderer sr = chunk.GetComponentInChildren<SpriteRenderer>();
@@ -150,49 +189,86 @@ public class WorldGenerator : MonoBehaviour {
         BiomeData biome = biomes[biomeIndex];
         sr.color = biome.groundColor;
 
-        // Keep the base tile tint, then draw biome texture details on top.
-        SpriteRenderer overlay = GetOrCreateBiomeOverlayRenderer(chunk, sr);
-        if (overlay != null) {
-            overlay.sprite = LoadBiomeSprite(biome);
-            overlay.color = Color.white;
-            overlay.enabled = overlay.sprite != null;
-        }
+        // Draw biome texture on top of the base tint as a grid of individually-rotated tiles.
+        Sprite biomeSprite = LoadBiomeSprite(biome);
+        if (biomeSprite != null)
+            SpawnBiomeTiles(chunk, c, biomeSprite, sr);
 
         // 5% chance to place a POI on this chunk
         if (Random.value < 0.05f) SpawnPOI(p + new Vector3(15f, 15f, 0f));
     }
 
-    SpriteRenderer GetOrCreateBiomeOverlayRenderer(GameObject chunk, SpriteRenderer baseRenderer) {
-        if (chunk == null || baseRenderer == null) return null;
+    void SpawnBiomeTiles(GameObject chunk, Vector2Int c, Sprite biomeSprite, SpriteRenderer baseRenderer) {
+        float psX     = chunk.transform.lossyScale.x; // 30
+        float psY     = chunk.transform.lossyScale.y; // 30
+        float nativeW = biomeSprite.bounds.size.x;
+        float nativeH = biomeSprite.bounds.size.y;
+        int   N       = overlayTilesPerChunk;
+        float tileWS  = ChunkSize / N; // tile world-space size
 
-        Transform existing = chunk.transform.Find("BiomeOverlay");
-        SpriteRenderer overlay = existing != null ? existing.GetComponent<SpriteRenderer>() : null;
-        if (overlay == null) {
-            GameObject go = new GameObject("BiomeOverlay");
-            go.transform.SetParent(baseRenderer.transform.parent, false);
-            go.transform.localPosition = baseRenderer.transform.localPosition;
-            go.transform.localRotation = baseRenderer.transform.localRotation;
-            go.transform.localScale = baseRenderer.transform.localScale;
-            overlay = go.AddComponent<SpriteRenderer>();
+        // Scale so the sprite fills exactly one tile cell in world space.
+        float lsX = tileWS / Mathf.Max(0.0001f, nativeW * psX);
+        float lsY = tileWS / Mathf.Max(0.0001f, nativeH * psY);
+
+        GameObject root = new GameObject("BiomeTiles");
+        root.transform.SetParent(chunk.transform, false);
+        root.transform.localPosition = Vector3.zero;
+        root.transform.localScale    = Vector3.one;
+
+        for (int ty = 0; ty < N; ty++) {
+            for (int tx = 0; tx < N; tx++) {
+                GameObject go = new GameObject($"T{tx}_{ty}");
+                go.transform.SetParent(root.transform, false);
+
+                // Biome sprites have pivot (0,0) — bottom-left — confirmed in .meta files.
+                // With a bottom-left pivot the transform position IS the tile's bottom-left
+                // corner, so tile (tx,ty) starts at (tx/N, ty/N) in chunk-local [0,1] space,
+                // placing it exactly at world (c.x*30 + tx*tileWS, c.y*30 + ty*tileWS).
+                go.transform.localPosition = new Vector3((float)tx / N, (float)ty / N, 0f);
+                go.transform.localScale    = new Vector3(lsX, lsY, 1f);
+
+                // Deterministic 90° rotation that varies both across and within chunks.
+                int hash = Mathf.Abs(c.x * 1637 + c.y * 2741 + tx * 419 + ty * 877);
+                go.transform.localRotation = Quaternion.Euler(0f, 0f, (hash % 4) * 90f);
+
+                SpriteRenderer sr = go.AddComponent<SpriteRenderer>();
+                sr.sprite         = biomeSprite;
+                float b           = overlayBrightness;
+                sr.color          = new Color(b, b, b, 1f);
+                sr.sortingLayerID = baseRenderer.sortingLayerID;
+                sr.sortingOrder   = baseRenderer.sortingOrder + 1;
+            }
         }
-
-        overlay.sortingLayerID = baseRenderer.sortingLayerID;
-        overlay.sortingOrder = baseRenderer.sortingOrder + 1;
-        overlay.flipX = baseRenderer.flipX;
-        overlay.flipY = baseRenderer.flipY;
-        overlay.drawMode = SpriteDrawMode.Tiled;
-        overlay.size = GetOverlayChunkSize(baseRenderer);
-
-        return overlay;
     }
 
-    Vector2 GetOverlayChunkSize(SpriteRenderer baseRenderer) {
-        if (baseRenderer != null && baseRenderer.drawMode != SpriteDrawMode.Simple &&
-            baseRenderer.size.x > 0.001f && baseRenderer.size.y > 0.001f)
-            return baseRenderer.size;
+    // Loads every sprite from Resources/Sprites/Biomes/ once and indexes them by both
+    // texture file name ("Forest") and sub-sprite name ("Forest_0"), case-insensitive.
+    // Called at StartGame so the pool is ready before any chunk spawns.
+    void BuildBiomeSpritePool() {
+        _biomeSpritePool = new Dictionary<string, Sprite>(System.StringComparer.OrdinalIgnoreCase);
+        Sprite[] all = Resources.LoadAll<Sprite>("Sprites/Biomes");
+        foreach (Sprite s in all) {
+            if (s == null) continue;
+            // Index by sub-sprite name ("Forest_0") and, when available, by texture name ("Forest").
+            if (!_biomeSpritePool.ContainsKey(s.name))
+                _biomeSpritePool[s.name] = s;
+            if (s.texture != null && !_biomeSpritePool.ContainsKey(s.texture.name))
+                _biomeSpritePool[s.texture.name] = s;
+        }
+        Debug.Log($"[WorldGenerator] Biome sprite pool: {string.Join(", ", _biomeSpritePool.Keys)}");
+    }
 
-        // Default to chunk dimensions so the biome texture repeats over the whole chunk.
-        return new Vector2(ChunkSize, ChunkSize);
+    // Returns the first pool entry whose key equals or starts with (or is a prefix of) name.
+    // Handles singular/plural drift ("Mountain" ↔ "Mountains") and case differences.
+    Sprite FindInPool(string name) {
+        if (string.IsNullOrEmpty(name) || _biomeSpritePool == null) return null;
+        if (_biomeSpritePool.TryGetValue(name, out Sprite exact)) return exact;
+        foreach (var kvp in _biomeSpritePool) {
+            if (kvp.Key.StartsWith(name, System.StringComparison.OrdinalIgnoreCase)
+             || name.StartsWith(kvp.Key, System.StringComparison.OrdinalIgnoreCase))
+                return kvp.Value;
+        }
+        return null;
     }
 
     Sprite LoadBiomeSprite(BiomeData biome) {
@@ -208,16 +284,20 @@ public class WorldGenerator : MonoBehaviour {
         if (_biomeSpriteCache.TryGetValue(trimmedName, out Sprite cached))
             return cached;
 
-        Sprite sprite = Resources.Load<Sprite>($"Sprites/Biomes/{trimmedName}");
-        if (sprite == null) sprite = Resources.Load<Sprite>($"Sprites/Biomes/{trimmedName.Replace(" ", string.Empty)}");
-        if (sprite == null) sprite = Resources.Load<Sprite>($"Sprites/Biomes/{trimmedName.Replace(" ", "_")}");
-        if (sprite == null) sprite = Resources.Load<Sprite>($"Sprites/Biomes/{trimmedName.Replace(" ", "-")}");
+        if (_biomeSpritePool == null) BuildBiomeSpritePool();
+
+        // Try exact match then space-separator variants.
+        Sprite sprite = FindInPool(trimmedName)
+            ?? FindInPool(trimmedName.Replace(" ", string.Empty))
+            ?? FindInPool(trimmedName.Replace(" ", "_"))
+            ?? FindInPool(trimmedName.Replace(" ", "-"));
 
         _biomeSpriteCache[trimmedName] = sprite;
 
-        if (sprite == null && _missingBiomeSpriteWarnings.Add(trimmedName)) {
-            Debug.LogWarning($"[WorldGenerator] Missing biome sprite at Resources/Sprites/Biomes/{trimmedName}.png (Alt folder is intentionally ignored).");
-        }
+        if (sprite == null && _missingBiomeSpriteWarnings.Add(trimmedName))
+            Debug.LogWarning($"[WorldGenerator] No sprite found for biome '{trimmedName}'. " +
+                $"Pool contains: [{string.Join(", ", _biomeSpritePool.Keys)}]. " +
+                $"Set biomeName or biomeSpriteName to match one of those keys.");
 
         return sprite;
     }
@@ -258,19 +338,32 @@ public class WorldGenerator : MonoBehaviour {
         return biomes[idx].biomeName;
     }
 
-    void SpawnPOI(Vector3 pos) {
-        const float targetWorldDiameter = 24f;
+    // Returns the world-space icon diameter for each POI type.
+    // Adjust values here to tune individual POI visual sizes independently.
+    static float GetPOIIconDiameter(POIType t) {
+        switch (t) {
+            case POIType.TimeRift:       return 17f;
+            default:                     return 13f;
+        }
+    }
 
-        // All 20 implemented POI types
+    void SpawnPOI(Vector3 pos) {
+        const float ringWorldDiameter = 24f; // ZoneRadius * 2 – must match POIInstance.ZoneRadius
+
         POIType[] all = (POIType[])System.Enum.GetValues(typeof(POIType));
         POIType chosen = all[Random.Range(0, all.Length)];
+        float iconWorldDiameter = GetPOIIconDiameter(chosen);
 
+        // Root is unscaled so the icon and ring children can size independently.
         GameObject poi = new GameObject($"POI_{chosen}");
         poi.transform.position = pos;
         poi.transform.SetParent(transform, true);
 
-        // Visual indicator: sprite from Resources/Sprites/POI, fallback to colored circle.
-        SpriteRenderer sr = poi.AddComponent<SpriteRenderer>();
+        // ── Icon ─────────────────────────────────────────────────────────────
+        GameObject iconGO = new GameObject("Icon");
+        iconGO.transform.SetParent(poi.transform, false);
+
+        SpriteRenderer sr = iconGO.AddComponent<SpriteRenderer>();
         string spriteName = GetPOISpriteName(chosen);
         Sprite poiSprite = Resources.Load<Sprite>($"Sprites/POI/{spriteName}");
         if (poiSprite != null) {
@@ -281,13 +374,19 @@ public class WorldGenerator : MonoBehaviour {
             sr.color = POIColor(chosen);
             Debug.LogWarning($"[WorldGenerator] Missing POI sprite at Resources/Sprites/POI/{spriteName}.png; using fallback circle.");
         }
-        sr.sortingOrder = 1;
+        sr.sortingOrder = 3;
 
-        // Normalize world-space icon size so different source PPUs/textures appear consistent.
         float baseDiameter = Mathf.Max(sr.sprite.bounds.size.x, sr.sprite.bounds.size.y);
-        float safeBaseDiameter = Mathf.Max(0.0001f, baseDiameter);
-        float uniformScale = targetWorldDiameter / safeBaseDiameter;
-        poi.transform.localScale = Vector3.one * uniformScale;
+        iconGO.transform.localScale = Vector3.one * (iconWorldDiameter / Mathf.Max(0.0001f, baseDiameter));
+
+        // ── Zone ring ─────────────────────────────────────────────────────────
+        GameObject ringGO = new GameObject("ZoneRing");
+        ringGO.transform.SetParent(poi.transform, false);
+        ringGO.transform.localScale = Vector3.one * ringWorldDiameter;
+        SpriteRenderer ringSR = ringGO.AddComponent<SpriteRenderer>();
+        ringSR.sprite = MakeRingSprite(256);
+        ringSR.color = new Color(1f, 0.92f, 0.16f, 0.75f);
+        ringSR.sortingOrder = 2;
 
         POIInstance inst = poi.AddComponent<POIInstance>();
         inst.type = chosen;
@@ -339,6 +438,30 @@ public class WorldGenerator : MonoBehaviour {
                 tex.SetPixel(x, y, new Color(1f, 1f, 1f, a));
             }
         }
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, diameter, diameter), new Vector2(0.5f, 0.5f), diameter);
+    }
+
+    // Procedurally build a white ring (annulus) sprite. ringFraction controls band width as a
+    // fraction of the outer radius — 0.10 gives a ring ~10% as thick as the radius.
+    static Sprite MakeRingSprite(int diameter, float ringFraction = 0.10f) {
+        Texture2D tex = new Texture2D(diameter, diameter, TextureFormat.RGBA32, false);
+        tex.filterMode = FilterMode.Bilinear;
+        float r      = diameter * 0.5f;
+        float outerR = r - 0.5f;
+        float innerR = outerR * (1f - ringFraction);
+        Color[] pixels = new Color[diameter * diameter];
+        for (int y = 0; y < diameter; y++) {
+            for (int x = 0; x < diameter; x++) {
+                float dx   = x - r + 0.5f;
+                float dy   = y - r + 0.5f;
+                float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                float a    = Mathf.Clamp01(outerR + 1f - dist)   // outer edge fade
+                           * Mathf.Clamp01(dist - innerR);        // inner edge fade
+                pixels[y * diameter + x] = new Color(1f, 1f, 1f, a);
+            }
+        }
+        tex.SetPixels(pixels);
         tex.Apply();
         return Sprite.Create(tex, new Rect(0, 0, diameter, diameter), new Vector2(0.5f, 0.5f), diameter);
     }

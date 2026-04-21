@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: 44de904a8dee53d4d8d4f6c35aa789c4
+guid: 0eb89168516b8e647960afcac5fa918c
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -1819830194433888264
-    second: Mountain_0
+      213: 1307102781619078554
+    second: Swamp_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -46,7 +46,7 @@ TextureImporter:
   nPOTScale: 0
   lightmap: 0
   compressionQuality: 50
-  spriteMode: 2
+  spriteMode: 1
   spriteExtrude: 1
   spriteMeshType: 1
   alignment: 0
@@ -139,13 +139,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Mountain_0
+      name: Swamp_0
       rect:
         serializedVersion: 2
         x: 0
         y: 0
-        width: 1024
-        height: 1024
+        width: 977
+        height: 986
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -154,8 +154,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 8ffec3d741aaeb6e0800000000000000
-      internalID: -1819830194433888264
+      spriteID: a958457fd03c32210800000000000000
+      internalID: 1307102781619078554
       vertices: []
       indices: 
       edges: []
@@ -164,7 +164,7 @@ TextureImporter:
     customData: 
     physicsShape: []
     bones: []
-    spriteID: 
+    spriteID: 5e97eb03825dee720800000000000000
     internalID: 0
     vertices: []
     indices: 
@@ -174,7 +174,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Mountain_0: -1819830194433888264
+      Swamp_0: 1307102781619078554
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

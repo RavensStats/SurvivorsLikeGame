@@ -13,6 +13,8 @@ public class PlayerAnimator : MonoBehaviour {
 
     [Tooltip("Uniform size multiplier applied to all characters. 1.0 = reference 32px size. Reduce to shrink all characters.")]
     [SerializeField] [Range(0.1f, 2f)] private float characterSizeMultiplier = 1.01f;
+    [Tooltip("Brightness multiplier for the player sprite. Values above 1 make the sprite brighter.")]
+    [SerializeField] [Range(1f, 3f)] private float spriteBrightness = 1.4f;
 
     // ── Internals ──────────────────────────────────────────────────────────────
     private SpriteRenderer sr;
@@ -47,6 +49,7 @@ public class PlayerAnimator : MonoBehaviour {
         sr = GetComponent<SpriteRenderer>();
         rb = GetComponent<Rigidbody2D>();
         sr.sortingOrder = 6; // above POI (1), gems (4), enemies (5)
+        sr.color = new Color(spriteBrightness, spriteBrightness, spriteBrightness, 1f);
         baseScale = transform.localScale;
     }
 
