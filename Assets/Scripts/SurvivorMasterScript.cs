@@ -75,6 +75,8 @@ public class SurvivorMasterScript : MonoBehaviour {
         _mainCam = Camera.main;
         Grid = new SpatialGrid(12f);
         XpGem.Init();
+        if (OutlineManager.Instance == null)
+            new GameObject("OutlineManager").AddComponent<OutlineManager>();
         if (LevelUpManager.Instance == null)
             new GameObject("LevelUpManager").AddComponent<LevelUpManager>();
         if (playerPrefab != null) {

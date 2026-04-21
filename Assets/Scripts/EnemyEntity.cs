@@ -123,6 +123,7 @@ public class EnemyEntity : MonoBehaviour {
 
     void Start() {
         _sr = GetComponent<SpriteRenderer>();
+        OutlineManager.Instance?.Register(_sr);
         if (SurvivorMasterScript.Instance.nemesis.isPendingRevenge &&
             behavior == SurvivorMasterScript.Instance.nemesis.killerType) {
             transform.localScale *= 2; hp *= 5; // Nemesis Buff
@@ -723,6 +724,7 @@ public class EnemyEntity : MonoBehaviour {
     }
 
     void OnDestroy() {
+        OutlineManager.Instance?.Unregister(_sr);
         if (_hpBarRoot != null) Destroy(_hpBarRoot);
     }
 

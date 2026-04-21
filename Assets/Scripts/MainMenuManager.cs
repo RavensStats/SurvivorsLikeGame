@@ -1073,6 +1073,8 @@ public class MainMenuManager : MonoBehaviour {
                 });
         }
 
+        bool highVis = PlayerPrefs.GetInt("highVisibility", 0) == 1;
+        TogRow("High Visibility (Outlines)", highVis, "highVisibility");
         TogRow("Enemy Damage Numbers",  showDmgNums,       "showDamageNumbers");
         TogRow("Player Damage Numbers", showPlayerDmgNums, "showPlayerDamageNumbers");
         TogRow("Healing Numbers",       showHealNums,      "showHealingNumbers");
@@ -1136,6 +1138,7 @@ public class MainMenuManager : MonoBehaviour {
 
         FloatingText.RefreshSettings();
         EnemyEntity.RefreshHPBarSettings();
+        OutlineManager.Instance?.SetEnabled(PlayerPrefs.GetInt("highVisibility", 0) == 1);
 
         PlayerPrefs.Save();
     }

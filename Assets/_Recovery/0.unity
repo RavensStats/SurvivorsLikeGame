@@ -648,7 +648,7 @@ MonoBehaviour:
     biomeXPMultiplier: 1
     biomeSpawnRateMultiplier: 1
     environmentalHazard: {fileID: 0}
-  - biomeName: Plains
+  - biomeName: Desert
     groundColor: {r: 1, g: 0.6920631, b: 0.1415093, a: 1}
     biomeEnemies: 00000000
     enemySpeedMultiplier: 10

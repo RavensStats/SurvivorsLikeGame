@@ -56,6 +56,7 @@ public class PlayerAnimator : MonoBehaviour {
     void Start() {
         prevHP = SurvivorMasterScript.Instance != null ? SurvivorMasterScript.Instance.playerHP : 100f;
         LoadClipsForCharacter(PlayerPrefs.GetString("SelectedCharacter", "Mage"));
+        OutlineManager.Instance?.Register(sr);
     }
 
     void Update() {

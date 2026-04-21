@@ -4,7 +4,7 @@ TextureImporter:
   internalIDToNameTable:
   - first:
       213: -9102900633203978818
-    second: Plains_0
+    second: Desert_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -139,7 +139,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Plains_0
+      name: Desert_0
       rect:
         serializedVersion: 2
         x: 0
@@ -174,7 +174,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Plains_0: -9102900633203978818
+      Desert_0: -9102900633203978818
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
