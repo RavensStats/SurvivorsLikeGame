@@ -10,6 +10,7 @@ public class WeaponSystem : MonoBehaviour {
     public List<EvolutionRecipe> recipes;
     private Dictionary<string, float> cooldowns = new Dictionary<string, float>();
     private Dictionary<string, List<GameObject>> activeOrbs = new Dictionary<string, List<GameObject>>();
+    private readonly List<GameObject> _activeSentries = new List<GameObject>();
 
     // Always use the live player position so projectiles spawn/query at the right spot.
     Vector3 PlayerPos => SurvivorMasterScript.Instance.player?.position ?? transform.position;
@@ -30,6 +31,9 @@ public class WeaponSystem : MonoBehaviour {
             foreach (var o in kvp.Value)
                 if (o != null) Destroy(o);
         activeOrbs.Clear();
+        // Destroy any placed sentry guns.
+        foreach (var s in _activeSentries) if (s != null) Destroy(s);
+        _activeSentries.Clear();
     }
 
     void Update() {
@@ -69,6 +73,8 @@ public class WeaponSystem : MonoBehaviour {
         if (w.fireMode == FireMode.VoidOrb)         { StartCoroutine(FireVoidOrb(w));         return; }
         if (w.fireMode == FireMode.HolySword)        { StartCoroutine(FireHolySword(w));        return; }
         if (w.fireMode == FireMode.AnimatedStrike)   { StartCoroutine(FireAnimatedStrike(w));   return; }
+        if (w.fireMode == FireMode.SentryGun)        { FireSentryGun(w);                        return; }
+        if (w.fireMode == FireMode.CaltropThrow)     { FireCaltropThrow(w);                     return; }
         if (w.fireMode == FireMode.OracleBeam)        { StartCoroutine(FireOracleBeam(w));        return; }
         if (w.fireMode == FireMode.SpectralBeam)      { StartCoroutine(FireSpectralBeam(w));      return; }
         if (w.fireMode == FireMode.TidalWave)          { StartCoroutine(FireTidalWave(w));          return; }
@@ -1021,6 +1027,140 @@ public class WeaponSystem : MonoBehaviour {
         }
 
         if (go != null) Destroy(go);
+    }
+
+    // Tactician custom attack: throws N caltrops per attack in parabolic arcs to random
+    // screen positions. Caltrops persist on the ground and trigger-damage the first enemy
+    // that steps on them, then despawn. Destroyed automatically when off-screen.
+    //
+    // Level scaling:
+    //   L1 – 3 thrown, base damage, base cooldown (1.5 s)
+    //   L2 – 4 thrown, ×1.25 damage
+    //   L3 – 5 thrown
+    //   L4 – 7 thrown, ×1.25 attack speed
+    //   L5 – 10 thrown
+    //   Max caltrops on screen = level × 4; if throwing would exceed cap, reduce count.
+    void FireCaltropThrow(ItemData w) {
+        const float baseCooldown = 1.5f;
+        w.cooldown = w.level >= 4 ? baseCooldown * 0.75f : baseCooldown;
+
+        int baseThrow = w.level switch {
+            1 => 3,
+            2 => 4,
+            3 => 5,
+            4 => 7,
+            _ => 10   // level 5
+        };
+
+        int maxOnScreen = w.level * 4;
+        int currentOnScreen = 0;
+        foreach (var c in CaltropLogic.Active)
+            if (c != null && SurvivorMasterScript.IsOnScreen(c.transform.position)) currentOnScreen++;
+
+        int toThrow = Mathf.Max(0, Mathf.Min(baseThrow, maxOnScreen - currentOnScreen));
+        if (toThrow == 0) return;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        float dmg = w.baseDamage;
+        if (w.level >= 2) dmg *= 1.25f;
+        dmg *= (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        Vector3 playerPos = PlayerPos;
+
+        for (int i = 0; i < toThrow; i++) {
+            Vector3 landPos = Vector3.positiveInfinity;
+            for (int attempt = 0; attempt < 15; attempt++) {
+                float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+                float dist  = Random.Range(6f, 14f);
+                Vector3 candidate = playerPos + new Vector3(Mathf.Cos(angle) * dist, Mathf.Sin(angle) * dist, 0f);
+                if (SurvivorMasterScript.IsOnScreen(candidate)) { landPos = candidate; break; }
+            }
+            if (landPos == Vector3.positiveInfinity) continue;
+            StartCoroutine(CaltropArc(playerPos, landPos, spr, dmg));
+        }
+    }
+
+    // Animates a caltrop sprite in a parabolic arc from 'from' to 'to', then spawns
+    // a persistent CaltropLogic at the landing position.
+    IEnumerator CaltropArc(Vector3 from, Vector3 to, Sprite spr, float dmg) {
+        var go = new GameObject("CaltropInFlight");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 8;
+        if (spr != null) sr.sprite = spr;
+        go.transform.localScale = Vector3.one * 3f;
+
+        float duration  = Random.Range(0.4f, 0.7f);
+        float arcHeight = Random.Range(1.5f, 3.0f);
+        float spinSpeed = Random.Range(200f, 400f) * (Random.value < 0.5f ? 1f : -1f);
+        float elapsed   = 0f;
+
+        while (elapsed < duration) {
+            if (go == null) yield break;
+            float t   = elapsed / duration;
+            Vector3 pos = Vector3.Lerp(from, to, t);
+            pos.y += arcHeight * Mathf.Sin(t * Mathf.PI);
+            go.transform.position = pos;
+            go.transform.Rotate(0f, 0f, spinSpeed * Time.deltaTime);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (go != null) Destroy(go);
+        CaltropLogic.Spawn(to, dmg, spr);
+    }
+
+    // Engineer custom attack: places up to N sentry guns near the player (N depends on level).
+    // Each sentry manages its own animated turret and fires cannonballs independently.
+    // Level scaling: L2 +25% dmg | L3 2nd sentry | L4 +25% attack speed | L5 3rd sentry
+    void FireSentryGun(ItemData w) {
+        // Cull nulls and sentries that drifted too far from the player (> 35 units).
+        Vector3 playerPos = PlayerPos;
+        _activeSentries.RemoveAll(s => {
+            if (s == null) return true;
+            if ((s.transform.position - playerPos).sqrMagnitude > 35f * 35f) { Destroy(s); return true; }
+            return false;
+        });
+
+        int maxSentries = w.level switch {
+            1 => 1,
+            2 => 1,
+            3 => 2,
+            4 => 2,
+            _ => 3   // level 5
+        };
+
+        // Count how many sentries are currently visible on screen.
+        int onScreen = 0;
+        foreach (var s in _activeSentries)
+            if (s != null && SurvivorMasterScript.IsOnScreen(s.transform.position)) onScreen++;
+
+        if (onScreen >= maxSentries) return;
+
+        // Find a random placement position around the player that is on screen.
+        Vector3 spawnPos = Vector3.positiveInfinity;
+        for (int attempt = 0; attempt < 15; attempt++) {
+            float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+            float dist  = Random.Range(5f, 12f);
+            Vector3 candidate = playerPos + new Vector3(Mathf.Cos(angle) * dist, Mathf.Sin(angle) * dist, 0f);
+            if (SurvivorMasterScript.IsOnScreen(candidate)) { spawnPos = candidate; break; }
+        }
+        if (spawnPos == Vector3.positiveInfinity) return;
+
+        var go = new GameObject("SentryGun");
+        go.transform.position = spawnPos;
+
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 5;
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        if (frames != null && frames.Length > 0) sr.sprite = frames[0];
+        go.transform.localScale = Vector3.one * 5f;
+
+        var logic = go.AddComponent<SentryGunLogic>();
+        logic.weaponData = w;
+
+        _activeSentries.Add(go);
     }
 
     public void CheckSynergies() {
