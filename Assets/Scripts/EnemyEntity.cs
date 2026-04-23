@@ -8,6 +8,10 @@ public class EnemyEntity : MonoBehaviour {
     public float moveSpeed  = 3.5f;
     public float attackRange = 1.0f;
     public bool  isDead = false;
+    // Incremented when inside a PoisonGas cloud, decremented on exit. >0 means 25% attack miss.
+    public int poisonGasStacks = 0;
+    // Incremented when inside a BindingCircle, decremented on exit. >0 freezes movement.
+    public int rootedStacks = 0;
     public Vector2Int currentCell = new Vector2Int(-99, -99);
     // Multiplicative bonus applied to all incoming damage (stacks additively across sources).
     public float damageTakenMult = 1f;
@@ -89,7 +93,9 @@ public class EnemyEntity : MonoBehaviour {
     private float   _webTrailTimer    = 0f;
 
     // ── Charm (Bard's Ballad) ──────────────────────────────────────────────────
-    [System.NonSerialized] public bool isCharmed = false;
+    [System.NonSerialized] public bool isCharmed           = false;
+    // Set permanently by ConversionCircleLogic; replaced normal AI with allied behavior.
+    [System.NonSerialized] public bool isPermanentlyCharmed = false;
     private GameObject _charmOutlineObj;
     private float      _charmAttackTimer;
 
@@ -130,11 +136,11 @@ public class EnemyEntity : MonoBehaviour {
     // Cached HP-bar visibility settings – refreshed once at run start (and when
     // the player changes settings) instead of calling PlayerPrefs every 0.5 s.
     private static bool _showHpNormal   = false;
-    private static bool _showHpMiniBoss = true;
+    private static bool _showHpElite = true;
     private static bool _showHpBoss     = true;
     public static void RefreshHPBarSettings() {
         _showHpNormal   = PlayerPrefs.GetInt("showHpNormal",   0) == 1;
-        _showHpMiniBoss = PlayerPrefs.GetInt("showHpMiniBoss", 1) == 1;
+        _showHpElite = PlayerPrefs.GetInt("showHpElite", 1) == 1;
         _showHpBoss     = PlayerPrefs.GetInt("showHpBoss",     1) == 1;
     }
 
@@ -180,7 +186,8 @@ public class EnemyEntity : MonoBehaviour {
             if (_commanderBonusDecayTimer <= 0f) commanderSpeedBonus = 0f;
         }
 
-        float   s    = (moveSpeed + commanderSpeedBonus) * (SurvivorMasterScript.Instance.isInsideGraveyard ? 1.57f : 1f);
+        float   s    = rootedStacks > 0 ? 0f
+                     : (moveSpeed + commanderSpeedBonus) * (SurvivorMasterScript.Instance.isInsideGraveyard ? 1.57f : 1f);
 
         // ── Jockey control-reversal (inverts input via PlayerMovement hack) ──
         if (_jockeyLatched) {
@@ -203,7 +210,8 @@ public class EnemyEntity : MonoBehaviour {
         // ─────────────────────────────────────────────────────────────────────
         // BEHAVIOR BRANCH
         // ─────────────────────────────────────────────────────────────────────
-        if (isCharmed) { HandleCharmedBehavior(); return; }
+        if (isPermanentlyCharmed) { HandlePermanentCharmBehavior(); return; }
+        if (isCharmed)            { HandleCharmedBehavior();        return; }
         switch (behavior) {
 
             // ── Already implemented (kept + extended) ────────────────────────
@@ -723,7 +731,7 @@ public class EnemyEntity : MonoBehaviour {
     }
 
     public void ApplyCharm(float duration) {
-        if (isCharmed) return;
+        if (isCharmed || isPermanentlyCharmed) return;
         StartCoroutine(CharmRoutine(duration));
     }
 
@@ -755,7 +763,7 @@ public class EnemyEntity : MonoBehaviour {
         EnemyEntity foe    = null;
         float       bestSq = float.MaxValue;
         foreach (var e in nearby) {
-            if (e == null || e.isDead || e == this || e.isCharmed) continue;
+            if (e == null || e.isDead || e == this || e.isCharmed || e.isPermanentlyCharmed) continue;
             float sq = ((Vector2)(e.transform.position - transform.position)).sqrMagnitude;
             if (sq < bestSq) { bestSq = sq; foe = e; }
         }
@@ -781,8 +789,47 @@ public class EnemyEntity : MonoBehaviour {
         }
     }
 
+    // Allied behavior for permanently converted enemies.
+    // On-screen: attack nearby hostile enemies. Off-screen OR no hostiles found: walk toward player.
+    void HandlePermanentCharmBehavior() {
+        Vector3 pPos     = SurvivorMasterScript.Instance.player.position;
+        bool    onScreen = SurvivorMasterScript.IsOnScreen(transform.position);
+
+        EnemyEntity foe   = null;
+        float       bestSq = float.MaxValue;
+
+        if (onScreen) {
+            foreach (var e in SurvivorMasterScript.Instance.Grid.GetNearby(transform.position)) {
+                if (e == null || e.isDead || e == this) continue;
+                if (e.isCharmed || e.isPermanentlyCharmed) continue;
+                float sq = ((Vector2)(e.transform.position - transform.position)).sqrMagnitude;
+                if (sq < bestSq) { bestSq = sq; foe = e; }
+            }
+        }
+
+        if (foe != null) {
+            transform.position += (foe.transform.position - transform.position).normalized * moveSpeed * Time.deltaTime;
+            _charmAttackTimer -= Time.deltaTime;
+            if (bestSq < 1.5f * 1.5f && _charmAttackTimer <= 0f) {
+                _charmAttackTimer = 1f;
+                foe.TakeDamage(GetComponent<EnemyAttack>()?.damage ?? 5f);
+            }
+        } else {
+            transform.position += (pPos - transform.position).normalized * moveSpeed * Time.deltaTime;
+        }
+
+        if (_hpBarRoot != null) {
+            float halfH = (_sr != null && _sr.sprite != null)
+                ? _sr.sprite.bounds.extents.y * transform.localScale.y
+                : transform.localScale.y * 0.055f;
+            _hpBarRoot.transform.position = transform.position + Vector3.up * (halfH + 0.25f);
+        }
+    }
+
     void Die() {
         isDead = true;
+        if (isPermanentlyCharmed)
+            ConversionCircleLogic.CharmedCount = Mathf.Max(0, ConversionCircleLogic.CharmedCount - 1);
         SurvivorMasterScript.Instance.RegisterKill(behavior);
         SurvivorMasterScript.Instance.Grid.Remove(this);
 
@@ -881,7 +928,7 @@ public class EnemyEntity : MonoBehaviour {
 
     bool ShouldShowHealthBar() {
         switch (tier) {
-            case EnemyTier.MiniBoss: return _showHpMiniBoss;
+            case EnemyTier.Elite: return _showHpElite;
             case EnemyTier.Boss:     return _showHpBoss;
             default:                 return _showHpNormal;
         }

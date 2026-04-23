@@ -44,7 +44,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
                     : cls == CharacterClass.Monk             ? "Fist of Absolution"
                     : cls == CharacterClass.Druid            ? "Creeping Vines"
                     : cls == CharacterClass.Cyborg           ? "Radial Laser"
-                    : cls == CharacterClass.Cleric           ? "Holy Staff"
+                    : cls == CharacterClass.Cleric           ? "Conversion Circle"
                     : cls == CharacterClass.Cryomancer       ? "Ice Shard"
                     : cls == CharacterClass.Warlock          ? "Chain Lightning"
                     : cls == CharacterClass.Assassin         ? "Assassin Blade"
@@ -74,6 +74,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
                     : cls == CharacterClass.Aeromancer        ? "Windstorm"
                     : cls == CharacterClass.Geomancer        ? "Meteor Strike"
                     : cls == CharacterClass.Hivemaster       ? "Insect Swarm"
+                    : cls == CharacterClass.Psammomancer    ? "Sand Shield"
                     : null;
         if (name == null) return;
 
@@ -141,7 +142,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         AddWeapon(ws, "Void Orb",       "Gravity-well projectile that pulls nearby enemies on impact.",    Rarity.Rare,   14f, 1.8f,  1, WeaponTrait.Explosive,new List<string>{"Dark","Magic"},        fireMode: FireMode.VoidOrb, spriteFolder: "VoidOrb");
         AddWeapon(ws, "Scythe",         "Massive scythe orbits the player clockwise — spawns a skeleton on every kill.", Rarity.Rare,   22f, 5.0f,  4, WeaponTrait.Piercing, new List<string>{"Physical","Melee"},    fireMode: FireMode.ScytheOrbit, range: 14f, spriteFolder: "Scythe");
         AddWeapon(ws, "Arcane Arrow",   "Arrows leave a magic dust trail dealing damage over time.",       Rarity.Rare,   10f, 1.0f,  2, WeaponTrait.Piercing, new List<string>{"Magic","Ranged"},      fireMode: FireMode.RandomInRange, range: 40f, spriteFolder: "ArcaneArrow");
-        AddWeapon(ws, "Plague Canister","Gas canister that explodes into a large lingering poison cloud.",  Rarity.Rare,   12f, 2.2f,  1, WeaponTrait.Explosive,new List<string>{"Poison","Ranged"},     fireMode: FireMode.RandomInRange, range: 20f, spriteFolder: "PoisonGas");
+        AddWeapon(ws, "Plague Canister","Lobs a canister in a rotating cardinal direction; the cloud lingers 5 s, dealing damage and causing enemies to miss 25% of attacks.", Rarity.Rare, 12f, 3.0f, 1, WeaponTrait.None, new List<string>{"Poison","Ranged"}, fireMode: FireMode.PoisonGasCloud, range: 10f, spriteFolder: "PoisonGas");
         AddWeapon(ws, "Dual Revolvers", "Fans cannonballs in a left-side arc, firing pairs in quick bursts.", Rarity.Common, 12f, 2.0f, 1, WeaponTrait.None, new List<string>{"Physical","Ranged"},   fireMode: FireMode.DualRevolvers, range: 25f);
         AddWeapon(ws, "Throwing Axe",   "Hurls a spinning axe at the nearest enemy, slowing them on impact.", Rarity.Common, 14f, 2.0f, 1, WeaponTrait.None, new List<string>{"Physical","Ranged"},   fireMode: FireMode.WoodcutterAxe, range: 20f, spriteFolder: "WoodcutterAxe");
         AddWeapon(ws, "Scrap Maul",     "Heavy melee swing — chance to pop an extra XP gem on hit.",       Rarity.Common, 18f, 2.0f,  3, WeaponTrait.Piercing, new List<string>{"Physical","Melee"},    fireMode: FireMode.ArcSwing, range: 4f,  spriteFolder: "ScrapMaul");
@@ -153,9 +154,11 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         AddWeapon(ws, "Caltrop Throw",  "Hurls caltrops in arcing throws; they linger until an enemy steps on them.", Rarity.Common, 10f, 1.5f, 2, WeaponTrait.None, new List<string>{"Physical","Ranged"},   fireMode: FireMode.CaltropThrow,      range: 18f, spriteFolder: "Caltrop");
 
         // ── New character starting weapons ─────────────────────────────────────
-        AddWeapon(ws, "Binding Circle", "Conjures a binding circle that traps and damages nearby enemies.",   Rarity.Rare,   12f, 1.8f,  1, WeaponTrait.None,     new List<string>{"Magic","Support"},     fireMode: FireMode.NearestN,          range: 16f, spriteFolder: "BindingCircle");
+        AddWeapon(ws, "Binding Circle", "Conjures a runic circle under the nearest enemy — rooting and damaging anything inside it.", Rarity.Rare, 12f, 4.0f, 1, WeaponTrait.None, new List<string>{"Magic","Support"}, fireMode: FireMode.BindingCircle, range: 16f, spriteFolder: "BindingCircle");
+        AddWeapon(ws, "Sand Shield",    "Conjures a sand barrier around the player, blocking all damage and reflecting it at attackers.", Rarity.Rare, 18f, 6.0f, 1, WeaponTrait.None, new List<string>{"Sand","Defense"}, fireMode: FireMode.SandShield, spriteFolder: "SandShield");
+        AddWeapon(ws, "Conversion Circle", "A holy circle that permanently converts normal enemies to allies after 5 seconds inside.", Rarity.Rare, 1f, 1.0f, 0, WeaponTrait.None, new List<string>{"Holy","Support"}, fireMode: FireMode.ConversionCircle, range: 5f, spriteFolder: "ConversionCircle");
         AddWeapon(ws, "Saw Blade",      "Launches a spinning saw blade that bounces at 45° off each enemy it hits until it leaves the screen.", Rarity.Common, 14f, 1.2f, 1, WeaponTrait.None, new List<string>{"Physical","Ranged"}, fireMode: FireMode.SawBlade, range: 30f, spriteFolder: "SawBlade");
-        AddWeapon(ws, "Shuriken",       "Throws a volley of shuriken at nearby targets.",                     Rarity.Common, 8f,  0.5f,  2, WeaponTrait.None,     new List<string>{"Physical","Ranged"},   fireMode: FireMode.NearestN,          range: 20f, spriteFolder: "Shuriken");
+        AddWeapon(ws, "Shuriken",       "Hurls a volley of spinning shuriken in a left-side arc; each despawns on first hit.", Rarity.Common, 8f, 1.5f, 1, WeaponTrait.None, new List<string>{"Physical","Ranged"}, fireMode: FireMode.ShurikenThrow, spriteFolder: "Shuriken");
         AddWeapon(ws, "Frost Bolt",     "Fires a bolt of ice that slows enemies on impact.",                  Rarity.Common, 10f, 1.5f,  1, WeaponTrait.None,     new List<string>{"Ice","Ranged"},        fireMode: FireMode.NearestN,          range: 25f, spriteFolder: "Snowflake");
         AddWeapon(ws, "War Hammer",     "Massive hammer swing that sends a shockwave through enemies.",       Rarity.Common, 20f, 2.0f,  2, WeaponTrait.None,     new List<string>{"Physical","Melee"},    fireMode: FireMode.ArcSwing,          range: 5f, knockback: 8f, spriteFolder: "WarHammer");
         AddWeapon(ws, "Downpour",        "Fires a torrent of water bolts at nearby enemies.",                  Rarity.Common, 9f,  1.0f,  1, WeaponTrait.None,     new List<string>{"Water","Ranged"},      fireMode: FireMode.NearestN,          range: 20f, spriteFolder: "WaterDroplet");

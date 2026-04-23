@@ -1053,7 +1053,7 @@ public class MainMenuManager : MonoBehaviour {
         bool showPlayerDmgNums = PlayerPrefs.GetInt("showPlayerDamageNumbers", 1) == 1;
         bool showHealNums = PlayerPrefs.GetInt("showHealingNumbers", 1) == 1;
         bool showHpNormal = PlayerPrefs.GetInt("showHpNormal",      0) == 1;
-        bool showHpMini   = PlayerPrefs.GetInt("showHpMiniBoss",    1) == 1;
+        bool showHpMini   = PlayerPrefs.GetInt("showHpElite",        1) == 1;
         bool showHpBoss   = PlayerPrefs.GetInt("showHpBoss",        1) == 1;
 
         void TogRow(string label, bool current, string prefKey) {
@@ -1079,7 +1079,7 @@ public class MainMenuManager : MonoBehaviour {
         TogRow("Player Damage Numbers", showPlayerDmgNums, "showPlayerDamageNumbers");
         TogRow("Healing Numbers",       showHealNums,      "showHealingNumbers");
         TogRow("Enemy HP (Normal)",     showHpNormal,      "showHpNormal");
-        TogRow("Enemy HP (Mini-Boss)",  showHpMini,        "showHpMiniBoss");
+        TogRow("Enemy HP (Elite)",      showHpMini,        "showHpElite");
         TogRow("Enemy HP (Boss)",       showHpBoss,        "showHpBoss");
 
         cur += 20f; // bottom padding

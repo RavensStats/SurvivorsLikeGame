@@ -34,6 +34,9 @@ public class EnemyAttack : MonoBehaviour {
     }
 
     void ExecuteAttack() {
+        // 25% miss chance while inside a PoisonGas cloud.
+        if (entity != null && entity.poisonGasStacks > 0 && Random.value < 0.25f) return;
+
         float dist = Vector3.Distance(transform.position, SurvivorMasterScript.Instance.player.position);
         float meleeRange = entity != null ? entity.attackRange : 1.5f;
 
@@ -52,7 +55,9 @@ public class EnemyAttack : MonoBehaviour {
                     Vector3 dir = (SurvivorMasterScript.Instance.player.position - transform.position).normalized;
                     GameObject b = Instantiate(bulletPrefab, transform.position, Quaternion.identity);
                     b.GetComponent<Rigidbody2D>().linearVelocity = dir * bulletSpeed;
-                    b.AddComponent<EnemyBullet>().damage = damage;
+                    var eb = b.AddComponent<EnemyBullet>();
+                    eb.damage = damage;
+                    eb.owner  = entity;
                 } else {
                     SpawnProceduralBullet();
                 }
@@ -92,6 +97,7 @@ public class EnemyAttack : MonoBehaviour {
 
         var bullet = b.AddComponent<EnemyBullet>();
         bullet.damage = damage;
+        bullet.owner  = entity;
 
         Destroy(b, 6f);
     }
@@ -117,6 +123,11 @@ public class EnemyAttack : MonoBehaviour {
     }
 
     void DamagePlayer(float amt) {
+        if (WeaponSystem.SandShieldActive) {
+            // Shield absorbs the hit; reflect damage back to the attacker.
+            entity?.TakeDamage(WeaponSystem.SandShieldCounterDmg);
+            return;
+        }
         float mult = entity != null ? entity.damageDealtMult : 1f;
         SurvivorMasterScript.Instance.TakeDamage(amt * mult);
     }

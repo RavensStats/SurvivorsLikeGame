@@ -59,7 +59,7 @@ public class LinkerBeam : MonoBehaviour {
     void Update() {
         if (_self == null || _self.isDead) { _lr.enabled = false; return; }
 
-        if (_self.isCharmed) {
+        if (_self.isCharmed || _self.isPermanentlyCharmed) {
             _lr.enabled = false;
             if (_partner != null) {
                 // Release mutual pair so the partner can re-pair with someone else.
@@ -112,7 +112,7 @@ public class LinkerBeam : MonoBehaviour {
         EnemyEntity found = null;
         foreach (var beam in _registry) {
             if (beam._self == null || beam._self.isDead || beam._self == self) continue;
-            if (beam._self.isCharmed) continue;
+            if (beam._self.isCharmed || beam._self.isPermanentlyCharmed) continue;
             // Skip linkers already exclusively paired with someone other than self.
             if (_pairs.TryGetValue(beam._self, out var theirPair)
                     && theirPair != null && !theirPair.isDead && theirPair != self)

@@ -13,6 +13,12 @@ public class WeaponSystem : MonoBehaviour {
     private readonly List<GameObject> _activeSentries = new List<GameObject>();
     private GameObject _sniperReticle;
     private GameObject _windstorm;
+    // Rotation index for PoisonGas throw direction: 0=E 1=S 2=W 3=N.
+    private int _poisonGasDir;
+    private GameObject _conversionCircle;
+    // Shared shield state read by EnemyAttack and EnemyBullet to block/reflect damage.
+    public static bool  SandShieldActive     = false;
+    public static float SandShieldCounterDmg = 0f;
 
     // Always use the live player position so projectiles spawn/query at the right spot.
     Vector3 PlayerPos => SurvivorMasterScript.Instance.player?.position ?? transform.position;
@@ -44,6 +50,11 @@ public class WeaponSystem : MonoBehaviour {
         foreach (var s in InsectSwarmLogic.Active)
             if (s != null) Destroy(s.gameObject);
         InsectSwarmLogic.Active.Clear();
+        _poisonGasDir        = 0;
+        SandShieldActive     = false;
+        SandShieldCounterDmg = 0f;
+        if (_conversionCircle != null) { Destroy(_conversionCircle); _conversionCircle = null; }
+        ConversionCircleLogic.CharmedCount = 0;
     }
 
     void Update() {
@@ -97,6 +108,11 @@ public class WeaponSystem : MonoBehaviour {
         if (w.fireMode == FireMode.SawBlade)         { FireSawBlade(w);                          return; }
         if (w.fireMode == FireMode.PoisonDagger)     { StartCoroutine(FirePoisonDagger(w));      return; }
         if (w.fireMode == FireMode.TridentStrike)    { StartCoroutine(FireTridentStrike(w));     return; }
+        if (w.fireMode == FireMode.ShurikenThrow)    { FireShurikenThrow(w);                     return; }
+        if (w.fireMode == FireMode.PoisonGasCloud)   { StartCoroutine(FirePoisonGas(w));         return; }
+        if (w.fireMode == FireMode.BindingCircle)    { FireBindingCircle(w);                     return; }
+        if (w.fireMode == FireMode.SandShield)       { FireSandShield(w);                        return; }
+        if (w.fireMode == FireMode.ConversionCircle) { MaintainConversionCircle(w);              return; }
         if (w.fireMode == FireMode.OracleBeam)        { StartCoroutine(FireOracleBeam(w));        return; }
         if (w.fireMode == FireMode.SpectralBeam)      { StartCoroutine(FireSpectralBeam(w));      return; }
         if (w.fireMode == FireMode.TidalWave)          { StartCoroutine(FireTidalWave(w));          return; }
@@ -1849,6 +1865,176 @@ public class WeaponSystem : MonoBehaviour {
 
         // Restore base damage so the item card isn't permanently mutated.
         w.baseDamage = originalDmg;
+    }
+
+    // Psammomancer custom attack: wraps the player in a sand shield that blocks all
+    // incoming damage and deals counter-damage to any attacker for its duration.
+    // The shield parents to the player and fades in to 50% alpha.
+    //
+    // Level scaling:
+    //   L2 – duration ×2 (1 s → 2 s) | L3 – counter-dmg ×1.5 | L4 – cooldown 5 s | L5 – +1 s duration
+    void FireSandShield(ItemData w) {
+        w.cooldown = w.level >= 4 ? 5.0f : 6.0f;
+
+        float duration = 1f;
+        if (w.level >= 2) duration  = 2f;  // doubled
+        if (w.level >= 5) duration += 1f;  // +1 s on top
+
+        float dmg = w.baseDamage;
+        if (w.level >= 3) dmg *= 1.5f;
+        dmg *= (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite   spr    = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        var player = SurvivorMasterScript.Instance?.player;
+        if (player == null) return;
+
+        SandShieldLogic.Spawn(player, duration, dmg, spr);
+    }
+
+    // Cleric persistent weapon: a holy conversion circle that always follows the player.
+    // Normal enemies inside for long enough become permanent allies; elite/boss enemies
+    // instead trigger damage-over-time based on the current charmed count.
+    // Idempotent: re-entrant calls are no-ops while the circle is alive.
+    void MaintainConversionCircle(ItemData w) {
+        if (_conversionCircle != null) return;
+
+        var go = new GameObject("ConversionCircle");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.color        = new Color(1f, 1f, 0.9f, 0.35f);
+        sr.sortingOrder = 2;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite   spr    = (frames != null && frames.Length > 0) ? frames[0] : null;
+        if (spr != null) sr.sprite = spr;
+
+        var logic       = go.AddComponent<ConversionCircleLogic>();
+        logic.weaponData = w;
+        logic.Init(spr);
+
+        _conversionCircle = go;
+    }
+
+    // Enchanter custom attack: spawns a rooting circle under the nearest enemy (L5: 2 circles).
+    // The circle fades in, immobilizes enemies inside it (rootedStacks), deals damage every
+    // 3 s, then fades out and despawns.
+    //
+    // Level scaling:
+    //   L2 – +1 s duration | L3 – cooldown 3 s | L4 – +3 s duration | L5 – 2 circles
+    void FireBindingCircle(ItemData w) {
+        w.cooldown = w.level >= 3 ? 3.0f : 4.0f;
+
+        float duration = 5f;
+        if (w.level >= 2) duration += 1f;
+        if (w.level >= 4) duration += 3f;
+
+        float dmg   = w.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f)
+                    * (1f + RunUpgrades.DamageBonus);
+        int   count = w.level >= 5 ? 2 : 1;
+        float range = w.range > 0f ? w.range : 16f;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite   spr    = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        var struck = new HashSet<EnemyEntity>();
+        for (int i = 0; i < count; i++) {
+            var target = FindNearestUnstruck(PlayerPos, struck, range);
+            if (target == null) break;
+            struck.Add(target);
+            BindingCircleLogic.Spawn(target.transform.position, dmg, duration, spr);
+        }
+    }
+
+    // PlagueDoctor custom attack: lobs a canister in a rotating cardinal direction
+    // (E → S → W → N → …). The canister travels to the ground at max range, then
+    // a poison cloud rapidly expands and lingers for 5 s. Enemies in the cloud take
+    // damage every second and have a 25% chance to miss their attacks.
+    //
+    // Level scaling:
+    //   L2 – damage ×1.25 | L3 – damage ×1.25 | L5 – damage ×1.25 (cumulative ×1.953 at L5)
+    //   L4 – cooldown reduced from 3 s to 2 s (50% attack-speed increase)
+    static readonly Vector2[] _gasDirs = { Vector2.right, Vector2.down, Vector2.left, Vector2.up };
+
+    IEnumerator FirePoisonGas(ItemData w) {
+        w.cooldown = w.level >= 4 ? 2.0f : 3.0f;
+
+        float dmg = w.baseDamage;
+        if (w.level >= 2) dmg *= 1.25f;
+        if (w.level >= 3) dmg *= 1.25f;
+        if (w.level >= 5) dmg *= 1.25f;
+        dmg *= (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        Vector2 throwDir  = _gasDirs[_poisonGasDir];
+        _poisonGasDir = (_poisonGasDir + 1) % 4;
+
+        float   range     = w.range > 0f ? w.range : 10f;
+        Vector3 startPos  = PlayerPos;
+        Vector3 targetPos = startPos + (Vector3)(throwDir * range);
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite   spr    = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        // ── Animate canister travelling to target ────────────────────────────
+        const float TravelTime = 0.45f;
+        var canister = new GameObject("PoisonGas_Canister");
+        var canSr    = canister.AddComponent<SpriteRenderer>();
+        canSr.sortingOrder = 8;
+        canSr.color        = new Color(0.3f, 0.9f, 0.15f, 1f);
+        if (spr != null) canSr.sprite = spr;
+        canister.transform.localScale = Vector3.one * 3f;
+
+        float throwAngle = Mathf.Atan2(throwDir.y, throwDir.x) * Mathf.Rad2Deg;
+        float elapsed    = 0f;
+
+        while (elapsed < TravelTime) {
+            if (canister == null) yield break;
+            float t = elapsed / TravelTime;
+            // Small parabolic arc upward so the canister visually arcs through the air.
+            Vector3 pos = Vector3.Lerp(startPos, targetPos, t);
+            pos.y += 1.5f * Mathf.Sin(t * Mathf.PI);
+            canister.transform.position = pos;
+            // Rotate canister to follow the arc tangent.
+            float arcVelY = 1.5f * Mathf.PI / TravelTime * Mathf.Cos(t * Mathf.PI);
+            float arcVelX = (targetPos.x - startPos.x) / TravelTime;
+            canister.transform.rotation = Quaternion.Euler(0f, 0f,
+                Mathf.Atan2(arcVelY, arcVelX) * Mathf.Rad2Deg - 90f);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (canister != null) Destroy(canister);
+
+        // ── Spawn expanding gas cloud ────────────────────────────────────────
+        const float CloudRadius = 4f;
+        PoisonGasLogic.Spawn(targetPos, dmg, CloudRadius, spr);
+    }
+
+    // Ninja custom attack: fires N spinning shuriken at random angles within the left
+    // 180° arc (90° → 270°, i.e. north through west to south). Each shuriken deals
+    // damage on the first enemy it touches then despawns.
+    //
+    // Level scaling:
+    //   L1 – 3 shuriken | L2 – 5 | L4 – 7
+    //   L3 – damage ×1.25 | L5 – damage ×1.50 (cumulative ×1.875 at L5)
+    void FireShurikenThrow(ItemData w) {
+        float dmg = w.baseDamage;
+        if (w.level >= 3) dmg *= 1.25f;
+        if (w.level >= 5) dmg *= 1.50f;
+        dmg *= (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        int count = 3 + (w.level >= 2 ? 2 : 0) + (w.level >= 4 ? 2 : 0);
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        for (int i = 0; i < count; i++) {
+            // Uniform random angle in the left hemisphere: 90° (north) → 270° (south).
+            float angleDeg = Random.Range(90f, 270f);
+            float angleRad = angleDeg * Mathf.Deg2Rad;
+            var   dir      = new Vector2(Mathf.Cos(angleRad), Mathf.Sin(angleRad));
+            ShurikenLogic.Spawn(PlayerPos, dir, dmg, spr);
+        }
     }
 
     // Gladiator custom attack: melee stab if enemies are nearby, otherwise ranged throw.

@@ -254,6 +254,17 @@ public class LevelUpManager : MonoBehaviour {
                                  || ws.passiveItems.Exists(p => p.itemName == item.itemName);
                 if (alreadyOwned) continue;
 
+                bool isCleric = SurvivorMasterScript.Instance != null
+                             && SurvivorMasterScript.Instance.currentClass == CharacterClass.Cleric;
+                if (item.isWeapon) {
+                    // ConversionCircle is Cleric-exclusive.
+                    if (item.itemName == "Conversion Circle" && !isCleric) continue;
+                    // Cleric never picks up other weapons.
+                    if (isCleric && item.itemName != "Conversion Circle") continue;
+                    // Non-Cleric max 5 weapons.
+                    if (!isCleric && ws.activeWeapons.Count >= 5) continue;
+                }
+
                 var captured = item; // capture for lambda
                 string label = item.isWeapon ? "WPN" : "ITM";
                 Color col    = item.rarity == Rarity.Legendary ? new Color(1f, 0.8f, 0f)
@@ -281,7 +292,14 @@ public class LevelUpManager : MonoBehaviour {
                 int nextLevel = owned.level + 1;
                 var captured = owned;
                 string desc;
-                if (owned.fireMode == FireMode.ArcSwing) {
+                if (owned.fireMode == FireMode.ConversionCircle) {
+                    string[] circleDescs = { "", "",
+                        "Enemies convert after 4 seconds inside the circle.",
+                        "Circle size increased by 10%.",
+                        "Circle size increased by a further 15%.",
+                        "Enemies convert after 3 seconds inside the circle." };
+                    desc = nextLevel < circleDescs.Length ? circleDescs[nextLevel] : "";
+                } else if (owned.fireMode == FireMode.ArcSwing) {
                     string[] swingDescs = { "", "Attacks East only.", "Attacks East and West.",
                         "Attacks E, W, and North.", "Attacks E, W, N, and South.", "Attacks in all 8 directions." };
                     desc = swingDescs[nextLevel];
