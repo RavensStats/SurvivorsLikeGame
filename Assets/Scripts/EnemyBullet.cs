@@ -6,6 +6,12 @@ public class EnemyBullet : MonoBehaviour {
         if (other.CompareTag("Player")) {
             SurvivorMasterScript.Instance.TakeDamage(damage);
             Destroy(gameObject);
+            return;
+        }
+        var swarm = other.GetComponent<InsectSwarmLogic>();
+        if (swarm != null && !swarm.isDead) {
+            swarm.TakeDamage(damage);
+            Destroy(gameObject);
         }
     }
 }

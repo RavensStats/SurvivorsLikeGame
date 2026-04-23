@@ -43,6 +43,7 @@ public class EnemyAttack : MonoBehaviour {
                     GetComponent<EnemyAnimator>()?.TriggerAttack();
                     DamagePlayer(damage);
                 }
+                DamageNearbySwarms(damage, meleeRange);
                 break;
 
             case AttackType.Projectile:
@@ -63,6 +64,7 @@ public class EnemyAttack : MonoBehaviour {
                     if (aoeVisualPrefab) Instantiate(aoeVisualPrefab, transform.position, Quaternion.identity);
                     DamagePlayer(damage);
                 }
+                DamageNearbySwarms(damage, aoeRadius);
                 break;
         }
     }
@@ -104,6 +106,14 @@ public class EnemyAttack : MonoBehaviour {
             }
         tex.Apply();
         return Sprite.Create(tex, new Rect(0, 0, res, res), new Vector2(0.5f, 0.5f), res);
+    }
+
+    void DamageNearbySwarms(float amt, float range) {
+        foreach (var s in InsectSwarmLogic.Active) {
+            if (s == null || s.isDead) continue;
+            if (Vector3.Distance(transform.position, s.transform.position) <= range)
+                s.TakeDamage(amt);
+        }
     }
 
     void DamagePlayer(float amt) {

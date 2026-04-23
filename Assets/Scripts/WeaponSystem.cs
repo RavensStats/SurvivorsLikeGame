@@ -11,6 +11,8 @@ public class WeaponSystem : MonoBehaviour {
     private Dictionary<string, float> cooldowns = new Dictionary<string, float>();
     private Dictionary<string, List<GameObject>> activeOrbs = new Dictionary<string, List<GameObject>>();
     private readonly List<GameObject> _activeSentries = new List<GameObject>();
+    private GameObject _sniperReticle;
+    private GameObject _windstorm;
 
     // Always use the live player position so projectiles spawn/query at the right spot.
     Vector3 PlayerPos => SurvivorMasterScript.Instance.player?.position ?? transform.position;
@@ -34,6 +36,14 @@ public class WeaponSystem : MonoBehaviour {
         // Destroy any placed sentry guns.
         foreach (var s in _activeSentries) if (s != null) Destroy(s);
         _activeSentries.Clear();
+        // Destroy sniper reticle.
+        if (_sniperReticle != null) { Destroy(_sniperReticle); _sniperReticle = null; }
+        // Destroy windstorm.
+        if (_windstorm != null) { Destroy(_windstorm); _windstorm = null; }
+        // Destroy any active insect swarms.
+        foreach (var s in InsectSwarmLogic.Active)
+            if (s != null) Destroy(s.gameObject);
+        InsectSwarmLogic.Active.Clear();
     }
 
     void Update() {
@@ -75,6 +85,18 @@ public class WeaponSystem : MonoBehaviour {
         if (w.fireMode == FireMode.AnimatedStrike)   { StartCoroutine(FireAnimatedStrike(w));   return; }
         if (w.fireMode == FireMode.SentryGun)        { FireSentryGun(w);                        return; }
         if (w.fireMode == FireMode.CaltropThrow)     { FireCaltropThrow(w);                     return; }
+        if (w.fireMode == FireMode.KatanaSlash)      { StartCoroutine(FireKatanaSlash(w));       return; }
+        if (w.fireMode == FireMode.DualRevolvers)    { StartCoroutine(FireDualRevolvers(w));     return; }
+        if (w.fireMode == FireMode.SniperReticle)    { MaintainSniperReticle(w);                 return; }
+        if (w.fireMode == FireMode.BalladWave)       { StartCoroutine(FireBalladWave(w));        return; }
+        if (w.fireMode == FireMode.WoodcutterAxe)    { FireWoodcutterAxe(w);                     return; }
+        if (w.fireMode == FireMode.GravityWell)      { FireGravityWell(w);                       return; }
+        if (w.fireMode == FireMode.Windstorm)        { MaintainWindstorm(w);                     return; }
+        if (w.fireMode == FireMode.MeteorStrike)     { FireMeteorStrike(w);                      return; }
+        if (w.fireMode == FireMode.InsectSwarm)      { FireInsectSwarm(w);                       return; }
+        if (w.fireMode == FireMode.SawBlade)         { FireSawBlade(w);                          return; }
+        if (w.fireMode == FireMode.PoisonDagger)     { StartCoroutine(FirePoisonDagger(w));      return; }
+        if (w.fireMode == FireMode.TridentStrike)    { StartCoroutine(FireTridentStrike(w));     return; }
         if (w.fireMode == FireMode.OracleBeam)        { StartCoroutine(FireOracleBeam(w));        return; }
         if (w.fireMode == FireMode.SpectralBeam)      { StartCoroutine(FireSpectralBeam(w));      return; }
         if (w.fireMode == FireMode.TidalWave)          { StartCoroutine(FireTidalWave(w));          return; }
@@ -1029,6 +1051,293 @@ public class WeaponSystem : MonoBehaviour {
         if (go != null) Destroy(go);
     }
 
+    // Artificer custom attack: fires 1–3 spinning saw blades at the nearest enemy.
+    // Each blade bounces at a random ±45° angle on every enemy hit and flies until
+    // it leaves the screen. Each enemy can only be struck once per blade.
+    //
+    // Level scaling:
+    //   L2 – damage ×1.25 | L3 – +1 blade (2 total) | L4 – damage ×1.25 | L5 – +1 blade (3 total)
+    //   Blade count: L1-L2 = 1, L3-L4 = 2, L5 = 3.
+    //   Multiple blades fan out at ±15° (2 blades) or ±30°/0° (3 blades) from base direction.
+    void FireSawBlade(ItemData w) {
+        var target = FindNearestUnstruck(PlayerPos,
+            new System.Collections.Generic.HashSet<EnemyEntity>(), w.range);
+        if (target == null) return;
+
+        float dmg = w.baseDamage;
+        if (w.level >= 2) dmg *= 1.25f;
+        if (w.level >= 4) dmg *= 1.25f;
+        dmg *= (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        int   count    = 1 + (w.level >= 3 ? 1 : 0) + (w.level >= 5 ? 1 : 0);
+        float baseAngle = Mathf.Atan2(
+            target.transform.position.y - PlayerPos.y,
+            target.transform.position.x - PlayerPos.x) * Mathf.Rad2Deg;
+
+        // Fan offsets: 1 blade = {0°}, 2 blades = {-15°,+15°}, 3 blades = {-30°,0°,+30°}
+        // offset = -(count-1)*15 + i*30  gives a 30° step centred on the target direction.
+        for (int i = 0; i < count; i++) {
+            float offset    = -(count - 1) * 15f + i * 30f;
+            float rad       = (baseAngle + offset) * Mathf.Deg2Rad;
+            var   dir       = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+            SawBladeLogic.Spawn(PlayerPos, dir, dmg, spr);
+        }
+    }
+
+    // Hivemaster custom attack: spawns (n*2 - 1) insect swarm units where n = weapon level.
+    // Each unit independently hunts the nearest enemy and stings it every 2 s.
+    // Units have 1 HP and die on the first hit from any enemy attack.
+    //
+    // Level scaling (damage, cumulative ×1.10 per level above 1):
+    //   L1 – 1 insect | L2 – 3 (×1.10) | L3 – 5 (×1.21) | L4 – 7 (×1.331) | L5 – 9 (×1.4641)
+    void FireInsectSwarm(ItemData w) {
+        float dmg = w.baseDamage;
+        if (w.level >= 2) dmg *= 1.10f;
+        if (w.level >= 3) dmg *= 1.10f;
+        if (w.level >= 4) dmg *= 1.10f;
+        if (w.level >= 5) dmg *= 1.10f;
+        dmg *= (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        int count = w.level * 2 - 1;
+        for (int i = 0; i < count; i++) {
+            Vector2 offset = Random.insideUnitCircle * 1.5f;
+            InsectSwarmLogic.Spawn(PlayerPos + (Vector3)offset, dmg, w.spriteFolder);
+        }
+    }
+
+    // Geomancer custom attack: calls n meteors (n = weapon level) from just above the
+    // top of the screen, each targeting a random on-screen enemy. Meteors fly at the
+    // enemy's position at the moment of firing; they stun on hit.
+    //
+    // Level scaling:
+    //   L2 – damage ×1.10 | L3 – ×1.15 (cumul.) | L4 – ×1.20 (cumul.) | L5 – stun 1.5 s
+    //   Meteor count = weapon level (1 at L1 … 5 at L5).
+    void FireMeteorStrike(ItemData w) {
+        var sms = SurvivorMasterScript.Instance;
+        var candidates = sms.Grid.GetNearby(PlayerPos);
+        candidates.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
+        if (candidates.Count == 0) return;
+
+        // Fisher-Yates shuffle so selection is uniformly random.
+        for (int i = candidates.Count - 1; i > 0; i--) {
+            int j = Random.Range(0, i + 1);
+            (candidates[i], candidates[j]) = (candidates[j], candidates[i]);
+        }
+
+        float dmg = w.baseDamage;
+        if (w.level >= 2) dmg *= 1.10f;
+        if (w.level >= 3) dmg *= 1.15f;
+        if (w.level >= 4) dmg *= 1.20f;
+        dmg *= (sms?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+        float stunDuration = w.level >= 5 ? 1.5f : 1.0f;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        Camera cam = Camera.main;
+        float spawnY  = cam.transform.position.y + cam.orthographicSize + 2f;
+        float leftX   = cam.transform.position.x - cam.orthographicSize * cam.aspect;
+        float rightX  = cam.transform.position.x + cam.orthographicSize * cam.aspect;
+
+        int count = w.level; // 1 at L1, 5 at L5
+        for (int i = 0; i < count; i++) {
+            var target   = candidates[i % candidates.Count];
+            float spawnX = Random.Range(leftX, rightX);
+            var spawnPos = new Vector3(spawnX, spawnY, 0f);
+            MeteorStrikeLogic.Spawn(spawnPos, target.transform.position, dmg, stunDuration, spr);
+        }
+    }
+
+    // Aeromancer custom attack: creates one persistent WindstormLogic that orbits the
+    // player counterclockwise and self-manages damage. Called on the 1 s cooldown tick
+    // but is a no-op once the object exists.
+    void MaintainWindstorm(ItemData w) {
+        if (_windstorm != null) return;
+        var go = new GameObject("WindstormRoot");
+        var logic = go.AddComponent<WindstormLogic>();
+        logic.weaponData = w;
+        _windstorm = go;
+    }
+
+    // Gravity Manipulator custom attack: spawns an expanding/contracting ring at the
+    // player's position. The ring frontier damages and forces enemies on both passes.
+    // L4+ cooldown is reduced by 20% (set here so the timer picks it up immediately).
+    //
+    // Level scaling:
+    //   L2 – damage ×1.25 | L3 – damage ×1.5 (cumulative) | L4 – cooldown ×0.8 | L5 – push+pull
+    void FireGravityWell(ItemData w) {
+        w.cooldown = 7.0f * (w.level >= 4 ? 0.8f : 1.0f);
+
+        float dmg = w.baseDamage;
+        if (w.level >= 2) dmg *= 1.25f;
+        if (w.level >= 3) dmg *= 1.5f;
+        dmg *= (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        GravityWellLogic.Spawn(PlayerPos, dmg, w.level, w.range);
+    }
+
+    // Viking custom attack: hurls a spinning axe at the nearest enemy.
+    // On hit the axe deals damage, slows the target by 50%, then snaps to 330° and
+    // rests on the ground for 0.5 s. Spin rate is calibrated so the axe always
+    // completes exactly 3 full rotations and arrives at 330° at maximum range.
+    //
+    // Level scaling:
+    //   L2 – slow duration +1 s (4 s total)
+    //   L3 – damage ×1.5
+    //   L4 – slow duration +1 s (5 s total)
+    //   L5 – damage ×1.5 again (×2.25 total)
+    void FireWoodcutterAxe(ItemData w) {
+        var target = FindNearestUnstruck(PlayerPos, new System.Collections.Generic.HashSet<EnemyEntity>(), w.range);
+        if (target == null) return;
+
+        float dmg = w.baseDamage;
+        if (w.level >= 3) dmg *= 1.5f;
+        if (w.level >= 5) dmg *= 1.5f;
+        dmg *= (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        float slowDuration = 3f + (w.level >= 2 ? 1f : 0f) + (w.level >= 4 ? 1f : 0f);
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        WoodcutterAxeLogic.Spawn(PlayerPos, target.transform.position, dmg, slowDuration, w.range, spr);
+    }
+
+    // Bard custom attack: fires 5 MusicNotes in rapid succession along the same random
+    // direction, each following an identical sin wave path staggered 0.1 s apart.
+    // Charm duration grows with level: L1 – 5 s | L2 – 6 s | L3 – 7 s | L4 – 8 s | L5 – 10 s
+    IEnumerator FireBalladWave(ItemData w) {
+        float charmDuration = 4f + w.level + (w.level >= 5 ? 1f : 0f);
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+        float angle = Random.Range(0f, 360f) * Mathf.Deg2Rad;
+        Vector2 dir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+        for (int i = 0; i < 5; i++) {
+            BalladNoteLogic.Spawn(PlayerPos, dir, charmDuration, spr);
+            yield return new WaitForSeconds(0.1f);
+        }
+    }
+
+    // Sniper custom attack: creates one persistent SniperReticleLogic that self-manages
+    // all targeting, animation, and cooldown. Called on the weapon's normal cooldown tick
+    // (every 1 s) but is effectively a no-op when the reticle already exists.
+    void MaintainSniperReticle(ItemData w) {
+        if (_sniperReticle != null) return;
+        var go = new GameObject("SniperReticleRoot");
+        var logic = go.AddComponent<SniperReticleLogic>();
+        logic.weaponData = w;
+        _sniperReticle = go;
+    }
+
+    // Gunslinger custom attack: fires pairs of cannonballs in a 180° world-left arc
+    // (90°–270°, where 0° = right, 180° = left). Each pair fires simultaneously;
+    // subsequent pairs are staggered by 100 ms. Each cannonball damages and despawns
+    // on the first enemy it hits.
+    //
+    // Level scaling (cumulative ×1.25 damage, +2 cannonballs per level above 1):
+    //   L1 – 2 balls (1 pair)  | L2 – 4 | L3 – 6 | L4 – 8 | L5 – 10
+    IEnumerator FireDualRevolvers(ItemData w) {
+        const float cooldown   = 2.0f;
+        const float pairDelay  = 0.1f;   // 100 ms between pairs
+        const float arcMinDeg  = 90f;    // world-left 180° arc: 90° → 270°
+        const float arcMaxDeg  = 270f;
+
+        // Set cooldown before first yield so Update picks it up immediately.
+        w.cooldown = cooldown;
+
+        float dmg = w.baseDamage * Mathf.Pow(1.25f, w.level - 1)
+                  * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        // L1 = 1 pair; each level adds 1 more pair (2 more cannonballs).
+        int pairs = w.level;
+
+        for (int pair = 0; pair < pairs; pair++) {
+            if (pair > 0)
+                yield return new WaitForSeconds(pairDelay);
+
+            Vector3 origin = PlayerPos;
+            for (int i = 0; i < 2; i++) {
+                float angle = Random.Range(arcMinDeg, arcMaxDeg) * Mathf.Deg2Rad;
+                Vector2 dir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+                CannonballLogic.Spawn(origin, dir, dmg, 0f);
+            }
+        }
+    }
+
+    // Samurai custom attack: sweeps the katana sprite through a random 90° arc around the player,
+    // with the sprite's top (+Y) facing outward, over 0.35 s. Every enemy the blade passes through
+    // is hit once per swing. Damage and cooldown compound by ×1.25 / ×0.75 per level above 1.
+    IEnumerator FireKatanaSlash(ItemData w) {
+        const float swingDuration = 0.35f;
+        const float sweepDegrees  = 90f;
+
+        // Cooldown and damage both compound ×0.75 / ×1.25 each level above 1.
+        float baseCooldown = 1.0f;
+        w.cooldown = baseCooldown * Mathf.Pow(0.75f, w.level - 1);
+
+        float dmg = w.baseDamage * Mathf.Pow(1.25f, w.level - 1)
+                  * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        float startAngle = Random.Range(0f, 360f);
+        float range      = w.range > 0f ? w.range : 10f;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        var go = new GameObject("KatanaSlash_VFX");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingOrder = 7;
+        if (spr != null) sr.sprite = spr;
+
+        // Scale sprite so its natural height fills the full range length.
+        float spriteScale = 10f;
+        if (spr != null) {
+            float naturalH = spr.rect.height / spr.pixelsPerUnit;
+            if (naturalH > 0f) spriteScale = range / naturalH;
+        }
+        go.transform.localScale = Vector3.one * spriteScale;
+
+        // Sprite centre orbits at half-range so the blade tip reaches the full range.
+        float orbitRadius = range * 0.5f;
+        float hitRadius   = range * 0.25f;
+
+        var hitSet = new HashSet<EnemyEntity>();
+        float elapsed = 0f;
+
+        while (elapsed < swingDuration) {
+            if (go == null) yield break;
+            var player = SurvivorMasterScript.Instance?.player;
+            if (player == null) break;
+
+            float t            = elapsed / swingDuration;
+            float currentAngle = startAngle + sweepDegrees * t;
+            float rad          = currentAngle * Mathf.Deg2Rad;
+            Vector2 outDir     = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+
+            go.transform.position = (Vector2)player.position + outDir * orbitRadius;
+            // Align sprite so local +Y (top) points outward along outDir.
+            go.transform.rotation = Quaternion.Euler(0f, 0f, currentAngle - 90f);
+
+            foreach (var col in Physics2D.OverlapCircleAll(go.transform.position, hitRadius)) {
+                if (!col.CompareTag("Enemy")) continue;
+                var e = col.GetComponent<EnemyEntity>();
+                if (e == null || e.isDead || hitSet.Contains(e)) continue;
+                hitSet.Add(e);
+                e.TakeDamage(dmg);
+            }
+
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (go != null) Destroy(go);
+    }
+
     // Tactician custom attack: throws N caltrops per attack in parabolic arcs to random
     // screen positions. Caltrops persist on the ground and trigger-damage the first enemy
     // that steps on them, then despawn. Destroyed automatically when off-screen.
@@ -1540,5 +1849,314 @@ public class WeaponSystem : MonoBehaviour {
 
         // Restore base damage so the item card isn't permanently mutated.
         w.baseDamage = originalDmg;
+    }
+
+    // Gladiator custom attack: melee stab if enemies are nearby, otherwise ranged throw.
+    //
+    // Melee — finds the sector with the most enemies within melee range and stabs there.
+    //   Each stab extends then retracts (150 ms out / 100 ms back). Deals damage + knockback.
+    //   Stab count: L1=1 | L2=2 | L4=3
+    //   Damage: base × (L3: ×1.25) × (L5: ×1.50, cumulative)
+    //
+    // Ranged — throws trident toward nearest enemy; slows 25% on hit.
+    //   Damage: base × (L2: ×1.25) × (L3: ×1.20) × (L4: ×1.25) × (L5: ×1.25, cumulative)
+    //   Slow duration: 3 s (L5: 5 s)
+    IEnumerator FireTridentStrike(ItemData w) {
+        w.cooldown = 2.5f;
+
+        float meleeRange = w.range > 0f ? w.range : 5f;
+        Vector3 pPos     = PlayerPos;
+
+        // Determine mode: any living enemy within melee range → melee
+        bool meleeMode = false;
+        foreach (var col in Physics2D.OverlapCircleAll(pPos, meleeRange)) {
+            if (!col.CompareTag("Enemy")) continue;
+            var e = col.GetComponent<EnemyEntity>();
+            if (e != null && !e.isDead) { meleeMode = true; break; }
+        }
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite   spr    = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        if (meleeMode) {
+            // ── Melee ─────────────────────────────────────────────────────────
+            float meleeDmg = w.baseDamage;
+            if (w.level >= 3) meleeDmg *= 1.25f;
+            if (w.level >= 5) meleeDmg *= 1.50f;
+            meleeDmg *= (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+            int     stabCount  = 1 + (w.level >= 2 ? 1 : 0) + (w.level >= 4 ? 1 : 0);
+            Vector2 stabDir    = TridentBestDirection(pPos, meleeRange);
+            float   stabAngle  = Mathf.Atan2(stabDir.y, stabDir.x) * Mathf.Rad2Deg;
+
+            const float extendTime = 0.15f;
+            const float retractTime = 0.10f;
+            const float stabHitRad  = 0.8f;
+            const float knockForce  = 5f;
+
+            for (int s = 0; s < stabCount; s++) {
+                var go = new GameObject("Trident_Melee_VFX");
+                var sr = go.AddComponent<SpriteRenderer>();
+                sr.sortingOrder = 8;
+                if (spr != null) sr.sprite = spr;
+                go.transform.localScale = Vector3.one * 5f;
+                go.transform.rotation   = Quaternion.Euler(0f, 0f, stabAngle - 90f);
+
+                var hitSet = new HashSet<EnemyEntity>();
+
+                // Extend outward
+                float el = 0f;
+                while (el < extendTime) {
+                    var pl = SurvivorMasterScript.Instance?.player;
+                    if (pl == null || go == null) { if (go != null) Destroy(go); yield break; }
+                    float dist = Mathf.Lerp(0f, meleeRange, el / extendTime);
+                    go.transform.position = (Vector2)pl.position + stabDir * dist;
+
+                    foreach (var col in Physics2D.OverlapCircleAll(go.transform.position, stabHitRad)) {
+                        if (!col.CompareTag("Enemy")) continue;
+                        var e = col.GetComponent<EnemyEntity>();
+                        if (e == null || e.isDead || hitSet.Contains(e)) continue;
+                        hitSet.Add(e);
+                        e.TakeDamage(meleeDmg);
+                        e.ApplyKnockback(stabDir, knockForce);
+                    }
+                    el += Time.deltaTime;
+                    yield return null;
+                }
+
+                // Retract
+                el = 0f;
+                while (el < retractTime) {
+                    var pl = SurvivorMasterScript.Instance?.player;
+                    if (pl == null || go == null) { if (go != null) Destroy(go); yield break; }
+                    float dist = Mathf.Lerp(meleeRange, 0f, el / retractTime);
+                    go.transform.position = (Vector2)pl.position + stabDir * dist;
+                    el += Time.deltaTime;
+                    yield return null;
+                }
+
+                if (go != null) Destroy(go);
+            }
+        } else {
+            // ── Ranged ────────────────────────────────────────────────────────
+            float rangedDmg = w.baseDamage;
+            if (w.level >= 2) rangedDmg *= 1.25f;
+            if (w.level >= 3) rangedDmg *= 1.20f;
+            if (w.level >= 4) rangedDmg *= 1.25f;
+            if (w.level >= 5) rangedDmg *= 1.25f;
+            rangedDmg *= (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+            float slowDuration = w.level >= 5 ? 5f : 3f;
+
+            var target = FindNearestUnstruck(pPos,
+                new System.Collections.Generic.HashSet<EnemyEntity>(), 50f);
+            if (target == null) yield break;
+
+            const float throwSpeed = 14f;
+            const float hitRadius  = 0.7f;
+
+            Vector2 startPos  = (Vector2)pPos;
+            Vector2 endPos    = (Vector2)target.transform.position;
+            float   totalDist = Vector2.Distance(startPos, endPos);
+            float   totalTime = totalDist / throwSpeed;
+            // Arc height scales with distance; capped so short throws still have a visible arc.
+            float arcHeight   = Mathf.Clamp(totalDist * 0.25f, 1f, 4f);
+
+            var go = new GameObject("Trident_Ranged_VFX");
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sortingOrder       = 8;
+            if (spr != null) sr.sprite = spr;
+            go.transform.localScale = Vector3.one * 5f;
+            go.transform.position   = pPos;
+
+            // Constant horizontal velocity components for the tangent calculation.
+            float hVelX = (endPos.x - startPos.x) / totalTime;
+            float hVelY = (endPos.y - startPos.y) / totalTime;
+
+            bool  landed  = false;
+            float elapsed = 0f;
+
+            while (!landed && go != null && elapsed <= totalTime) {
+                float t = elapsed / totalTime;  // 0 → 1
+
+                // Parabolic position: lerp base + vertical arc offset (world-Y axis).
+                Vector2 basePos = Vector2.Lerp(startPos, endPos, t);
+                float   yOffset = arcHeight * Mathf.Sin(t * Mathf.PI);
+                go.transform.position = new Vector3(basePos.x, basePos.y + yOffset, 0f);
+
+                // Tangent = horizontal velocity + derivative of the arc term.
+                float arcVelY  = arcHeight * Mathf.PI / totalTime * Mathf.Cos(t * Mathf.PI);
+                float angle    = Mathf.Atan2(hVelY + arcVelY, hVelX) * Mathf.Rad2Deg;
+                go.transform.rotation = Quaternion.Euler(0f, 0f, angle - 90f);
+
+                foreach (var col in Physics2D.OverlapCircleAll(go.transform.position, hitRadius)) {
+                    if (!col.CompareTag("Enemy")) continue;
+                    var e = col.GetComponent<EnemyEntity>();
+                    if (e == null || e.isDead) continue;
+                    e.TakeDamage(rangedDmg);
+                    e.ApplySlow(0.75f, slowDuration);
+                    landed = true;
+                    break;
+                }
+
+                if (!SurvivorMasterScript.IsOnScreen(go.transform.position)) break;
+
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            if (go != null) Destroy(go);
+        }
+    }
+
+    // Divides 360° into 8 sectors of 45° and returns the center direction of the sector
+    // containing the most enemies within the given range.
+    Vector2 TridentBestDirection(Vector3 origin, float range) {
+        int[] counts = new int[8];
+        float nearestSq  = float.MaxValue;
+        float nearestAng = 0f;
+
+        foreach (var col in Physics2D.OverlapCircleAll(origin, range)) {
+            if (!col.CompareTag("Enemy")) continue;
+            var e = col.GetComponent<EnemyEntity>();
+            if (e == null || e.isDead) continue;
+
+            Vector2 delta = (Vector2)(col.transform.position - origin);
+            float   angle = Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg;
+            if (angle < 0f) angle += 360f;
+            counts[Mathf.FloorToInt(angle / 45f) % 8]++;
+
+            float sq = delta.sqrMagnitude;
+            if (sq < nearestSq) { nearestSq = sq; nearestAng = angle; }
+        }
+
+        int best = 0;
+        for (int i = 1; i < 8; i++)
+            if (counts[i] > counts[best]) best = i;
+
+        // Fallback when no enemies found (shouldn't happen in melee mode).
+        if (counts[best] == 0) {
+            float r = nearestAng * Mathf.Deg2Rad;
+            return new Vector2(Mathf.Cos(r), Mathf.Sin(r));
+        }
+
+        float centerRad = (best * 45f + 22.5f) * Mathf.Deg2Rad;
+        return new Vector2(Mathf.Cos(centerRad), Mathf.Sin(centerRad));
+    }
+
+    // Assassin custom attack: stab twice (L3: 4, L5: 6) then slash in a 45° arc (L4+: 90°).
+    // All attacks are directed straight down from the player.
+    // Each hit deals damage and applies poison (50% of hit dmg per tick, 2 ticks over 2 s).
+    //
+    // Stab: sprite extends outward 100 ms then retracts 100 ms (200 ms total per stab).
+    // Slash: arc sweep over 300 ms at the same bottom position.
+    // Level scaling: L2 ×1.25 dmg | L3 +2 stabs | L4 slash 90° | L5 +2 stabs + ×1.25 dmg
+    IEnumerator FirePoisonDagger(ItemData w) {
+        float dmg = w.baseDamage;
+        if (w.level >= 2) dmg *= 1.25f;
+        if (w.level >= 5) dmg *= 1.25f;
+        dmg *= (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
+
+        int   stabCount  = 2 + (w.level >= 3 ? 2 : 0) + (w.level >= 5 ? 2 : 0);
+        float arcDegrees = w.level >= 4 ? 90f : 45f;
+        float stabLength = w.range > 0f ? w.range : 3f;
+
+        const float stabHalf     = 0.1f;   // 100 ms out + 100 ms back = 200 ms per stab
+        const float slashDur     = 0.3f;
+        const float stabHitRad   = 0.6f;
+        const float slashHitRad  = 0.75f;
+        const float attackAngle  = 270f;   // straight down
+
+        float attackRad = attackAngle * Mathf.Deg2Rad;
+        var stabDir = new Vector2(Mathf.Cos(attackRad), Mathf.Sin(attackRad));
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        // ── Stab phase ────────────────────────────────────────────────────────
+        for (int s = 0; s < stabCount; s++) {
+            var go = new GameObject("PoisonStab_VFX");
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sortingOrder = 8;
+            if (spr != null) sr.sprite = spr;
+            go.transform.localScale = Vector3.one * 5f;
+            go.transform.rotation   = Quaternion.Euler(0f, 0f, attackAngle - 90f);
+
+            var hitSet = new HashSet<EnemyEntity>();
+
+            // Extend
+            float elapsed = 0f;
+            while (elapsed < stabHalf) {
+                var player = SurvivorMasterScript.Instance?.player;
+                if (player == null || go == null) { if (go != null) Destroy(go); yield break; }
+                float dist = Mathf.Lerp(0f, stabLength, elapsed / stabHalf);
+                go.transform.position = (Vector2)player.position + stabDir * dist;
+
+                foreach (var col in Physics2D.OverlapCircleAll(go.transform.position, stabHitRad)) {
+                    if (!col.CompareTag("Enemy")) continue;
+                    var e = col.GetComponent<EnemyEntity>();
+                    if (e == null || e.isDead || hitSet.Contains(e)) continue;
+                    hitSet.Add(e);
+                    e.TakeDamage(dmg);
+                    e.ApplyPoison(dmg * 0.5f);
+                }
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            // Retract
+            elapsed = 0f;
+            while (elapsed < stabHalf) {
+                var player = SurvivorMasterScript.Instance?.player;
+                if (player == null || go == null) { if (go != null) Destroy(go); yield break; }
+                float dist = Mathf.Lerp(stabLength, 0f, elapsed / stabHalf);
+                go.transform.position = (Vector2)player.position + stabDir * dist;
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+
+            if (go != null) Destroy(go);
+        }
+
+        // ── Slash phase ───────────────────────────────────────────────────────
+        float startAngle  = attackAngle - arcDegrees * 0.5f;
+        float orbitRadius = stabLength * 0.5f;
+
+        var slashGo = new GameObject("PoisonSlash_VFX");
+        var slashSr = slashGo.AddComponent<SpriteRenderer>();
+        slashSr.sortingOrder = 8;
+        if (spr != null) slashSr.sprite = spr;
+        slashGo.transform.localScale = Vector3.one * 5f;
+
+        var slashHit = new HashSet<EnemyEntity>();
+        float slashElapsed = 0f;
+
+        while (slashElapsed < slashDur) {
+            if (slashGo == null) yield break;
+            var player = SurvivorMasterScript.Instance?.player;
+            if (player == null) break;
+
+            float t            = slashElapsed / slashDur;
+            float currentAngle = startAngle + arcDegrees * t;
+            float rad          = currentAngle * Mathf.Deg2Rad;
+            var   outDir       = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad));
+
+            slashGo.transform.position = (Vector2)player.position + outDir * orbitRadius;
+            slashGo.transform.rotation = Quaternion.Euler(0f, 0f, currentAngle - 90f);
+
+            foreach (var col in Physics2D.OverlapCircleAll(slashGo.transform.position, slashHitRad)) {
+                if (!col.CompareTag("Enemy")) continue;
+                var e = col.GetComponent<EnemyEntity>();
+                if (e == null || e.isDead || slashHit.Contains(e)) continue;
+                slashHit.Add(e);
+                e.TakeDamage(dmg);
+                e.ApplyPoison(dmg * 0.5f);
+            }
+
+            slashElapsed += Time.deltaTime;
+            yield return null;
+        }
+
+        if (slashGo != null) Destroy(slashGo);
     }
 }

@@ -210,6 +210,7 @@ public class SurvivorMasterScript : MonoBehaviour {
 
     public void TakeDamage(float amt) {
         if (isInvulnerable) return;
+        amt = Mathf.Round(amt);
         playerHP -= amt;
         totalDamageReceived += amt;
         if (amt > 0f && player != null)

@@ -59,6 +59,17 @@ public class LinkerBeam : MonoBehaviour {
     void Update() {
         if (_self == null || _self.isDead) { _lr.enabled = false; return; }
 
+        if (_self.isCharmed) {
+            _lr.enabled = false;
+            if (_partner != null) {
+                // Release mutual pair so the partner can re-pair with someone else.
+                _pairs.Remove(_partner);
+                _pairs.Remove(_self);
+                _partner = null;
+            }
+            return;
+        }
+
         // Only re-search when the cached partner is gone – avoids per-frame
         // GetNearby calls that flicker at SpatialGrid cell boundaries.
         if (_partner == null || _partner.isDead)
@@ -101,6 +112,7 @@ public class LinkerBeam : MonoBehaviour {
         EnemyEntity found = null;
         foreach (var beam in _registry) {
             if (beam._self == null || beam._self.isDead || beam._self == self) continue;
+            if (beam._self.isCharmed) continue;
             // Skip linkers already exclusively paired with someone other than self.
             if (_pairs.TryGetValue(beam._self, out var theirPair)
                     && theirPair != null && !theirPair.isDead && theirPair != self)

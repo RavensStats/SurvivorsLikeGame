@@ -88,6 +88,19 @@ public class EnemyEntity : MonoBehaviour {
     private int     _webberPhase      = 0;
     private float   _webTrailTimer    = 0f;
 
+    // ── Charm (Bard's Ballad) ──────────────────────────────────────────────────
+    [System.NonSerialized] public bool isCharmed = false;
+    private GameObject _charmOutlineObj;
+    private float      _charmAttackTimer;
+
+    // ── Slow (Viking's Throwing Axe) ──────────────────────────────────────────
+    private float     _originalMoveSpeed;
+    private Coroutine _slowCoroutine;
+
+    // ── Poison (Assassin's PoisonDagger) ─────────────────────────────────────
+    private float     _poisonDmgPerTick = 0f;
+    private Coroutine _poisonCoroutine;
+
     // Cached nearest Linker partner – re-queried only when it dies.
     private EnemyEntity _cachedLinkerPartner;
 
@@ -136,6 +149,7 @@ public class EnemyEntity : MonoBehaviour {
         _pufferBaseScale  = transform.localScale.x;
         var _attack = GetComponent<EnemyAttack>();
         _pufferBaseDamage = _attack != null ? _attack.damage : 10f;
+        _originalMoveSpeed = moveSpeed;
         _playerMovement = SurvivorMasterScript.Instance.player.GetComponent<PlayerMovement>();
         // Mimics impersonate an XP gem until the player is close
         if (behavior == EnemyBehavior.Mimic) {
@@ -189,6 +203,7 @@ public class EnemyEntity : MonoBehaviour {
         // ─────────────────────────────────────────────────────────────────────
         // BEHAVIOR BRANCH
         // ─────────────────────────────────────────────────────────────────────
+        if (isCharmed) { HandleCharmedBehavior(); return; }
         switch (behavior) {
 
             // ── Already implemented (kept + extended) ────────────────────────
@@ -634,6 +649,7 @@ public class EnemyEntity : MonoBehaviour {
         var b = SurvivorMasterScript.Instance.BestiaryLookup.TryGetValue(behavior, out var entry) ? entry : null;
         if (b != null && b.isHunterBonusUnlocked) d *= 1.15f;
         d *= damageTakenMult;
+        d = Mathf.Round(d);
         SurvivorMasterScript.Instance.RegisterDamageDealt(d);
         FloatingText.SpawnEnemyDamage(transform.position, d);
         hp -= d;
@@ -671,6 +687,98 @@ public class EnemyEntity : MonoBehaviour {
         pm.inputScale = scale;
         yield return new WaitForSeconds(duration);
         if (pm != null) pm.inputScale = 1f;
+    }
+
+    // ── Charm ─────────────────────────────────────────────────────────────────
+    public void ApplySlow(float speedMultiplier, float duration) {
+        if (_slowCoroutine != null) {
+            StopCoroutine(_slowCoroutine);
+            moveSpeed = _originalMoveSpeed;
+        }
+        _slowCoroutine = StartCoroutine(SlowRoutine(speedMultiplier, duration));
+    }
+
+    IEnumerator SlowRoutine(float mult, float duration) {
+        moveSpeed = _originalMoveSpeed * mult;
+        yield return new WaitForSeconds(duration);
+        if (!isDead) moveSpeed = _originalMoveSpeed;
+        _slowCoroutine = null;
+    }
+
+    // Accumulates poison damage per tick. Subsequent applications stack additively on the
+    // active per-tick value so rapid stabs build poison without restarting the timer.
+    public void ApplyPoison(float dmgPerTick) {
+        _poisonDmgPerTick += dmgPerTick;
+        if (_poisonCoroutine == null)
+            _poisonCoroutine = StartCoroutine(PoisonRoutine());
+    }
+
+    IEnumerator PoisonRoutine() {
+        yield return new WaitForSeconds(1f);
+        if (!isDead) TakeDamage(_poisonDmgPerTick);
+        yield return new WaitForSeconds(1f);
+        if (!isDead) TakeDamage(_poisonDmgPerTick);
+        _poisonDmgPerTick = 0f;
+        _poisonCoroutine  = null;
+    }
+
+    public void ApplyCharm(float duration) {
+        if (isCharmed) return;
+        StartCoroutine(CharmRoutine(duration));
+    }
+
+    IEnumerator CharmRoutine(float duration) {
+        isCharmed = true;
+        // Clear Linker partnership so the beam drops immediately.
+        if (behavior == EnemyBehavior.Linker) _cachedLinkerPartner = null;
+
+        // Lime silhouette: child sprite scaled 20% larger, drawn behind the enemy.
+        _charmOutlineObj = new GameObject("CharmOutline");
+        _charmOutlineObj.transform.SetParent(transform);
+        _charmOutlineObj.transform.localPosition = Vector3.zero;
+        _charmOutlineObj.transform.localScale    = Vector3.one * 1.2f;
+        var outSr = _charmOutlineObj.AddComponent<SpriteRenderer>();
+        outSr.sprite       = _sr?.sprite;
+        outSr.color        = Color.green;
+        outSr.sortingLayerName = "Default";
+        outSr.sortingOrder = (_sr?.sortingOrder ?? 5) - 1;
+
+        yield return new WaitForSeconds(duration);
+
+        isCharmed = false;
+        if (_charmOutlineObj != null) { Destroy(_charmOutlineObj); _charmOutlineObj = null; }
+    }
+
+    void HandleCharmedBehavior() {
+        // Find the nearest non-charmed, non-dead enemy to fight.
+        var nearby = SurvivorMasterScript.Instance.Grid.GetNearby(transform.position);
+        EnemyEntity foe    = null;
+        float       bestSq = float.MaxValue;
+        foreach (var e in nearby) {
+            if (e == null || e.isDead || e == this || e.isCharmed) continue;
+            float sq = ((Vector2)(e.transform.position - transform.position)).sqrMagnitude;
+            if (sq < bestSq) { bestSq = sq; foe = e; }
+        }
+
+        if (foe != null) {
+            Vector3 dir = (foe.transform.position - transform.position).normalized;
+            transform.position += dir * moveSpeed * Time.deltaTime;
+
+            _charmAttackTimer -= Time.deltaTime;
+            if (bestSq < 1.5f * 1.5f && _charmAttackTimer <= 0f) {
+                _charmAttackTimer = 1f;
+                float dmg = GetComponent<EnemyAttack>()?.damage ?? 5f;
+                foe.TakeDamage(dmg);
+            }
+        }
+
+        // Keep HP bar following the enemy.
+        if (_hpBarRoot != null) {
+            float halfH = (_sr != null && _sr.sprite != null)
+                ? _sr.sprite.bounds.extents.y * transform.localScale.y
+                : transform.localScale.y * 0.055f;
+            _hpBarRoot.transform.position = transform.position + Vector3.up * (halfH + 0.25f);
+        }
     }
 
     void Die() {
