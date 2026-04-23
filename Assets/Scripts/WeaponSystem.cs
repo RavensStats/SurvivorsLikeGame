@@ -16,6 +16,9 @@ public class WeaponSystem : MonoBehaviour {
     // Rotation index for PoisonGas throw direction: 0=E 1=S 2=W 3=N.
     private int _poisonGasDir;
     private GameObject _conversionCircle;
+    // Tracks how many Berserker axes are currently in flight (throw + return).
+    // When this drops to zero the next weapon fire is triggered immediately.
+    private int _berserkerAxesInFlight = 0;
     // Shared shield state read by EnemyAttack and EnemyBullet to block/reflect damage.
     public static bool  SandShieldActive     = false;
     public static float SandShieldCounterDmg = 0f;
@@ -55,6 +58,7 @@ public class WeaponSystem : MonoBehaviour {
         SandShieldCounterDmg = 0f;
         if (_conversionCircle != null) { Destroy(_conversionCircle); _conversionCircle = null; }
         ConversionCircleLogic.CharmedCount = 0;
+        _berserkerAxesInFlight = 0;
     }
 
     void Update() {
@@ -120,6 +124,9 @@ public class WeaponSystem : MonoBehaviour {
         if (w.fireMode == FireMode.BloodPool)          { StartCoroutine(FireBloodPool(w));          return; }
         if (w.fireMode == FireMode.RangerArrow)        { FireRangerArrow(w);                        return; }
         if (w.fireMode == FireMode.PoisonPool)         { FirePoisonPool(w);                         return; }
+        if (w.fireMode == FireMode.Downpour)           { FireDownpour(w);                           return; }
+        if (w.fireMode == FireMode.BerserkerAxe)      { FireBerserkerAxe(w);                       return; }
+        if (w.fireMode == FireMode.CreepingVines)     { FireCreepingVines(w);                      return; }
 
         if (w.projectilePrefab == null && string.IsNullOrEmpty(w.spriteFolder)) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab or spriteFolder assigned."); return; }
         switch (w.fireMode) {
@@ -1165,6 +1172,123 @@ public class WeaponSystem : MonoBehaviour {
             var spawnPos = new Vector3(spawnX, spawnY, 0f);
             MeteorStrikeLogic.Spawn(spawnPos, target.transform.position, dmg, stunDuration, spr);
         }
+    }
+
+    // Hydromancer Downpour: spawns water droplets across the top of the screen that fall
+    // straight down, dealing damage on enemy contact and despawning when they leave the screen.
+    //
+    // Level scaling:
+    //   L1 – 10 droplets | L2 – +5 (15) | L3 – +5 (20) | L4 – +5 (25) + damage ×1.5 | L5 – +10 (35)
+    void FireDownpour(ItemData w) {
+        int count = w.level == 1 ? 10
+                  : w.level == 2 ? 15
+                  : w.level == 3 ? 20
+                  : w.level == 4 ? 25
+                  : 35; // level 5
+
+        float dmg = w.baseDamage
+                  * (w.level >= 4 ? 1.5f : 1f)
+                  * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        Camera cam = Camera.main;
+        float spawnY = cam.transform.position.y + cam.orthographicSize + 2f;
+        float leftX  = cam.transform.position.x - cam.orthographicSize * cam.aspect;
+        float rightX = cam.transform.position.x + cam.orthographicSize * cam.aspect;
+
+        for (int i = 0; i < count; i++) {
+            float x = Random.Range(leftX, rightX);
+            DownpourLogic.Spawn(new Vector3(x, spawnY, 0f), dmg, spr, w.projectileScale);
+        }
+    }
+
+    // Called by BerserkerAxeLogic when an axe finishes its return arc.
+    // Decrements the in-flight counter; when all axes are back, zeroes the cooldown
+    // so the next Update tick fires immediately.
+    public void OnBerserkerAxeReturned() {
+        _berserkerAxesInFlight = Mathf.Max(0, _berserkerAxesInFlight - 1);
+        if (_berserkerAxesInFlight == 0 && cooldowns.ContainsKey("Axe"))
+            cooldowns["Axe"] = 0f;
+    }
+
+    // Berserker custom attack: throws one axe (two at L5) in a parabolic arc at a
+    // random on-screen enemy.  The axe returns to the player after hitting or missing,
+    // and the weapon fires again as soon as the last axe lands back.
+    //
+    // Damage formula (computed at throw time):
+    //   baseDamage × (1 + missingHpFraction) × (1.5 at L4+) × poiMult × damageBonus
+    // Level scaling:
+    //   L2 – 10 % crit (double damage)
+    //   L3 – +15 % crit (25 % total)
+    //   L4 – damage ×1.5
+    //   L5 – throw a second axe simultaneously
+    void FireBerserkerAxe(ItemData w) {
+        int maxAxes = w.level >= 5 ? 2 : 1;
+        if (_berserkerAxesInFlight >= maxAxes) return;
+
+        var sms = SurvivorMasterScript.Instance;
+        var candidates = sms.Grid.GetNearby(PlayerPos);
+        candidates.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
+        if (candidates.Count == 0) return;
+
+        float hpRatio      = sms.HPRatio;
+        float missingHpMult = 1f + (1f - hpRatio); // 1% more damage per 1% HP missing
+
+        float dmg = w.baseDamage
+                  * missingHpMult
+                  * (w.level >= 4 ? 1.5f : 1f)
+                  * (sms?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        float critChance = 0f;
+        if (w.level >= 2) critChance = 0.10f;
+        if (w.level >= 3) critChance = 0.25f;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        var target = candidates[Random.Range(0, candidates.Count)];
+        BerserkerAxeLogic.Spawn(PlayerPos, target.transform.position, dmg, critChance, spr, w.projectileScale);
+        _berserkerAxesInFlight++;
+
+        if (w.level >= 5) {
+            var target2 = candidates.Count > 1
+                ? candidates[Random.Range(0, candidates.Count)]
+                : target;
+            BerserkerAxeLogic.Spawn(PlayerPos, target2.transform.position, dmg, critChance, spr, w.projectileScale);
+            _berserkerAxesInFlight++;
+        }
+    }
+
+    // Druid custom attack: spawns vinesPerNode homing vines from the player, each tracking
+    // the closest available enemy.  On hit a vine deals damage, then spawns vinesPerNode
+    // new vines from the impact point targeting the next closest enemies.  A shared
+    // exclusion set prevents any enemy from being hit twice in the same chain event.
+    //
+    // Level scaling:
+    //   L2 – damage ×1.5
+    //   L3 – vinesPerNode = 2 (fires 2 vines from player + 2 from each hit)
+    //   L4 – cooldown ×0.75 (6 s)
+    //   L5 – cooldown ×0.75 again (4.5 s total)
+    void FireCreepingVines(ItemData w) {
+        w.cooldown = 8f * (w.level >= 4 ? 0.75f : 1f) * (w.level >= 5 ? 0.75f : 1f);
+
+        float dmg = w.baseDamage
+                  * (w.level >= 2 ? 1.5f : 1f)
+                  * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        int vinesPerNode = w.level >= 3 ? 2 : 1;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        var excluded = new System.Collections.Generic.HashSet<EnemyEntity>();
+        for (int i = 0; i < vinesPerNode; i++)
+            CreepingVinesLogic.Spawn(PlayerPos, dmg, vinesPerNode, excluded, spr, w.projectileScale);
     }
 
     // Aeromancer custom attack: creates one persistent WindstormLogic that orbits the
