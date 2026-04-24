@@ -200,7 +200,9 @@ public class LevelUpManager : MonoBehaviour {
             RectTransform irt = iconGO.AddComponent<RectTransform>();
             irt.anchorMin = new Vector2(0.15f, 0.60f); irt.anchorMax = new Vector2(0.85f, 0.95f);
             irt.offsetMin = Vector2.zero; irt.offsetMax = Vector2.zero;
-            iconGO.AddComponent<Image>().sprite = opt.icon;
+            Image iconImg = iconGO.AddComponent<Image>();
+            iconImg.sprite = opt.icon;
+            iconImg.preserveAspect = true;
         } else {
             Text lbl = MakeText(card.transform, opt.iconLabel, 36, FontStyle.Bold, opt.iconColor,
                 TextAnchor.MiddleCenter, new Vector2(0.05f, 0.60f), new Vector2(0.95f, 0.95f));
@@ -275,6 +277,7 @@ public class LevelUpManager : MonoBehaviour {
                     id          = "item_" + item.itemName,
                     title       = item.itemName,
                     description = item.description,
+                    icon        = LoadWeaponIcon(captured),
                     iconLabel   = label,
                     iconColor   = col,
                     onSelect    = () => {
@@ -323,6 +326,7 @@ public class LevelUpManager : MonoBehaviour {
                     id          = "levelup_" + owned.itemName,
                     title       = owned.itemName + $" Lv.{nextLevel}",
                     description = desc,
+                    icon        = LoadWeaponIcon(captured),
                     iconLabel   = "LV+",
                     iconColor   = col,
                     onSelect    = () => { captured.level++; WeaponSystem.Instance?.RefreshOrbitWeapon(captured); }
@@ -354,6 +358,16 @@ public class LevelUpManager : MonoBehaviour {
             fillPool.RemoveAt(i);
         }
         return chosen;
+    }
+
+    static Sprite LoadWeaponIcon(ItemData item) {
+        if (string.IsNullOrEmpty(item.spriteFolder)) return null;
+        string path = item.spriteFolder.Contains("/")
+            ? $"Sprites/{item.spriteFolder}"
+            : $"Sprites/Weapons/{item.spriteFolder}/{item.spriteFolder}";
+        Sprite[] frames = Resources.LoadAll<Sprite>(path);
+        if (frames != null && frames.Length > 0) return frames[0];
+        return Resources.Load<Sprite>($"Sprites/Weapons/{item.spriteFolder}/East");
     }
 
     Text MakeText(Transform parent, string content, int size, FontStyle style,
