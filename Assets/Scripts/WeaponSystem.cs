@@ -23,8 +23,47 @@ public class WeaponSystem : MonoBehaviour {
     public static bool  SandShieldActive     = false;
     public static float SandShieldCounterDmg = 0f;
 
+    // ── Temporal Manipulation (Chronomancer weapon) state ───────────────────────
+    public static bool  TemporalEchoActive       = false;  // echo every hit 2 s later
+    public static bool  SlaughterTimeActive      = false;  // each kill charges 1% ult
+    public static float TemporalAttackSpeedMult  = 1f;     // multiplier on cooldown drain
+    public static bool  EnemiesReversed          = false;  // Rewind: enemies flee player
+    public static float TemporalXPMult           = 1f;     // Accelerated Greed XP bonus
+    public static float EnemyProjectileSpeedMult = 1f;     // Temporal Density slow
+
+    // Set during a Teleportation strike; orbit/projectile weapons follow this point instead of
+    // the player's actual transform.  Cleared to null when the attack sequence ends.
+    public static Vector3? TeleportCenter = null;
+    private bool _isTeleporting = false;
+
+    // Active summoned-undead minions spawned by the Necromancer's weapon (not ult).
+    // Tracked so the weapon can fill up to maxSummons each fire.
+    private readonly List<GameObject> _summonedUndead = new List<GameObject>();
+
+    // Shadow Clone (PuppetMaster weapon)
+    private GameObject     _shadowClone;
+    private SpriteRenderer _shadowCloneSR;
+    private SpriteRenderer _shadowCloneOutlineSR;
+    private readonly Dictionary<string, float> _cloneCooldowns = new Dictionary<string, float>();
+    private bool           _firingForClone = false;
+    private Vector3        _activeClonePos; // set before each clone's fire loop so PlayerPos redirects correctly
+
+    // PuppetMaster ultimate: temporary N/S/W clones (12 s lifetime each).
+    private class UltCloneData {
+        public GameObject obj;
+        public SpriteRenderer mainSR, outlineSR;
+        public readonly Dictionary<string, float> cooldowns = new Dictionary<string, float>();
+        public float timeLeft = 12f;
+        public Vector2 relativeOffset; // world-space offset from player (N/S/W)
+    }
+    private readonly List<UltCloneData> _ultClones = new List<UltCloneData>();
+
     // Always use the live player position so projectiles spawn/query at the right spot.
-    Vector3 PlayerPos => SurvivorMasterScript.Instance.player?.position ?? transform.position;
+    // During a Teleportation attack this returns the active strike position.
+    // During shadow clone / ult-clone fire (_firingForClone) this returns _activeClonePos.
+    Vector3 PlayerPos => _firingForClone
+        ? _activeClonePos
+        : (TeleportCenter ?? (SurvivorMasterScript.Instance.player?.position ?? transform.position));
 
     void Awake() => Instance = this;
 
@@ -59,6 +98,22 @@ public class WeaponSystem : MonoBehaviour {
         if (_conversionCircle != null) { Destroy(_conversionCircle); _conversionCircle = null; }
         ConversionCircleLogic.CharmedCount = 0;
         _berserkerAxesInFlight = 0;
+        foreach (var s in _summonedUndead) if (s != null) Destroy(s);
+        _summonedUndead.Clear();
+        if (_shadowClone != null) { Destroy(_shadowClone); _shadowClone = null; }
+        _shadowCloneSR        = null;
+        _shadowCloneOutlineSR = null;
+        _cloneCooldowns.Clear();
+        _firingForClone = false;
+        foreach (var uc in _ultClones) if (uc.obj != null) Destroy(uc.obj);
+        _ultClones.Clear();
+        TemporalEchoActive       = false;
+        SlaughterTimeActive      = false;
+        TemporalAttackSpeedMult  = 1f;
+        EnemiesReversed          = false;
+        TemporalXPMult           = 1f;
+        EnemyProjectileSpeedMult = 1f;
+        CurrentWeapon            = "Other";
     }
 
     void Update() {
@@ -76,6 +131,46 @@ public class WeaponSystem : MonoBehaviour {
         if (_disableTimer > 0) _disableTimer -= Time.deltaTime;
         else _disabledWeapon = null;
 
+        // Shadow Clone: maintain clone position and appearance every frame (runs even during Chrono freeze).
+        {
+            ItemData scw = null;
+            foreach (var w in activeWeapons) { if (w.fireMode == FireMode.ShadowClone) { scw = w; break; } }
+            if (scw != null) {
+                EnsureShadowClone(scw);
+                UpdateShadowClonePosition();
+                UpdateShadowCloneSprite();
+            } else if (_shadowClone != null) {
+                Destroy(_shadowClone); _shadowClone = null;
+                _shadowCloneSR = null; _shadowCloneOutlineSR = null;
+                _cloneCooldowns.Clear();
+            }
+        }
+
+        // Ult clone maintenance: update positions, sprites, decrement lifetimes (runs during Chrono freeze).
+        {
+            var sms = SurvivorMasterScript.Instance;
+            for (int i = _ultClones.Count - 1; i >= 0; i--) {
+                var uc = _ultClones[i];
+                uc.timeLeft -= Time.deltaTime;
+                if (uc.timeLeft <= 0f || uc.obj == null) {
+                    if (uc.obj != null) Destroy(uc.obj);
+                    _ultClones.RemoveAt(i);
+                    continue;
+                }
+                if (sms?.player != null) {
+                    Vector3 tgt = sms.player.position + (Vector3)(Vector2)uc.relativeOffset;
+                    tgt.z = 0f;
+                    uc.obj.transform.position   = Vector3.MoveTowards(uc.obj.transform.position, tgt, 8f * Time.deltaTime);
+                    uc.obj.transform.localScale = sms.player.localScale;
+                }
+                Sprite spr = sms?.player?.GetComponent<SpriteRenderer>()?.sprite;
+                if (spr != null) {
+                    if (uc.mainSR    != null) uc.mainSR.sprite    = spr;
+                    if (uc.outlineSR != null) uc.outlineSR.sprite = spr;
+                }
+            }
+        }
+
         if (_frozen) return; // Chrono freeze — skip all firing
 
         float poiCd = SurvivorMasterScript.Instance?.poiCooldownMult ?? 1f;
@@ -83,12 +178,74 @@ public class WeaponSystem : MonoBehaviour {
         foreach (var w in activeWeapons) {
             if (w.itemName == _disabledWeapon) continue; // Siren disable
             if (!cooldowns.ContainsKey(w.itemName)) cooldowns[w.itemName] = 0;
-            cooldowns[w.itemName] -= Time.deltaTime / (PersistentUpgrades.CooldownMult * berserkerMult * poiCd);
+            cooldowns[w.itemName] -= Time.deltaTime * TemporalAttackSpeedMult / (PersistentUpgrades.CooldownMult * berserkerMult * poiCd);
             if (cooldowns[w.itemName] <= 0) { Fire(w); cooldowns[w.itemName] = w.cooldown; }
+        }
+
+        // Shadow Clone weapon fire — fires all non-skipped weapons from the clone's position.
+        if (_shadowClone != null) {
+            ItemData scw = null;
+            foreach (var w in activeWeapons) { if (w.fireMode == FireMode.ShadowClone) { scw = w; break; } }
+            if (scw != null) {
+                float cloneDmgMult = 1f
+                    + (scw.level >= 2 ? 0.25f : 0f)
+                    + (scw.level >= 4 ? 0.50f : 0f)
+                    + (scw.level >= 5 ? 1.00f : 0f);
+                float cloneSpeedMult = scw.level >= 3 ? 1.5f : 1f;
+
+                _firingForClone = true;
+                _activeClonePos = _shadowClone.transform.position;
+                foreach (var w in activeWeapons) {
+                    if (IsCloneSkippedMode(w.fireMode)) continue;
+                    if (w.itemName == _disabledWeapon) continue;
+                    if (!_cloneCooldowns.ContainsKey(w.itemName)) _cloneCooldowns[w.itemName] = 0;
+                    _cloneCooldowns[w.itemName] -= Time.deltaTime * cloneSpeedMult
+                        / (PersistentUpgrades.CooldownMult * poiCd);
+                    if (_cloneCooldowns[w.itemName] <= 0) {
+                        float orig = w.baseDamage;
+                        w.baseDamage *= cloneDmgMult;
+                        Fire(w);
+                        w.baseDamage = orig;
+                        _cloneCooldowns[w.itemName] = w.cooldown;
+                    }
+                }
+                _firingForClone = false;
+            }
+        }
+
+        // Ult clone weapon fire — each temporary clone fires independently from its position.
+        if (_ultClones.Count > 0) {
+            ItemData scw = null;
+            foreach (var w in activeWeapons) { if (w.fireMode == FireMode.ShadowClone) { scw = w; break; } }
+            float cloneDmgMult2   = scw != null ? (1f + (scw.level >= 2 ? 0.25f : 0f) + (scw.level >= 4 ? 0.50f : 0f) + (scw.level >= 5 ? 1.00f : 0f)) : 1f;
+            float cloneSpeedMult2 = scw != null && scw.level >= 3 ? 1.5f : 1f;
+            foreach (var uc in _ultClones) {
+                if (uc.obj == null) continue;
+                _firingForClone = true;
+                _activeClonePos = uc.obj.transform.position;
+                foreach (var w in activeWeapons) {
+                    if (IsCloneSkippedMode(w.fireMode)) continue;
+                    if (w.itemName == _disabledWeapon) continue;
+                    if (!uc.cooldowns.ContainsKey(w.itemName)) uc.cooldowns[w.itemName] = 0;
+                    uc.cooldowns[w.itemName] -= Time.deltaTime * cloneSpeedMult2 / (PersistentUpgrades.CooldownMult * poiCd);
+                    if (uc.cooldowns[w.itemName] <= 0) {
+                        float orig = w.baseDamage;
+                        w.baseDamage *= cloneDmgMult2;
+                        Fire(w);
+                        w.baseDamage = orig;
+                        uc.cooldowns[w.itemName] = w.cooldown;
+                    }
+                }
+                _firingForClone = false;
+            }
         }
     }
 
+    // Set before every Fire() call so inline TakeDamage calls in weapon methods can attribute damage.
+    public static string CurrentWeapon = "Other";
+
     void Fire(ItemData w) {
+        CurrentWeapon = w.itemName;
         // Non-projectile modes are handled first (no prefab needed)
         if (w.fireMode == FireMode.ArcSwing)   { FireArcSwing(w);   return; }
         if (w.fireMode == FireMode.Orbit)       { FireOrbit(w);      return; }
@@ -127,6 +284,16 @@ public class WeaponSystem : MonoBehaviour {
         if (w.fireMode == FireMode.Downpour)           { FireDownpour(w);                           return; }
         if (w.fireMode == FireMode.BerserkerAxe)      { FireBerserkerAxe(w);                       return; }
         if (w.fireMode == FireMode.CreepingVines)     { FireCreepingVines(w);                      return; }
+        if (w.fireMode == FireMode.RadialLaser)       { FireRadialLaser(w);                        return; }
+        if (w.fireMode == FireMode.WarHammer)         { FireWarHammer(w);                          return; }
+        if (w.fireMode == FireMode.Blizzard)          { FireBlizzard(w);                           return; }
+        if (w.fireMode == FireMode.WolfClaws)         { FireWolfClaws(w);                          return; }
+        if (w.fireMode == FireMode.IceShard)          { FireIceShard(w);                           return; }
+        if (w.fireMode == FireMode.Teleportation)     { FireTeleportation(w);                      return; }
+        if (w.fireMode == FireMode.SummonUndead)      { FireSummonUndead(w);                       return; }
+        if (w.fireMode == FireMode.ShadowClone)          return; // maintained in Update
+        if (w.fireMode == FireMode.ScrapMaul)            { StartCoroutine(FireScrapMaul(w));              return; }
+        if (w.fireMode == FireMode.TemporalManipulation) { StartCoroutine(FireTemporalManipulation(w));   return; }
 
         if (w.projectilePrefab == null && string.IsNullOrEmpty(w.spriteFolder)) { Debug.LogWarning($"[WeaponSystem] '{w.itemName}' has no projectilePrefab or spriteFolder assigned."); return; }
         switch (w.fireMode) {
@@ -304,7 +471,7 @@ public class WeaponSystem : MonoBehaviour {
 
             float rad    = angle * Mathf.Deg2Rad;
             Vector2 offset = new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * orbitRadius;
-            scythe.transform.position = (Vector2)player.position + offset;
+            scythe.transform.position = (Vector2)(TeleportCenter ?? player.position) + offset;
             // Bottom-left corner faces the player: sprite_Z = orbitAngle - 45°
             scythe.transform.rotation = Quaternion.Euler(0f, 0f, angle - 45f);
 
@@ -352,8 +519,9 @@ public class WeaponSystem : MonoBehaviour {
                 sr.color = new Color(1f, 0.45f, 0.05f);
             }
             var logic = orb.AddComponent<OrbLogic>();
-            logic.startAngle = (360f / w.level) * i;
-            logic.damage     = w.baseDamage;
+            logic.startAngle  = (360f / w.level) * i;
+            logic.damage      = w.baseDamage;
+            logic.weaponName  = w.itemName;
             activeOrbs[w.itemName].Add(orb);
         }
     }
@@ -1273,6 +1441,731 @@ public class WeaponSystem : MonoBehaviour {
     //   L3 – vinesPerNode = 2 (fires 2 vines from player + 2 from each hit)
     //   L4 – cooldown ×0.75 (6 s)
     //   L5 – cooldown ×0.75 again (4.5 s total)
+    // Cyborg custom attack: orbits the player once then fires a piercing laser.
+    //
+    // Phase 1 – A sprite revolves 360° around the player (top-right corner inward).
+    //   Any enemy hit by the collider takes damage.
+    // Phase 2 – On orbit completion a red laser fires at the closest enemy,
+    //   dealing instant pierce damage to all enemies along the ray.
+    //   The laser lingers visually for 0.75 s.
+    //
+    // Level scaling:
+    //   L2 – sprite scale ×1.5
+    //   L3 – damage ×1.5
+    //   L4 – cooldown ×0.5  (3 s → 1.5 s)
+    //   L5 – cooldown ×0.5 again  (1.5 s → 0.75 s)
+    void FireRadialLaser(ItemData w) {
+        w.cooldown = 3f * (w.level >= 4 ? 0.5f : 1f) * (w.level >= 5 ? 0.5f : 1f);
+
+        float dmg = w.baseDamage
+                  * (w.level >= 3 ? 1.5f : 1f)
+                  * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        float scale = w.projectileScale * (w.level >= 2 ? 1.5f : 1f);
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite   spr    = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        RadialLaserLogic.Spawn(PlayerPos, dmg, w.level, spr, scale);
+    }
+
+    // Dwarf custom attack: hurls the War Hammer in a high parabolic arc at the nearest enemy.
+    // On landing, instantly deals damage in a small circle and stuns all enemies in a larger circle.
+    // Two expanding rings reveal the impact zones, then all visuals linger for 1 second.
+    //
+    // Level scaling:
+    //   L2 – circle radii ×1.5
+    //   L3 – damage ×1.5
+    //   L4 – stun duration 2 s
+    //   L5 – damage ×1.5 again
+    void FireWarHammer(ItemData w) {
+        var sms = SurvivorMasterScript.Instance;
+        var candidates = sms.Grid.GetNearby(PlayerPos);
+        candidates.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
+        if (candidates.Count == 0) return;
+
+        EnemyEntity target = null;
+        float bestSq = float.MaxValue;
+        foreach (var e in candidates) {
+            float d = (e.transform.position - PlayerPos).sqrMagnitude;
+            if (d < bestSq) { bestSq = d; target = e; }
+        }
+        if (target == null) return;
+
+        float dmg = w.baseDamage
+                  * (w.level >= 3 ? 1.5f : 1f)
+                  * (w.level >= 5 ? 1.5f : 1f)
+                  * (sms?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        float stunDuration = w.level >= 4 ? 2f : 1f;
+        float radiusMult   = w.level >= 2 ? 1.5f : 1f;
+        float dmgRadius    = 3f * radiusMult;
+        float stunRadius   = 5.5f * radiusMult;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        WarHammerLogic.Spawn(PlayerPos, target.transform.position, dmg, stunDuration,
+                             dmgRadius, stunRadius, spr, w.projectileScale);
+    }
+
+    // ArcticScout custom attack: sweeps a wave of wind-blown snowflakes left-to-right
+    // across the screen.  Each snowflake moves in a sinusoidal path and deals damage +
+    // slow to every enemy it touches (one hit per enemy per snowflake).
+    //
+    // Level scaling:
+    //   L2 – slow 20%  |  L3 – slow 30%, 30 snowflakes  |  L4 – slow 40%  |  L5 – slow 50%, 40 flakes
+    void FireBlizzard(ItemData w) {
+        float dmg = w.baseDamage
+                  * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        // slowMult: 0.9 = 10% slow … 0.5 = 50% slow
+        float slowMult = 1f - 0.10f * w.level; // L1=0.90, L2=0.80, L3=0.70, L4=0.60, L5=0.50
+        slowMult = Mathf.Clamp(slowMult, 0.5f, 0.90f);
+
+        int count = w.level >= 5 ? 40 : w.level >= 3 ? 30 : 20;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        Camera cam = Camera.main;
+        float halfH = cam.orthographicSize;
+        float halfW = cam.orthographicSize * cam.aspect;
+        float leftEdge  = cam.transform.position.x - halfW - 1.5f; // slightly off-screen left
+        float rightEdge = cam.transform.position.x + halfW + 1.5f; // despawn boundary
+        float topEdge   = cam.transform.position.y + halfH;
+        float botEdge   = cam.transform.position.y - halfH;
+
+        float screenWidth = rightEdge - leftEdge;
+
+        for (int i = 0; i < count; i++) {
+            float spawnY    = Random.Range(botEdge, topEdge);
+            float crossTime = Random.Range(3f, 5f);
+            float speed     = screenWidth / crossTime;
+            BlizzardLogic.Spawn(new Vector3(leftEdge, spawnY, 0f),
+                                rightEdge, speed, dmg, slowMult, 1.5f,
+                                spr, w.projectileScale);
+        }
+    }
+
+    // Beastmaster custom attack: two claw swipes 100 ms apart arc downward toward the nearest enemy.
+    // Each swipe independently deals damage and applies a bleeding DoT on hit.
+    //
+    // Level scaling:
+    //   L2 – bleed 10 s (up from 5 s)
+    //   L3 – damage ×1.5
+    //   L4 – attack speed ×2 (cooldown halved)
+    //   L5 – attack speed ×3 (cooldown one-third)
+    void FireWolfClaws(ItemData w) {
+        const float BASE_CD = 0.3f;
+        w.cooldown = w.level >= 5 ? BASE_CD / 3f
+                   : w.level >= 4 ? BASE_CD / 2f
+                   : BASE_CD;
+
+        var sms = SurvivorMasterScript.Instance;
+        var candidates = sms.Grid.GetNearby(PlayerPos);
+        candidates.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
+        if (candidates.Count == 0) return;
+
+        EnemyEntity target = null;
+        float bestSq = float.MaxValue;
+        foreach (var e in candidates) {
+            float d = (e.transform.position - PlayerPos).sqrMagnitude;
+            if (d < bestSq) { bestSq = d; target = e; }
+        }
+        if (target == null) return;
+
+        float dmg = w.baseDamage
+                  * (w.level >= 3 ? 1.5f : 1f)
+                  * (sms?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        float bleedDuration = w.level >= 2 ? 10f : 5f;
+        float bleedDps      = w.baseDamage * 0.3f * (w.level >= 3 ? 1.5f : 1f);
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        Vector3 targetPos = target.transform.position;
+        WolfClawsLogic.Spawn(targetPos, dmg, bleedDps, bleedDuration, spr, w.projectileScale, false);
+        StartCoroutine(DelayedSecondClaw(targetPos, dmg, bleedDps, bleedDuration, spr, w.projectileScale));
+    }
+
+    IEnumerator DelayedSecondClaw(Vector3 targetPos, float dmg, float bleedDps, float bleedDuration, Sprite spr, float scale) {
+        yield return new WaitForSeconds(0.1f);
+        WolfClawsLogic.Spawn(targetPos, dmg, bleedDps, bleedDuration, spr, scale, true);
+    }
+
+    // Dimension Master custom attack: blinks between enemies in sequence, dealing damage at each.
+    // The player sprite fades out, a strike sprite appears under each target and slides to the next,
+    // then the player fades back in.  All weapons fire from TeleportCenter during the sequence.
+    //
+    // Level scaling:
+    //   L2 – damage ×1.25, 3 strikes  |  L3 – damage ×1.25, 4 strikes
+    //   L4 – damage ×1.25, 5 strikes  |  L5 – damage ×2
+    void FireTeleportation(ItemData w) {
+        if (_isTeleporting) return; // don't stack attack sequences
+        StartCoroutine(FireTeleportationCoroutine(w));
+    }
+
+    IEnumerator FireTeleportationCoroutine(ItemData w) {
+        _isTeleporting = true;
+
+        var sms       = SurvivorMasterScript.Instance;
+        int maxStrikes = w.level >= 4 ? 5 : w.level >= 3 ? 4 : w.level >= 2 ? 3 : 2;
+
+        float dmg = w.baseDamage
+                  * (w.level >= 2 ? 1.25f : 1f)
+                  * (w.level >= 3 ? 1.25f : 1f)
+                  * (w.level >= 4 ? 1.25f : 1f)
+                  * (w.level >= 5 ? 2.0f  : 1f)
+                  * (sms?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        const float STRIKE_RANGE = 12f;
+        const float FADE_TIME    = 0.15f;
+        const float MOVE_TIME    = 0.15f;
+        const float LINGER       = 0.08f;
+
+        // Find first target
+        var candidates = sms.Grid.GetNearby(PlayerPos);
+        candidates.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
+        if (candidates.Count == 0) { _isTeleporting = false; yield break; }
+
+        EnemyEntity first = null;
+        float bestSq = float.MaxValue;
+        foreach (var e in candidates) {
+            float d = (e.transform.position - PlayerPos).sqrMagnitude;
+            if (d < bestSq) { bestSq = d; first = e; }
+        }
+        if (first == null) { _isTeleporting = false; yield break; }
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        // Player sprite fade state
+        var playerSR        = sms.player?.GetComponent<SpriteRenderer>();
+        Color playerBase    = playerSR != null ? playerSR.color : Color.white;
+
+        // Build the strike sprite
+        var strikeGO = new GameObject("TeleportStrike_VFX");
+        var strikeSR = strikeGO.AddComponent<SpriteRenderer>();
+        strikeSR.sortingLayerName = "Default";
+        strikeSR.sortingOrder     = 9;
+        if (spr != null) {
+            strikeSR.sprite             = spr;
+            strikeGO.transform.localScale = Vector3.one * w.projectileScale;
+        }
+        strikeSR.color = new Color(1f, 1f, 1f, 0f); // start fully transparent
+
+        float elapsed = 0f;
+
+        // ── Phase 1: fade out player ────────────────────────────────────────
+        while (elapsed < FADE_TIME) {
+            elapsed += Time.deltaTime;
+            float a = Mathf.Lerp(1f, 0f, elapsed / FADE_TIME);
+            if (playerSR != null) playerSR.color = new Color(playerBase.r, playerBase.g, playerBase.b, a);
+            yield return null;
+        }
+        if (playerSR != null) playerSR.color = new Color(playerBase.r, playerBase.g, playerBase.b, 0f);
+
+        // ── Phase 2: strike sequence ────────────────────────────────────────
+        var hitSet = new HashSet<EnemyEntity>();
+        EnemyEntity current = first;
+        bool isFirstStrike  = true;
+
+        for (int strike = 0; strike < maxStrikes; strike++) {
+            if (current == null || current.isDead) break;
+            hitSet.Add(current);
+
+            Vector3 strikePos = current.transform.position;
+            TeleportCenter = strikePos;
+
+            if (isFirstStrike) {
+                // Fade in at first target
+                strikeGO.transform.position = strikePos;
+                elapsed = 0f;
+                while (elapsed < FADE_TIME) {
+                    elapsed += Time.deltaTime;
+                    strikeSR.color = new Color(1f, 1f, 1f, Mathf.Clamp01(elapsed / FADE_TIME));
+                    yield return null;
+                }
+                strikeSR.color = Color.white;
+                isFirstStrike  = false;
+            } else {
+                // Slide from previous position to this one
+                Vector3 fromPos = strikeGO.transform.position;
+                elapsed = 0f;
+                while (elapsed < MOVE_TIME) {
+                    elapsed += Time.deltaTime;
+                    Vector3 p = Vector3.Lerp(fromPos, strikePos, Mathf.Clamp01(elapsed / MOVE_TIME));
+                    strikeGO.transform.position = p;
+                    TeleportCenter = p;
+                    yield return null;
+                }
+                strikeGO.transform.position = strikePos;
+                TeleportCenter = strikePos;
+            }
+
+            // Deal damage
+            if (!current.isDead) current.TakeDamage(dmg);
+            yield return new WaitForSeconds(LINGER);
+
+            // Find next unhit enemy within range
+            EnemyEntity next = null;
+            if (strike < maxStrikes - 1) {
+                float rangeSq2 = STRIKE_RANGE * STRIKE_RANGE;
+                bestSq = float.MaxValue;
+                foreach (var e in sms.Grid.GetNearby(strikePos)) {
+                    if (e == null || e.isDead || hitSet.Contains(e)) continue;
+                    if (!SurvivorMasterScript.IsOnScreen(e.transform.position)) continue;
+                    float dSq = (e.transform.position - strikePos).sqrMagnitude;
+                    if (dSq <= rangeSq2 && dSq < bestSq) { bestSq = dSq; next = e; }
+                }
+            }
+            current = next;
+        }
+
+        // ── Phase 3: fade out strike sprite ─────────────────────────────────
+        elapsed = 0f;
+        while (elapsed < FADE_TIME) {
+            elapsed += Time.deltaTime;
+            strikeSR.color = new Color(1f, 1f, 1f, Mathf.Lerp(1f, 0f, elapsed / FADE_TIME));
+            yield return null;
+        }
+        Destroy(strikeGO);
+        TeleportCenter = null;
+
+        // ── Phase 4: fade in player ─────────────────────────────────────────
+        elapsed = 0f;
+        while (elapsed < FADE_TIME) {
+            elapsed += Time.deltaTime;
+            float a = Mathf.Lerp(0f, 1f, elapsed / FADE_TIME);
+            if (playerSR != null) playerSR.color = new Color(playerBase.r, playerBase.g, playerBase.b, a);
+            yield return null;
+        }
+        if (playerSR != null) playerSR.color = playerBase;
+
+        _isTeleporting = false;
+    }
+
+    // Cryomancer custom attack: fires a single shard at the nearest enemy.
+    // On impact the primary shard despawns and fans N smaller shards outward behind
+    // the hit point.  Primary hit: full damage + 50% slow.
+    // Sub-shards: 50% damage + 25% slow (half the slow %).
+    //
+    // Level scaling:
+    //   L2 – slow 5 s  |  L3 – damage ×1.5  |  L4 – +2 sub-shards (5 total)  |  L5 – cooldown ÷1.75
+    void FireIceShard(ItemData w) {
+        const float BASE_CD = 7f;
+        w.cooldown = w.level >= 5 ? BASE_CD / 1.75f : BASE_CD;
+
+        var sms = SurvivorMasterScript.Instance;
+        var candidates = sms.Grid.GetNearby(PlayerPos);
+        candidates.RemoveAll(e => e == null || e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position));
+        if (candidates.Count == 0) return;
+
+        EnemyEntity target = null;
+        float bestSq = float.MaxValue;
+        foreach (var e in candidates) {
+            float d = (e.transform.position - PlayerPos).sqrMagnitude;
+            if (d < bestSq) { bestSq = d; target = e; }
+        }
+        if (target == null) return;
+
+        float dmg = w.baseDamage
+                  * (w.level >= 3 ? 1.5f : 1f)
+                  * (sms?.poiDamageMult ?? 1f)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        float slowDuration = w.level >= 2 ? 5f : 3f;
+        int   subCount     = w.level >= 4 ? 5  : 3;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        IceShardLogic.Spawn(PlayerPos, target.transform.position,
+                            dmg, slowDuration, subCount, spr, w.projectileScale);
+    }
+
+    // Necromancer weapon: raises up to maxSummons permanently charmed allies.
+    // Summon type is weighted by kill count — more of a type killed → higher chance to summon.
+    // Only spawns enough to top up to the current cap; already-alive summons count toward it.
+    //
+    // Level scaling:
+    //   L2 – summon attack damage ×1.5
+    //   L3 – summon move speed ×1.1
+    //   L4 – maxSummons = level*2-3 (5 at L4, 7 at L5 via same formula)
+    //   L5 – summon attack damage ×2 (cumulative ×3 with L2)
+    void FireSummonUndead(ItemData w) {
+        const float BASE_CD = 10f;
+        w.cooldown = BASE_CD;
+
+        var sms = SurvivorMasterScript.Instance;
+        if (sms == null) return;
+
+        int maxSummons = w.level >= 4 ? w.level * 2 - 3 : 3;
+
+        // Prune destroyed / dead entries from the tracking list.
+        _summonedUndead.RemoveAll(go => go == null || (go.GetComponent<EnemyEntity>()?.isDead ?? true));
+        int toSummon = Mathf.Max(0, maxSummons - _summonedUndead.Count);
+        if (toSummon <= 0) return;
+
+        float dmgMult   = (w.level >= 2 ? 1.5f : 1f) * (w.level >= 5 ? 2f : 1f);
+        float attackDmg = w.baseDamage * dmgMult * (sms.poiDamageMult) * (1f + RunUpgrades.DamageBonus);
+        float speedMult = w.level >= 3 ? 1.1f : 1f;
+
+        for (int i = 0; i < toSummon; i++) {
+            EnemyBehavior bt = sms.BestiaryLookup.Count > 0
+                ? WeightedRandom(sms.BestiaryLookup, sms.totalEnemiesKilled)
+                : EnemyBehavior.Chaser;
+
+            float angle  = Random.Range(0f, Mathf.PI * 2f);
+            float radius = Random.Range(3f, 6f);
+            Vector3 pos  = sms.player.position + new Vector3(Mathf.Cos(angle) * radius, Mathf.Sin(angle) * radius, 0f);
+
+            var go = SpawnNecroMinion(bt, pos, attackDmg, speedMult, isElite: false, isBoss: false);
+            if (go != null) _summonedUndead.Add(go);
+        }
+    }
+
+    // Spawns one permanently charmed minion. Used by the Summon Undead weapon and the Necromancer ult.
+    // Elites and Bosses get 2× hp/damage, 1.25× speed, and a golden or red glow respectively.
+    public GameObject SpawnNecroMinion(EnemyBehavior bt, Vector3 spawnPos, float attackDmg,
+                                       float speedMult, bool isElite, bool isBoss) {
+        float hpMult  = (isElite || isBoss) ? 2f : 1f;
+        float atkMult = (isElite || isBoss) ? 2f : 1f;
+        float spdBonus = (isElite || isBoss) ? 1.25f : 1f;
+
+        var go = new GameObject($"NecroMinion_{bt}");
+        go.transform.position   = spawnPos;
+        go.transform.localScale = Vector3.one * 7f;
+        go.tag = "Enemy";
+
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingLayerName = "Default";
+        sr.sortingOrder     = 5;
+
+        // Try behavior-specific sprite first; fall back to the generic Summon weapon sprite.
+        Sprite[] frames = Resources.LoadAll<Sprite>($"Sprites/Enemies/{bt}");
+        if (frames == null || frames.Length == 0)
+            frames = Resources.LoadAll<Sprite>("Sprites/Weapons/Summon");
+        if (frames != null && frames.Length > 0) sr.sprite = frames[0];
+
+        var rb = go.AddComponent<Rigidbody2D>();
+        rb.bodyType    = RigidbodyType2D.Kinematic;
+        rb.gravityScale = 0f;
+
+        var col = go.AddComponent<CircleCollider2D>();
+        col.isTrigger = false;
+        col.radius    = 0.08f;
+
+        var e = go.AddComponent<EnemyEntity>();
+        e.behavior              = bt;
+        e.hp                    = 50f * hpMult;
+        e.moveSpeed             = 3.5f * speedMult * spdBonus;
+        e.tier                  = isElite ? EnemyTier.Elite : (isBoss ? EnemyTier.Boss : EnemyTier.Normal);
+        e.isPermanentlyCharmed  = true;
+
+        var atk = go.AddComponent<EnemyAttack>();
+        atk.damage         = attackDmg * atkMult;
+        atk.attackInterval = 1f;
+
+        // Golden glow for elites, red for bosses.
+        if (isElite || isBoss) {
+            Color gc = isBoss ? new Color(1f, 0.25f, 0.25f, 0.45f) : new Color(1f, 0.85f, 0.1f, 0.45f);
+            var glowGO = new GameObject("MinionGlow");
+            glowGO.transform.SetParent(go.transform);
+            glowGO.transform.localPosition = Vector3.zero;
+            glowGO.transform.localScale    = Vector3.one * 1.3f;
+            var glowSR = glowGO.AddComponent<SpriteRenderer>();
+            glowSR.sprite           = sr.sprite;
+            glowSR.color            = gc;
+            glowSR.sortingLayerName = "Default";
+            glowSR.sortingOrder     = sr.sortingOrder - 1;
+        }
+
+        SurvivorMasterScript.Instance.Grid.UpdateEntity(e, spawnPos);
+        return go;
+    }
+
+    // Weighted random from a kill-count dictionary (integer random for exact distribution).
+    public static EnemyBehavior WeightedRandom(Dictionary<EnemyBehavior, int> counts) {
+        int total = 0;
+        foreach (var v in counts.Values) total += v;
+        if (total <= 0) return EnemyBehavior.Chaser;
+        int r = Random.Range(0, total);
+        int cumulative = 0;
+        foreach (var kvp in counts) {
+            cumulative += kvp.Value;
+            if (r < cumulative) return kvp.Key;
+        }
+        EnemyBehavior last = EnemyBehavior.Chaser;
+        foreach (var k in counts.Keys) last = k;
+        return last;
+    }
+
+    // Weighted random from the bestiary using each entry's kill count.
+    public static EnemyBehavior WeightedRandom(Dictionary<EnemyBehavior, BestiaryEntry> bestiary, int total) {
+        if (bestiary.Count == 0 || total <= 0) return EnemyBehavior.Chaser;
+        int r = Random.Range(0, total);
+        int cumulative = 0;
+        foreach (var kvp in bestiary) {
+            cumulative += kvp.Value.kills;
+            if (r < cumulative) return kvp.Key;
+        }
+        EnemyBehavior last = EnemyBehavior.Chaser;
+        foreach (var k in bestiary.Keys) last = k;
+        return last;
+    }
+
+    // Returns true for fire modes the shadow clone should not replicate.
+    // Skips: persistent player-anchored objects (Orbit, Windstorm), singletons (SniperReticle,
+    // ConversionCircle), player-specific mechanics (SandShield, Teleportation, BerserkerAxe),
+    // and weapons that manage their own summon lists (SentryGun, SummonUndead).
+    static bool IsCloneSkippedMode(FireMode mode) =>
+        mode == FireMode.ShadowClone      ||
+        mode == FireMode.Orbit            ||
+        mode == FireMode.SentryGun        ||
+        mode == FireMode.SniperReticle    ||
+        mode == FireMode.SandShield       ||
+        mode == FireMode.ConversionCircle ||
+        mode == FireMode.Windstorm        ||
+        mode == FireMode.SummonUndead     ||
+        mode == FireMode.Teleportation    ||
+        mode == FireMode.BerserkerAxe            ||
+        mode == FireMode.ScrapMaul               ||
+        mode == FireMode.TemporalManipulation;
+
+    // Spawns the shadow clone GameObject with a grey tint and black outline if it does not yet exist.
+    void EnsureShadowClone(ItemData scw) {
+        if (_shadowClone != null) return;
+        var sms = SurvivorMasterScript.Instance;
+        Sprite playerSpr = sms?.player?.GetComponent<SpriteRenderer>()?.sprite;
+
+        _shadowClone = new GameObject("ShadowClone");
+        _shadowClone.transform.position   = sms?.player?.position ?? Vector3.zero;
+        _shadowClone.transform.localScale = sms?.player?.localScale ?? Vector3.one;
+
+        // Black outline: a slightly larger copy of the sprite rendered behind the main sprite.
+        var outlineGO = new GameObject("CloneOutline");
+        outlineGO.transform.SetParent(_shadowClone.transform, false);
+        outlineGO.transform.localPosition = Vector3.zero;
+        outlineGO.transform.localScale    = Vector3.one * 1.12f;
+        _shadowCloneOutlineSR             = outlineGO.AddComponent<SpriteRenderer>();
+        _shadowCloneOutlineSR.sprite           = playerSpr;
+        _shadowCloneOutlineSR.color            = Color.black;
+        _shadowCloneOutlineSR.sortingLayerName = "Default";
+        _shadowCloneOutlineSR.sortingOrder     = 4;
+
+        // Main clone sprite with heavy grey tint.
+        _shadowCloneSR                    = _shadowClone.AddComponent<SpriteRenderer>();
+        _shadowCloneSR.sprite              = playerSpr;
+        _shadowCloneSR.color               = new Color(0.45f, 0.45f, 0.45f, 1f);
+        _shadowCloneSR.sortingLayerName    = "Default";
+        _shadowCloneSR.sortingOrder        = 5;
+    }
+
+    // Keeps the clone at the viewport-mirrored position of the player so it always
+    // appears on the opposite side of the screen.
+    void UpdateShadowClonePosition() {
+        if (_shadowClone == null) return;
+        var sms = SurvivorMasterScript.Instance;
+        if (sms?.player == null) return;
+        Camera cam = Camera.main;
+        if (cam == null) return;
+        Vector3 vp      = cam.WorldToViewportPoint(sms.player.position);
+        float   cloneVx = Mathf.Clamp(1f - vp.x, 0.05f, 0.95f);
+        float   cloneVy = Mathf.Clamp(1f - vp.y, 0.05f, 0.95f);
+        Vector3 world   = cam.ViewportToWorldPoint(new Vector3(cloneVx, cloneVy, vp.z));
+        world.z = 0f;
+        // Walk toward the mirrored position rather than teleporting so the clone smoothly
+        // returns if it was displaced (stun, freeze, wall, etc.).
+        _shadowClone.transform.position   = Vector3.MoveTowards(_shadowClone.transform.position, world, 8f * Time.deltaTime);
+        _shadowClone.transform.localScale = sms.player.localScale;
+    }
+
+    // Keeps the clone's sprite in sync with the player's current sprite each frame.
+    void UpdateShadowCloneSprite() {
+        if (_shadowClone == null) return;
+        var sms = SurvivorMasterScript.Instance;
+        if (sms?.player == null) return;
+        Sprite spr = sms.player.GetComponent<SpriteRenderer>()?.sprite;
+        if (spr == null) return;
+        if (_shadowCloneSR        != null) _shadowCloneSR.sprite        = spr;
+        if (_shadowCloneOutlineSR != null) _shadowCloneOutlineSR.sprite = spr;
+    }
+
+    // Called by SurvivorMasterScript.ExecuteUltimate for PuppetMaster.
+    // Destroys any existing ult clones, then spawns three new ones (N/S/W of player, 12 s).
+    public void SpawnUltimateClones() {
+        foreach (var uc in _ultClones) if (uc.obj != null) Destroy(uc.obj);
+        _ultClones.Clear();
+
+        var sms = SurvivorMasterScript.Instance;
+        if (sms?.player == null) return;
+        Sprite playerSpr = sms.player.GetComponent<SpriteRenderer>()?.sprite;
+
+        Vector2[] offsets = { new Vector2(0f, 4f), new Vector2(0f, -4f), new Vector2(-4f, 0f) }; // N, S, W
+        foreach (var offset in offsets) {
+            var data = new UltCloneData { relativeOffset = offset };
+
+            data.obj = new GameObject("UltClone");
+            data.obj.transform.position   = sms.player.position + (Vector3)(Vector2)offset;
+            data.obj.transform.localScale = sms.player.localScale;
+
+            var outlineGO = new GameObject("UltCloneOutline");
+            outlineGO.transform.SetParent(data.obj.transform, false);
+            outlineGO.transform.localPosition = Vector3.zero;
+            outlineGO.transform.localScale    = Vector3.one * 1.12f;
+            data.outlineSR                    = outlineGO.AddComponent<SpriteRenderer>();
+            data.outlineSR.sprite           = playerSpr;
+            data.outlineSR.color            = Color.black;
+            data.outlineSR.sortingLayerName = "Default";
+            data.outlineSR.sortingOrder     = 4;
+
+            data.mainSR                    = data.obj.AddComponent<SpriteRenderer>();
+            data.mainSR.sprite              = playerSpr;
+            data.mainSR.color               = new Color(0.45f, 0.45f, 0.45f, 1f);
+            data.mainSR.sortingLayerName    = "Default";
+            data.mainSR.sortingOrder        = 5;
+
+            _ultClones.Add(data);
+        }
+    }
+
+    // Junker custom attack: the Scrap Maul spawns near the player at 45° and performs a
+    // two-phase slam — head sweeps right-to-ground, snaps to vertical, then sweeps left-to-ground.
+    // Each slam phase independently damages enemies at the head position.
+    //
+    // Level scaling:
+    //   L2 – damage ×1.5
+    //   L3 – attack speed ×1.5
+    //   L4 – attack speed ×1.5 (cumulative: ×2.25 with L3)
+    //   L5 – damage ×1.5 (cumulative: ×2.25 with L2)
+    IEnumerator FireScrapMaul(ItemData w) {
+        var sms = SurvivorMasterScript.Instance;
+        if (sms == null) yield break;
+
+        float speedMult = (w.level >= 3 ? 1.5f : 1f) * (w.level >= 4 ? 1.5f : 1f);
+        w.cooldown = 5f / speedMult;
+
+        float dmg = w.baseDamage
+                  * (w.level >= 2 ? 1.5f : 1f)
+                  * (w.level >= 5 ? 1.5f : 1f)
+                  * (sms.poiDamageMult)
+                  * (1f + RunUpgrades.DamageBonus);
+
+        float maulLength  = w.range > 0f ? w.range : 4f;
+        float orbitRadius = maulLength * 0.5f;
+        float hitRadius   = 1.5f;
+        float smashDur    = 0.22f / speedMult;
+        float riseDur     = 0.10f / speedMult;
+
+        Sprite[] frames = LoadWeaponSprites(w.spriteFolder);
+        Sprite spr = (frames != null && frames.Length > 0) ? frames[0] : null;
+
+        var go = new GameObject("ScrapMaul_VFX");
+        var sr = go.AddComponent<SpriteRenderer>();
+        sr.sortingLayerName = "Default";
+        sr.sortingOrder     = 7;
+        if (spr != null) {
+            sr.sprite = spr;
+            float naturalH = spr.rect.height / spr.pixelsPerUnit;
+            go.transform.localScale = Vector3.one * (naturalH > 0f ? maulLength / naturalH : w.projectileScale);
+        } else {
+            go.transform.localScale = Vector3.one * w.projectileScale;
+        }
+
+        // Phase 1: smash right — head sweeps upper-right (-45°) → lower-right (-135°)
+        {
+            float elapsed = 0f;
+            var hitSet = new HashSet<EnemyEntity>();
+            while (elapsed < smashDur) {
+                if (go == null) yield break;
+                var player = sms.player;
+                if (player == null) { Destroy(go); yield break; }
+
+                float t      = elapsed / smashDur;
+                float zAngle = Mathf.Lerp(-45f, -135f, t);
+                float zRad   = zAngle * Mathf.Deg2Rad;
+                Vector2 headDir = new Vector2(-Mathf.Sin(zRad), Mathf.Cos(zRad));
+
+                go.transform.position = (Vector2)player.position + headDir * orbitRadius;
+                go.transform.rotation = Quaternion.Euler(0f, 0f, zAngle);
+
+                Vector2 headPos = (Vector2)player.position + headDir * maulLength;
+                foreach (var col in Physics2D.OverlapCircleAll(headPos, hitRadius)) {
+                    if (!col.CompareTag("Enemy")) continue;
+                    var e = col.GetComponent<EnemyEntity>();
+                    if (e == null || e.isDead || hitSet.Contains(e)) continue;
+                    hitSet.Add(e);
+                    e.TakeDamage(dmg);
+                }
+
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+        }
+
+        // Phase 2: rise to vertical — z: -135° → +45° (quick counter-clockwise reset)
+        {
+            float elapsed = 0f;
+            while (elapsed < riseDur) {
+                if (go == null) yield break;
+                var player = sms.player;
+                if (player == null) { Destroy(go); yield break; }
+
+                float t      = elapsed / riseDur;
+                float zAngle = Mathf.Lerp(-135f, 45f, t);
+                float zRad   = zAngle * Mathf.Deg2Rad;
+                Vector2 headDir = new Vector2(-Mathf.Sin(zRad), Mathf.Cos(zRad));
+
+                go.transform.position = (Vector2)player.position + headDir * orbitRadius;
+                go.transform.rotation = Quaternion.Euler(0f, 0f, zAngle);
+
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+        }
+
+        // Phase 3: smash left — head sweeps upper-left (+45°) → lower-left (+135°)
+        {
+            float elapsed = 0f;
+            var hitSet = new HashSet<EnemyEntity>();
+            while (elapsed < smashDur) {
+                if (go == null) yield break;
+                var player = sms.player;
+                if (player == null) { Destroy(go); yield break; }
+
+                float t      = elapsed / smashDur;
+                float zAngle = Mathf.Lerp(45f, 135f, t);
+                float zRad   = zAngle * Mathf.Deg2Rad;
+                Vector2 headDir = new Vector2(-Mathf.Sin(zRad), Mathf.Cos(zRad));
+
+                go.transform.position = (Vector2)player.position + headDir * orbitRadius;
+                go.transform.rotation = Quaternion.Euler(0f, 0f, zAngle);
+
+                Vector2 headPos = (Vector2)player.position + headDir * maulLength;
+                foreach (var col in Physics2D.OverlapCircleAll(headPos, hitRadius)) {
+                    if (!col.CompareTag("Enemy")) continue;
+                    var e = col.GetComponent<EnemyEntity>();
+                    if (e == null || e.isDead || hitSet.Contains(e)) continue;
+                    hitSet.Add(e);
+                    e.TakeDamage(dmg);
+                }
+
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+        }
+
+        if (go != null) Destroy(go);
+    }
+
     void FireCreepingVines(ItemData w) {
         w.cooldown = 8f * (w.level >= 4 ? 0.75f : 1f) * (w.level >= 5 ? 0.75f : 1f);
 
@@ -2468,5 +3361,305 @@ public class WeaponSystem : MonoBehaviour {
         }
 
         if (slashGo != null) Destroy(slashGo);
+    }
+
+    // ── Temporal Manipulation (Chronomancer weapon) ─────────────────────────────
+    // Spawns an expanding neon-purple clock disc under the player. A clock hand
+    // appears at 12 o'clock, spins clockwise two full rotations, then lands on a
+    // random hour (1-12). Each hour triggers one of twelve temporal effects. A
+    // banner names the effect as the hand settles.
+    //
+    // Level scaling: each level above 1 adds +25% attack speed (L5 = 2× speed).
+    IEnumerator FireTemporalManipulation(ItemData w) {
+        var sms = SurvivorMasterScript.Instance;
+        if (sms == null) yield break;
+
+        float speedMult = 1f
+            + (w.level >= 2 ? 0.25f : 0f)
+            + (w.level >= 3 ? 0.25f : 0f)
+            + (w.level >= 4 ? 0.25f : 0f)
+            + (w.level >= 5 ? 0.25f : 0f);
+        w.cooldown = 8f / speedMult;
+
+        int   hour        = Random.Range(1, 13);
+        float clockRadius = 5f;
+        float expandDur   = 0.35f;
+        float spinDur     = 1.8f / speedMult;
+        float pauseDur    = 0.55f;
+        float fadeDur     = 0.3f;
+        Color neonPurple  = new Color(0.55f, 0f, 0.9f, 0.45f);
+        Color handColor   = new Color(0.9f, 0.5f, 1f, 1f);
+
+        // Expanding disc background
+        var circleGO = new GameObject("TM_Circle");
+        var circleSR = circleGO.AddComponent<SpriteRenderer>();
+        circleSR.sprite            = MakeCircleDisc(64);
+        circleSR.color             = neonPurple;
+        circleSR.sortingLayerName  = "Default";
+        circleSR.sortingOrder      = 2;
+        circleGO.transform.position   = sms.player.position;
+        circleGO.transform.localScale = Vector3.zero;
+
+        // Clock hand: pivot at bottom-center, extends clockRadius upward at z=0° (12 o'clock)
+        var handGO = new GameObject("TM_Hand");
+        var handSR = handGO.AddComponent<SpriteRenderer>();
+        handSR.sprite           = MakeClockHandSprite();
+        handSR.color            = handColor;
+        handSR.sortingLayerName = "Default";
+        handSR.sortingOrder     = 6;
+        handGO.transform.localScale = new Vector3(0.12f, clockRadius / 8f, 1f);
+        handGO.transform.position   = sms.player.position;
+        handGO.transform.rotation   = Quaternion.identity;   // z=0 = 12 o'clock
+
+        // Phase 1: circle expands from zero to full diameter
+        {
+            float elapsed = 0f;
+            float diam    = clockRadius * 2f;
+            while (elapsed < expandDur) {
+                if (sms.player == null) { Destroy(circleGO); Destroy(handGO); yield break; }
+                float t = elapsed / expandDur;
+                float s = Mathf.Lerp(0f, diam, t * t);   // ease-in
+                circleGO.transform.position   = sms.player.position;
+                circleGO.transform.localScale = new Vector3(s, s, 1f);
+                handGO.transform.position     = sms.player.position;
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+            circleGO.transform.localScale = new Vector3(clockRadius * 2f, clockRadius * 2f, 1f);
+        }
+
+        // Phase 2: spin hand clockwise 720° + additional angle to target hour
+        // z=0 is 12 o'clock; decreasing z is clockwise.
+        // After 2 full CW rotations from 0°: z = -720°
+        // Then spin to hour H (1-12): further -((H%12)*30)°
+        {
+            float startZ  = 0f;
+            float finalZ  = -720f - (hour % 12) * 30f;
+            float elapsed = 0f;
+            while (elapsed < spinDur) {
+                if (sms.player == null) { Destroy(circleGO); Destroy(handGO); yield break; }
+                float t      = elapsed / spinDur;
+                float smooth = t < 0.5f ? 2f * t * t : -1f + (4f - 2f * t) * t;   // ease in-out
+                float zAngle = Mathf.Lerp(startZ, finalZ, smooth);
+                circleGO.transform.position = sms.player.position;
+                handGO.transform.position   = sms.player.position;
+                handGO.transform.rotation   = Quaternion.Euler(0f, 0f, zAngle);
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+            handGO.transform.rotation = Quaternion.Euler(0f, 0f, finalZ);
+        }
+
+        // Phase 3: pause + banner, then apply effect
+        {
+            string[] names = {
+                "", "Temporal Stasis", "Temporal Density", "Temporal Echo",
+                "Chronometric Regeneration", "Slaughter Time", "Accelerated Greed",
+                "Paradox Invigoration", "Chrono-Burst Attack", "Chronal De-aging",
+                "Rewind", "Temporal Glitch", "Chronal Aging"
+            };
+            FloatingText.SpawnBanner(names[hour], handColor);
+            float elapsed = 0f;
+            while (elapsed < pauseDur) {
+                if (sms.player != null) {
+                    circleGO.transform.position = sms.player.position;
+                    handGO.transform.position   = sms.player.position;
+                }
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+        }
+
+        ApplyTemporalEffect(hour, sms);
+
+        // Fade visuals out
+        {
+            float elapsed = 0f;
+            while (elapsed < fadeDur) {
+                float a = 1f - elapsed / fadeDur;
+                if (circleSR != null) circleSR.color = new Color(neonPurple.r, neonPurple.g, neonPurple.b, neonPurple.a * a);
+                if (handSR   != null) handSR.color   = new Color(handColor.r, handColor.g, handColor.b, a);
+                elapsed += Time.deltaTime;
+                yield return null;
+            }
+        }
+
+        if (circleGO != null) Destroy(circleGO);
+        if (handGO   != null) Destroy(handGO);
+    }
+
+    void ApplyTemporalEffect(int hour, SurvivorMasterScript sms) {
+        switch (hour) {
+            case 1:  StartCoroutine(Effect_TemporalStasis(sms));           break;
+            case 2:  StartCoroutine(Effect_TemporalDensity());             break;
+            case 3:  StartCoroutine(Effect_TemporalEcho());                break;
+            case 4:  StartCoroutine(Effect_ChronometricRegeneration(sms)); break;
+            case 5:  StartCoroutine(Effect_SlaughterTime());               break;
+            case 6:  StartCoroutine(Effect_AcceleratedGreed());            break;
+            case 7:  StartCoroutine(Effect_ParadoxInvigoration(sms));      break;
+            case 8:  StartCoroutine(Effect_ChronoBurstAttack());           break;
+            case 9:  StartCoroutine(Effect_ChronalDeAging(sms));           break;
+            case 10: StartCoroutine(Effect_Rewind());                      break;
+            case 11: Effect_TemporalGlitch(sms);                           break;
+            case 12: StartCoroutine(Effect_ChronalAging());                break;
+        }
+    }
+
+    // Activates all 12 effects simultaneously — used by Chronomancer ultimate.
+    public void ActivateAllTemporalEffects() {
+        var sms = SurvivorMasterScript.Instance;
+        if (sms == null) return;
+        for (int h = 1; h <= 12; h++) ApplyTemporalEffect(h, sms);
+    }
+
+    // 1 — Temporal Stasis: freeze all on-screen enemies for 3 s
+    IEnumerator Effect_TemporalStasis(SurvivorMasterScript sms) {
+        var all = Object.FindObjectsByType<EnemyEntity>(FindObjectsSortMode.None);
+        foreach (var e in all)
+            if (!e.isDead && SurvivorMasterScript.IsOnScreen(e.transform.position))
+                e.Stun(3f);
+        yield break;
+    }
+
+    // 2 — Temporal Density: slow all enemy projectiles 50% for 5 s
+    IEnumerator Effect_TemporalDensity() {
+        EnemyProjectileSpeedMult = 0.5f;
+        yield return new WaitForSeconds(5f);
+        EnemyProjectileSpeedMult = 1f;
+    }
+
+    // 3 — Temporal Echo: every hit is echoed 2 s later for 5 s
+    IEnumerator Effect_TemporalEcho() {
+        TemporalEchoActive = true;
+        yield return new WaitForSeconds(5f);
+        TemporalEchoActive = false;
+    }
+
+    // 4 — Chronometric Regeneration: each consecutive still-second heals N% HP (N = still seconds)
+    IEnumerator Effect_ChronometricRegeneration(SurvivorMasterScript sms) {
+        float maxHP      = sms.maxPlayerHP;
+        int   stillSecs  = 0;
+        float elapsed    = 0f;
+        Vector3 lastPos  = sms.player?.position ?? Vector3.zero;
+        while (elapsed < 10f) {
+            yield return new WaitForSeconds(1f);
+            elapsed += 1f;
+            Vector3 cur = sms.player?.position ?? Vector3.zero;
+            if (Vector3.Distance(cur, lastPos) < 0.3f) {
+                stillSecs++;
+                sms.Heal(stillSecs * 0.01f * maxHP);
+            } else {
+                stillSecs = 0;
+            }
+            lastPos = cur;
+        }
+    }
+
+    // 5 — Slaughter Time: each kill charges 1% of the ult meter for 10 s
+    IEnumerator Effect_SlaughterTime() {
+        SlaughterTimeActive = true;
+        yield return new WaitForSeconds(10f);
+        SlaughterTimeActive = false;
+    }
+
+    // 6 — Accelerated Greed: 2× enemy spawn rate + 2× XP gain for 10 s
+    IEnumerator Effect_AcceleratedGreed() {
+        float prev = EnemySpawner.Instance != null ? EnemySpawner.Instance.GlobalSpawnRateMult : 1f;
+        if (EnemySpawner.Instance != null) EnemySpawner.Instance.GlobalSpawnRateMult = prev * 2f;
+        TemporalXPMult = 2f;
+        yield return new WaitForSeconds(10f);
+        if (EnemySpawner.Instance != null) EnemySpawner.Instance.GlobalSpawnRateMult = prev;
+        TemporalXPMult = 1f;
+    }
+
+    // 7 — Paradox Invigoration: +50% player movement speed for 8 s
+    IEnumerator Effect_ParadoxInvigoration(SurvivorMasterScript sms) {
+        var pm = sms.player?.GetComponent<PlayerMovement>();
+        if (pm == null) yield break;
+        pm.moveSpeed *= 1.5f;
+        yield return new WaitForSeconds(8f);
+        if (pm != null) pm.moveSpeed /= 1.5f;
+    }
+
+    // 8 — Chrono-Burst Attack: +100% weapon attack speed for 10 s
+    IEnumerator Effect_ChronoBurstAttack() {
+        TemporalAttackSpeedMult = 2f;
+        yield return new WaitForSeconds(10f);
+        TemporalAttackSpeedMult = 1f;
+    }
+
+    // 9 — Chronal De-aging: shrink all on-screen enemies 50% and deal 50% of their HP as damage;
+    //     reverts sprite scale after 5 s (HP does not regenerate).
+    IEnumerator Effect_ChronalDeAging(SurvivorMasterScript sms) {
+        var targets = Object.FindObjectsByType<EnemyEntity>(FindObjectsSortMode.None);
+        var origScales = new Dictionary<EnemyEntity, Vector3>();
+        foreach (var e in targets) {
+            if (e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position)) continue;
+            origScales[e] = e.transform.localScale;
+            e.transform.localScale *= 0.5f;
+            e.TakeDamage(e.hp * 0.5f);
+        }
+        yield return new WaitForSeconds(5f);
+        foreach (var kvp in origScales)
+            if (kvp.Key != null && !kvp.Key.isDead)
+                kvp.Key.transform.localScale = kvp.Value;
+    }
+
+    // 10 — Rewind: enemies flee the player for 4 s
+    IEnumerator Effect_Rewind() {
+        EnemiesReversed = true;
+        yield return new WaitForSeconds(4f);
+        EnemiesReversed = false;
+    }
+
+    // 11 — Temporal Glitch: all on-screen enemies instantly teleport 3-7 units away (one-shot)
+    void Effect_TemporalGlitch(SurvivorMasterScript sms) {
+        Vector3 pPos = sms.player?.position ?? Vector3.zero;
+        var all = Object.FindObjectsByType<EnemyEntity>(FindObjectsSortMode.None);
+        foreach (var e in all) {
+            if (e.isDead || !SurvivorMasterScript.IsOnScreen(e.transform.position)) continue;
+            Vector2 away = ((Vector2)(e.transform.position - pPos)).normalized;
+            if (away == Vector2.zero) away = Random.insideUnitCircle.normalized;
+            e.transform.position += (Vector3)(away * Random.Range(3f, 7f));
+        }
+    }
+
+    // 12 — Chronal Aging: all enemies take 5 damage every 0.5 s for 8 s
+    IEnumerator Effect_ChronalAging() {
+        float elapsed  = 0f;
+        float duration = 8f;
+        float tick     = 0.5f;
+        while (elapsed < duration) {
+            yield return new WaitForSeconds(tick);
+            elapsed += tick;
+            var all = Object.FindObjectsByType<EnemyEntity>(FindObjectsSortMode.None);
+            foreach (var e in all)
+                if (!e.isDead) e.TakeDamage(5f);
+        }
+    }
+
+    // Procedural disc sprite for the clock background (white, centre-pivot, 1×1 unit natural).
+    static Sprite MakeCircleDisc(int res) {
+        var tex  = new Texture2D(res, res, TextureFormat.RGBA32, false);
+        float half = res * 0.5f;
+        for (int y = 0; y < res; y++)
+            for (int x = 0; x < res; x++) {
+                float dx = x - half, dy = y - half;
+                tex.SetPixel(x, y, dx * dx + dy * dy <= half * half ? Color.white : Color.clear);
+            }
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, res, res), new Vector2(0.5f, 0.5f), res);
+    }
+
+    // Thin vertical sprite with pivot at the bottom-centre so it rotates around the player.
+    // Natural size: 1 unit wide × 8 units tall (pixelsPerUnit = 4).
+    static Sprite MakeClockHandSprite() {
+        const int W = 4, H = 32;
+        var tex = new Texture2D(W, H, TextureFormat.RGBA32, false);
+        for (int y = 0; y < H; y++)
+            for (int x = 0; x < W; x++)
+                tex.SetPixel(x, y, Color.white);
+        tex.Apply();
+        return Sprite.Create(tex, new Rect(0, 0, W, H), new Vector2(0.5f, 0f), W);
     }
 }

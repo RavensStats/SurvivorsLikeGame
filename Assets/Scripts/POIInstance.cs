@@ -222,6 +222,8 @@ public class POIInstance : MonoBehaviour {
             else if (!inside && _playerInside) { _playerInside = false; OnPlayerExit(); }
         }
 
+        if (_playerInside) RunStatistics.AddPOITime(type.ToString(), Time.deltaTime);
+
         if (_playerInside && type == POIType.TimeRift) {
             float t = Mathf.PingPong(Time.unscaledTime * 0.25f, 1f);
             Time.timeScale = Mathf.Lerp(0.5f, 1.5f, t);

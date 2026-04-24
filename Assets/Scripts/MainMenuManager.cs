@@ -18,6 +18,7 @@ public class MainMenuManager : MonoBehaviour {
     private GameObject gameOverPanel;
     private GameObject characterSelectPanel;
     private GameObject settingsPanel;
+    private GameObject statsPanel;
     private System.Action settingsBackAction;
 
     private Canvas    canvas;
@@ -639,8 +640,13 @@ public class MainMenuManager : MonoBehaviour {
 
         MakeButton(gameOverPanel.transform, "View High Scores",
             new Color(0.20f, 0.20f, 0.35f, 1f), WHITE, 18,
-            new Vector2(0.25f, 0.10f), new Vector2(0.75f, 0.20f),
+            new Vector2(0.05f, 0.10f), new Vector2(0.47f, 0.20f),
             () => { BuildHighScores(); ShowPanel(scoresPanel); });
+
+        MakeButton(gameOverPanel.transform, "Run Statistics",
+            new Color(0.20f, 0.35f, 0.25f, 1f), WHITE, 18,
+            new Vector2(0.53f, 0.10f), new Vector2(0.95f, 0.20f),
+            () => { BuildStatistics(); ShowPanel(statsPanel); });
     }
 
     void OnPlayAgain() {
@@ -1162,6 +1168,412 @@ public class MainMenuManager : MonoBehaviour {
     }
 
     // ═════════════════════════════════════════════════════════════════════════
+    // RUN STATISTICS
+    // ═════════════════════════════════════════════════════════════════════════
+    private static readonly Color[] WeaponColors = {
+        new Color(0.30f, 0.65f, 1.00f, 1f),
+        new Color(1.00f, 0.50f, 0.20f, 1f),
+        new Color(0.35f, 1.00f, 0.45f, 1f),
+        new Color(1.00f, 0.85f, 0.10f, 1f),
+        new Color(0.85f, 0.30f, 1.00f, 1f),
+        new Color(1.00f, 0.30f, 0.30f, 1f),
+        new Color(0.20f, 0.90f, 0.90f, 1f),
+        new Color(1.00f, 0.60f, 0.80f, 1f),
+    };
+
+    void BuildStatistics() {
+        if (statsPanel != null) { statsPanel.SetActive(false); Destroy(statsPanel); }
+        statsPanel = MakeFullPanel("StatsPanel");
+
+        MakeText(statsPanel.transform, "Run Statistics", 32, FontStyle.Bold, GOLD_COL,
+            TextAnchor.MiddleCenter, new Vector2(0f, 0.91f), new Vector2(0f, 0.99f));
+
+        // ── Summary bar ───────────────────────────────────────────────────────
+        var sms = SurvivorMasterScript.Instance;
+        string summaryLine = sms != null
+            ? $"Ultimate used {RunStatistics.UltimateUses}× | Total damage: {(int)sms.totalDamageDealt:N0} | Kills: {sms.totalEnemiesKilled}"
+            : "";
+        MakeText(statsPanel.transform, summaryLine, 14, FontStyle.Italic,
+            new Color(0.75f, 0.90f, 1f, 1f), TextAnchor.MiddleCenter,
+            new Vector2(0.02f, 0.87f), new Vector2(0.98f, 0.92f));
+
+        // ── Tab buttons ──────────────────────────────────────────────────────
+        string[]   tabNames  = { "Graph", "Dmg/Weapon", "Kills", "Elites", "Bosses", "Biome/POI" };
+        GameObject[] tabContents = new GameObject[tabNames.Length];
+        Button[]   tabBtns   = new Button[tabNames.Length];
+        int activeTab = 0;
+
+        Color tabActive   = new Color(0.22f, 0.42f, 0.72f, 1f);
+        Color tabInactive = new Color(0.12f, 0.18f, 0.28f, 1f);
+        float tabW = 1f / tabNames.Length;
+
+        for (int ti = 0; ti < tabNames.Length; ti++) {
+            int idx = ti;
+            float x0 = ti * tabW, x1 = x0 + tabW;
+
+            // Tab content area (built below, toggled via buttons)
+            var contentGO = new GameObject($"Tab_{tabNames[ti]}");
+            contentGO.transform.SetParent(statsPanel.transform, false);
+            var contentRT = contentGO.AddComponent<RectTransform>();
+            contentRT.anchorMin = new Vector2(0f, 0.06f);
+            contentRT.anchorMax = new Vector2(1f, 0.84f);
+            contentRT.offsetMin = Vector2.zero; contentRT.offsetMax = Vector2.zero;
+            contentGO.SetActive(ti == 0);
+            tabContents[ti] = contentGO;
+
+            // Tab button
+            var tabGO = new GameObject($"TabBtn_{tabNames[ti]}");
+            tabGO.transform.SetParent(statsPanel.transform, false);
+            var tabRT = tabGO.AddComponent<RectTransform>();
+            tabRT.anchorMin = new Vector2(x0, 0.84f); tabRT.anchorMax = new Vector2(x1, 0.90f);
+            tabRT.offsetMin = new Vector2(1f, 1f); tabRT.offsetMax = new Vector2(-1f, -1f);
+            tabGO.AddComponent<Image>().color = ti == 0 ? tabActive : tabInactive;
+            var tabBtn = tabGO.AddComponent<Button>();
+            ColorBlock tcb = tabBtn.colors;
+            tcb.normalColor = ti == 0 ? tabActive : tabInactive;
+            tcb.highlightedColor = Color.Lerp(ti == 0 ? tabActive : tabInactive, Color.white, 0.2f);
+            tabBtn.colors = tcb;
+            tabBtns[ti] = tabBtn;
+
+            var tabLblGO = new GameObject("Lbl");
+            tabLblGO.transform.SetParent(tabGO.transform, false);
+            var tlrt = tabLblGO.AddComponent<RectTransform>();
+            tlrt.anchorMin = Vector2.zero; tlrt.anchorMax = Vector2.one;
+            tlrt.offsetMin = Vector2.zero; tlrt.offsetMax = Vector2.zero;
+            var tlbl = tabLblGO.AddComponent<Text>();
+            tlbl.text = tabNames[ti]; tlbl.font = font; tlbl.fontSize = 13;
+            tlbl.fontStyle = FontStyle.Bold; tlbl.color = WHITE;
+            tlbl.alignment = TextAnchor.MiddleCenter;
+
+            tabBtn.onClick.AddListener(() => {
+                for (int j = 0; j < tabContents.Length; j++) {
+                    tabContents[j].SetActive(j == idx);
+                    var img = tabBtns[j]?.GetComponent<Image>();
+                    if (img != null) img.color = j == idx ? tabActive : tabInactive;
+                }
+            });
+        }
+
+        // Populate each tab
+        BuildStatsTab_Graph(tabContents[0]);
+        BuildStatsTab_DamageTable(tabContents[1]);
+        BuildStatsTab_KillTable(tabContents[2], RunStatistics.KillsByType, "Kills by Enemy Type");
+        BuildStatsTab_TierKillTable(tabContents[3],
+            sms?.EliteTierKillCounts ?? new System.Collections.Generic.Dictionary<EnemyBehavior, int>(),
+            "Elite Kills by Type");
+        BuildStatsTab_TierKillTable(tabContents[4],
+            sms?.BossTierKillCounts ?? new System.Collections.Generic.Dictionary<EnemyBehavior, int>(),
+            "Boss Kills by Type");
+        BuildStatsTab_TimeTable(tabContents[5]);
+
+        MakeButton(statsPanel.transform, "Back to Game Over", BTN_IDLE, WHITE, 18,
+            new Vector2(0.25f, 0.01f), new Vector2(0.75f, 0.055f),
+            () => ShowPanel(gameOverPanel));
+    }
+
+    void BuildStatsTab_Graph(GameObject parent) {
+        var stats = RunStatistics.DamageTimeline;
+        var dmgByWeapon = RunStatistics.DamageByWeapon;
+        if (stats.Count == 0 || dmgByWeapon.Count == 0) {
+            MakeText(parent.transform, "No data yet — damage is sampled every 5 seconds.", 18,
+                FontStyle.Italic, new Color(0.6f, 0.6f, 0.6f, 1f), TextAnchor.MiddleCenter,
+                new Vector2(0.1f, 0.4f), new Vector2(0.9f, 0.6f));
+            return;
+        }
+
+        // Collect weapon names sorted by total damage desc
+        var weapons = new System.Collections.Generic.List<string>(dmgByWeapon.Keys);
+        weapons.Sort((a, b) => dmgByWeapon[b].CompareTo(dmgByWeapon[a]));
+
+        // ── Filter dropdown ───────────────────────────────────────────────────
+        string[] filterOpts = new string[weapons.Count + 1];
+        filterOpts[0] = "All";
+        for (int i = 0; i < weapons.Count; i++) filterOpts[i + 1] = weapons[i];
+        int selectedFilter = 0;  // index into filterOpts
+
+        // Graph area placeholder (rebuilt on filter change)
+        var graphHolder = new GameObject("GraphHolder");
+        graphHolder.transform.SetParent(parent.transform, false);
+        var ghRT = graphHolder.AddComponent<RectTransform>();
+        ghRT.anchorMin = new Vector2(0f, 0f); ghRT.anchorMax = new Vector2(1f, 0.82f);
+        ghRT.offsetMin = Vector2.zero; ghRT.offsetMax = Vector2.zero;
+
+        System.Action<int> rebuildGraph = null;
+        rebuildGraph = (filterIdx) => {
+            // Clear previous graph children
+            foreach (Transform c in graphHolder.transform) Destroy(c.gameObject);
+
+            string filterWeapon = filterIdx == 0 ? null : filterOpts[filterIdx];
+            var buckets = new System.Collections.Generic.List<float>();
+            var labels  = new System.Collections.Generic.List<string>();
+
+            foreach (var sample in stats) {
+                float total = 0f;
+                for (int d = 0; d < sample.weaponNames.Count; d++) {
+                    if (filterWeapon == null || sample.weaponNames[d] == filterWeapon)
+                        total += sample.weaponDeltas[d];
+                }
+                buckets.Add(total);
+                int tSec = Mathf.RoundToInt(sample.gameTime);
+                labels.Add($"{tSec/60}:{tSec%60:00}");
+            }
+
+            float maxVal = 1f;
+            foreach (var v in buckets) if (v > maxVal) maxVal = v;
+
+            // Draw bars
+            int bCount = buckets.Count;
+            float barW = bCount > 0 ? 1f / bCount : 1f;
+            Color barColor = filterWeapon == null ? new Color(0.3f, 0.65f, 1f, 0.85f)
+                : WeaponColors[System.Array.IndexOf(filterOpts, filterWeapon) % WeaponColors.Length];
+
+            // BG
+            MakeImage(graphHolder.transform, Vector2.zero, Vector2.one, new Color(0.05f, 0.07f, 0.12f, 0.8f));
+
+            for (int bi = 0; bi < bCount; bi++) {
+                float h = Mathf.Max(buckets[bi] / maxVal * 0.9f, 0.002f);
+                float x0 = bi * barW + barW * 0.05f;
+                float x1 = x0 + barW * 0.90f;
+                MakeImage(graphHolder.transform, new Vector2(x0, 0.05f), new Vector2(x1, 0.05f + h), barColor);
+
+                // X-axis label every 4 buckets or first/last
+                if (bi == 0 || bi == bCount - 1 || (bi % 4 == 0)) {
+                    MakeText(graphHolder.transform, labels[bi], 9, FontStyle.Normal,
+                        new Color(0.6f, 0.6f, 0.6f, 1f), TextAnchor.UpperCenter,
+                        new Vector2(x0, 0f), new Vector2(x1, 0.05f));
+                }
+            }
+
+            // Y-axis max label
+            MakeText(graphHolder.transform, $"{(int)maxVal}", 10, FontStyle.Normal,
+                new Color(0.7f, 0.7f, 0.7f, 1f), TextAnchor.MiddleLeft,
+                new Vector2(0.01f, 0.90f), new Vector2(0.15f, 0.99f));
+            MakeText(graphHolder.transform, "0", 10, FontStyle.Normal,
+                new Color(0.7f, 0.7f, 0.7f, 1f), TextAnchor.MiddleLeft,
+                new Vector2(0.01f, 0.04f), new Vector2(0.10f, 0.10f));
+
+            // Weapon color legend (all weapons)
+            float lx = 0.01f;
+            for (int wi = 0; wi < Mathf.Min(weapons.Count, 8); wi++) {
+                Color wc = WeaponColors[wi % WeaponColors.Length];
+                MakeImage(graphHolder.transform,
+                    new Vector2(lx, 0.94f), new Vector2(lx + 0.015f, 0.99f), wc);
+                float lx2 = lx + 0.018f;
+                float lx3 = lx + 0.12f;
+                MakeText(graphHolder.transform, weapons[wi], 9, FontStyle.Normal,
+                    WHITE, TextAnchor.MiddleLeft,
+                    new Vector2(lx2, 0.93f), new Vector2(lx3, 0.995f));
+                lx += 0.13f;
+                if (lx > 0.87f) break;
+            }
+        };
+
+        rebuildGraph(0);
+
+        // Filter bar
+        float fBotA = 0.83f, fTopA = 0.90f;
+        MakeText(parent.transform, "Filter:", 14, FontStyle.Bold, WHITE,
+            TextAnchor.MiddleLeft, new Vector2(0.02f, fBotA), new Vector2(0.12f, fTopA));
+
+        float optW = 0.85f / filterOpts.Length;
+        for (int fi = 0; fi < filterOpts.Length; fi++) {
+            int fidx = fi;
+            float fx0 = 0.13f + fi * optW;
+            float fx1 = fx0 + optW - 0.005f;
+            Color btnC = fi == selectedFilter ? new Color(0.22f, 0.50f, 0.80f, 1f) : new Color(0.12f, 0.20f, 0.30f, 1f);
+            var btnGO = new GameObject($"FilterOpt_{fi}");
+            btnGO.transform.SetParent(parent.transform, false);
+            var brt = btnGO.AddComponent<RectTransform>();
+            brt.anchorMin = new Vector2(fx0, fBotA); brt.anchorMax = new Vector2(fx1, fTopA);
+            brt.offsetMin = Vector2.zero; brt.offsetMax = Vector2.zero;
+            var bImg = btnGO.AddComponent<Image>(); bImg.color = btnC;
+            var bBtn = btnGO.AddComponent<Button>();
+            ColorBlock bCB = bBtn.colors;
+            bCB.normalColor = btnC;
+            bCB.highlightedColor = Color.Lerp(btnC, Color.white, 0.2f);
+            bBtn.colors = bCB;
+            var bLblGO = new GameObject("Lbl");
+            bLblGO.transform.SetParent(btnGO.transform, false);
+            var blrt = bLblGO.AddComponent<RectTransform>();
+            blrt.anchorMin = Vector2.zero; blrt.anchorMax = Vector2.one;
+            blrt.offsetMin = Vector2.zero; blrt.offsetMax = Vector2.zero;
+            var blbl = bLblGO.AddComponent<Text>();
+            blbl.text = filterOpts[fi]; blbl.font = font; blbl.fontSize = 11;
+            blbl.fontStyle = FontStyle.Bold; blbl.color = WHITE;
+            blbl.alignment = TextAnchor.MiddleCenter;
+            bBtn.onClick.AddListener(() => rebuildGraph(fidx));
+        }
+    }
+
+    void BuildStatsTab_DamageTable(GameObject parent) {
+        var sorted = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, float>>(
+            RunStatistics.DamageByWeapon);
+        sorted.Sort((a, b) => b.Value.CompareTo(a.Value));
+
+        MakeText(parent.transform, "Damage by Weapon", 20, FontStyle.Bold, GOLD_COL,
+            TextAnchor.MiddleCenter, new Vector2(0f, 0.90f), new Vector2(1f, 0.99f));
+
+        if (sorted.Count == 0) {
+            MakeText(parent.transform, "No weapon damage recorded.", 16, FontStyle.Italic,
+                new Color(0.6f, 0.6f, 0.6f, 1f), TextAnchor.MiddleCenter,
+                new Vector2(0.1f, 0.4f), new Vector2(0.9f, 0.6f));
+            return;
+        }
+
+        float totalDmg = 0f;
+        foreach (var kv in sorted) totalDmg += kv.Value;
+
+        BuildSortedScrollList(parent.transform, sorted,
+            new Vector2(0f, 0.02f), new Vector2(1f, 0.88f),
+            kv => kv.Key,
+            kv => $"{(int)kv.Value:N0}",
+            kv => totalDmg > 0f ? $"{kv.Value / totalDmg * 100f:F1}%" : "");
+    }
+
+    void BuildStatsTab_KillTable(GameObject parent,
+        System.Collections.Generic.Dictionary<EnemyBehavior, int> dict, string title) {
+
+        var sorted = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<EnemyBehavior, int>>(dict);
+        sorted.Sort((a, b) => b.Value.CompareTo(a.Value));
+
+        MakeText(parent.transform, title, 20, FontStyle.Bold, GOLD_COL,
+            TextAnchor.MiddleCenter, new Vector2(0f, 0.90f), new Vector2(1f, 0.99f));
+
+        if (sorted.Count == 0) {
+            MakeText(parent.transform, "No enemies of this type recorded.", 16, FontStyle.Italic,
+                new Color(0.6f, 0.6f, 0.6f, 1f), TextAnchor.MiddleCenter,
+                new Vector2(0.1f, 0.4f), new Vector2(0.9f, 0.6f));
+            return;
+        }
+
+        int totalKills = 0;
+        foreach (var kv in sorted) totalKills += kv.Value;
+
+        BuildSortedScrollList(parent.transform, sorted,
+            new Vector2(0f, 0.02f), new Vector2(1f, 0.88f),
+            kv => kv.Key.ToString(),
+            kv => kv.Value.ToString(),
+            kv => totalKills > 0 ? $"{kv.Value * 100f / totalKills:F1}%" : "");
+    }
+
+    void BuildStatsTab_TierKillTable(GameObject parent,
+        System.Collections.Generic.Dictionary<EnemyBehavior, int> dict, string title) =>
+        BuildStatsTab_KillTable(parent, dict, title);
+
+    void BuildStatsTab_TimeTable(GameObject parent) {
+        MakeText(parent.transform, "Time by Biome & POI", 20, FontStyle.Bold, GOLD_COL,
+            TextAnchor.MiddleCenter, new Vector2(0f, 0.90f), new Vector2(1f, 0.99f));
+
+        var combined = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, float>>();
+        foreach (var kv in RunStatistics.BiomeTime)
+            combined.Add(new System.Collections.Generic.KeyValuePair<string, float>($"[Biome] {kv.Key}", kv.Value));
+        foreach (var kv in RunStatistics.POITime)
+            combined.Add(new System.Collections.Generic.KeyValuePair<string, float>($"[POI] {kv.Key}", kv.Value));
+        combined.Sort((a, b) => b.Value.CompareTo(a.Value));
+
+        if (combined.Count == 0) {
+            MakeText(parent.transform, "No biome or POI time recorded.", 16, FontStyle.Italic,
+                new Color(0.6f, 0.6f, 0.6f, 1f), TextAnchor.MiddleCenter,
+                new Vector2(0.1f, 0.4f), new Vector2(0.9f, 0.6f));
+            return;
+        }
+
+        float totalSec = 0f;
+        foreach (var kv in combined) totalSec += kv.Value;
+
+        BuildSortedScrollList(parent.transform, combined,
+            new Vector2(0f, 0.02f), new Vector2(1f, 0.88f),
+            kv => kv.Key,
+            kv => { int s = (int)kv.Value; return $"{s/60:00}:{s%60:00}"; },
+            kv => totalSec > 0f ? $"{kv.Value / totalSec * 100f:F1}%" : "");
+    }
+
+    // Generic helper: renders a scrollable 3-column table (name | value | percent) inside a parent.
+    void BuildSortedScrollList<T>(Transform parent,
+        System.Collections.Generic.List<T> items,
+        Vector2 scrollMin, Vector2 scrollMax,
+        System.Func<T, string> getName,
+        System.Func<T, string> getValue,
+        System.Func<T, string> getPct) {
+
+        const float ROW_PX = 46f;
+        float totalH = items.Count * ROW_PX;
+
+        // Header row
+        GameObject hdrGO = new GameObject("Header");
+        hdrGO.transform.SetParent(parent, false);
+        RectTransform hdrRT = hdrGO.AddComponent<RectTransform>();
+        hdrRT.anchorMin = new Vector2(0f, scrollMax.y);
+        hdrRT.anchorMax = new Vector2(1f, scrollMax.y + (1f - scrollMax.y));
+        hdrRT.offsetMin = Vector2.zero; hdrRT.offsetMax = Vector2.zero;
+        hdrGO.AddComponent<Image>().color = new Color(0.10f, 0.16f, 0.28f, 1f);
+        MakeText(hdrGO.transform, "Name",   14, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleLeft,   new Vector2(0.02f, 0f), new Vector2(0.58f, 1f));
+        MakeText(hdrGO.transform, "Value",  14, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.58f, 0f), new Vector2(0.78f, 1f));
+        MakeText(hdrGO.transform, "Share",  14, FontStyle.Bold, GOLD_COL, TextAnchor.MiddleCenter, new Vector2(0.78f, 0f), new Vector2(0.98f, 1f));
+
+        // Scroll area
+        var scrGO = new GameObject("Scroll");
+        scrGO.transform.SetParent(parent, false);
+        var scrRT = scrGO.AddComponent<RectTransform>();
+        scrRT.anchorMin = scrollMin; scrRT.anchorMax = scrollMax;
+        scrRT.offsetMin = Vector2.zero; scrRT.offsetMax = Vector2.zero;
+        scrGO.AddComponent<Image>().color = Color.clear;
+        var sc = scrGO.AddComponent<ScrollRect>();
+        sc.horizontal = false; sc.vertical = true;
+        sc.scrollSensitivity = 30f; sc.movementType = ScrollRect.MovementType.Clamped;
+
+        var vpGO = new GameObject("Viewport");
+        vpGO.transform.SetParent(scrGO.transform, false);
+        var vpRT = vpGO.AddComponent<RectTransform>();
+        vpRT.anchorMin = Vector2.zero; vpRT.anchorMax = Vector2.one;
+        vpRT.offsetMin = Vector2.zero; vpRT.offsetMax = Vector2.zero;
+        vpGO.AddComponent<RectMask2D>();
+
+        var cntGO = new GameObject("Content");
+        cntGO.transform.SetParent(vpGO.transform, false);
+        var cntRT = cntGO.AddComponent<RectTransform>();
+        cntRT.anchorMin = new Vector2(0f, 1f); cntRT.anchorMax = new Vector2(1f, 1f);
+        cntRT.pivot = new Vector2(0.5f, 1f);
+        cntRT.offsetMin = new Vector2(0f, -totalH); cntRT.offsetMax = Vector2.zero;
+        sc.viewport = vpRT; sc.content = cntRT;
+        sc.normalizedPosition = new Vector2(0, 1);
+        Transform ct = cntGO.transform;
+
+        for (int i = 0; i < items.Count; i++) {
+            var item = items[i];
+            float rowTop = i * ROW_PX, rowBot = rowTop + ROW_PX;
+            Color rowBg = new Color(0.12f, 0.15f, 0.22f, i % 2 == 0 ? 0.6f : 0.3f);
+            Color rowTxt = i == 0 ? GOLD_COL : WHITE;
+            int   rank = i + 1;
+
+            var bgGO = new GameObject("RowBg");
+            bgGO.transform.SetParent(ct, false);
+            var bgRT = bgGO.AddComponent<RectTransform>();
+            bgRT.anchorMin = new Vector2(0f, 1f); bgRT.anchorMax = new Vector2(1f, 1f);
+            bgRT.pivot = new Vector2(0.5f, 1f);
+            bgRT.offsetMin = new Vector2(1f, -(rowBot - 1f)); bgRT.offsetMax = new Vector2(-1f, -rowTop);
+            bgGO.AddComponent<Image>().color = rowBg;
+
+            void Col(string txt, TextAnchor align, float x0, float x1) {
+                var cgo = new GameObject("C");
+                cgo.transform.SetParent(ct, false);
+                var crt = cgo.AddComponent<RectTransform>();
+                crt.anchorMin = new Vector2(x0, 1f); crt.anchorMax = new Vector2(x1, 1f);
+                crt.pivot = new Vector2((x0+x1)*0.5f, 1f);
+                crt.offsetMin = new Vector2(2f, -(rowBot-2f)); crt.offsetMax = new Vector2(-2f, -(rowTop+2f));
+                var tx = cgo.AddComponent<Text>();
+                tx.text = txt; tx.font = font; tx.fontSize = 14;
+                tx.color = rowTxt; tx.alignment = align;
+                tx.raycastTarget = false;
+            }
+
+            Col($"{rank}. {getName(item)}", TextAnchor.MiddleLeft,   0.02f, 0.58f);
+            Col(getValue(item),             TextAnchor.MiddleCenter, 0.58f, 0.78f);
+            Col(getPct(item),               TextAnchor.MiddleCenter, 0.78f, 0.98f);
+        }
+    }
+
+    // ═════════════════════════════════════════════════════════════════════════
     // PANEL MANAGEMENT
     // ═════════════════════════════════════════════════════════════════════════
     void ShowPanel(GameObject target) {
@@ -1172,6 +1584,7 @@ public class MainMenuManager : MonoBehaviour {
         gameOverPanel?.SetActive(false);
         characterSelectPanel?.SetActive(false);
         settingsPanel?.SetActive(false);
+        statsPanel?.SetActive(false);
         target?.SetActive(true);
     }
 

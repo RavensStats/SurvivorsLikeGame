@@ -65,7 +65,7 @@ public class WindstormLogic : MonoBehaviour {
         var sms = SurvivorMasterScript.Instance;
         if (sms?.player == null) return;
 
-        transform.position = sms.player.position;
+        transform.position = WeaponSystem.TeleportCenter ?? sms.player.position;
 
         if (weaponData.level != _lastLevel)
             ApplyLevelScale();

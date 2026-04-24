@@ -77,4 +77,42 @@ public class FloatingText : MonoBehaviour {
         }
         Destroy(gameObject);
     }
+
+    // Spawns a large centered banner above the player for 2.5 seconds, fading out over the last second.
+    public static void SpawnBanner(string text, Color color) {
+        var go = new GameObject("EffectBanner");
+        go.AddComponent<FloatingText>().InitBanner(text, color);
+    }
+
+    void InitBanner(string text, Color color) {
+        var sms = SurvivorMasterScript.Instance;
+        transform.position = sms?.player != null
+            ? sms.player.position + Vector3.up * 7f
+            : Vector3.up * 7f;
+
+        var mesh           = gameObject.AddComponent<TextMesh>();
+        mesh.text          = text;
+        mesh.fontSize      = 90;
+        mesh.characterSize = 0.13f;
+        mesh.fontStyle     = FontStyle.Bold;
+        mesh.color         = color;
+        mesh.anchor        = TextAnchor.MiddleCenter;
+        mesh.alignment     = TextAlignment.Center;
+        GetComponent<MeshRenderer>().sortingOrder = 20;
+        StartCoroutine(BannerFade(mesh, color));
+    }
+
+    IEnumerator BannerFade(TextMesh mesh, Color baseColor) {
+        const float Hold    = 1.5f;
+        const float FadeOut = 1.0f;
+        yield return new WaitForSeconds(Hold);
+        float elapsed = 0f;
+        while (elapsed < FadeOut) {
+            if (mesh != null)
+                mesh.color = new Color(baseColor.r, baseColor.g, baseColor.b, 1f - elapsed / FadeOut);
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+        Destroy(gameObject);
+    }
 }

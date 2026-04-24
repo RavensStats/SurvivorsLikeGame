@@ -109,6 +109,8 @@ public class WorldGenerator : MonoBehaviour {
         _gameActive = true;
     }
 
+    public string CurrentBiomeName => _lastBiomeName;
+
     // Called by POIInstance to suppress biome banner while a POI name is being displayed.
     public void SetPoiActive(bool active) => _poiActive = active;
 

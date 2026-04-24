@@ -3,6 +3,7 @@ using UnityEngine;
 public class ProjectileLogic : MonoBehaviour {
     private ItemData d; private Vector2 dir; private int p;
     private bool _dead;
+    private string _weaponName;
     private EnemyEntity _target; // when set, only this enemy can be hit
     private readonly System.Collections.Generic.HashSet<Collider2D> hit
         = new System.Collections.Generic.HashSet<Collider2D>();
@@ -14,7 +15,7 @@ public class ProjectileLogic : MonoBehaviour {
     }
 
     public void Setup(ItemData item, Vector2 direction, EnemyEntity target = null) {
-        d = item; dir = direction; p = item.pierceCount; _target = target; Destroy(gameObject, 5f);
+        d = item; _weaponName = item.itemName; dir = direction; p = item.pierceCount; _target = target; Destroy(gameObject, 5f);
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         // Arcane Arrow and Blowgun (Dart) sprites are drawn at 45° (front faces top-right), so subtract 45° to align with travel direction.
         if (item.itemName == "Arcane Arrow" || item.itemName == "Blowgun") angle -= 45f;
@@ -63,7 +64,7 @@ public class ProjectileLogic : MonoBehaviour {
         var entity = other.GetComponent<EnemyEntity>();
         if (entity == null || entity.isDead) return;
         float dmg = d.baseDamage * (SurvivorMasterScript.Instance?.poiDamageMult ?? 1f) * (1f + RunUpgrades.DamageBonus);
-        entity.TakeDamage(dmg);
+        entity.TakeDamage(dmg, weaponName: _weaponName);
         // Arcane Arrow: spawn a magic pool at the hit location (cap = weapon level).
         if (d.itemName == "Arcane Arrow")
             ArcanePool.Spawn(other.transform.position, d.level);

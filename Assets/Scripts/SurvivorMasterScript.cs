@@ -14,6 +14,10 @@ public class SurvivorMasterScript : MonoBehaviour {
             ultTimer = ultCooldown;
             if (ultFill != null) ultFill.value = 1f;
         }
+        public void ChargeUlt(float fraction) {
+            ultTimer = Mathf.Min(ultTimer + ultCooldown * fraction, ultCooldown);
+            if (ultFill != null) ultFill.value = ultTimer / ultCooldown;
+        }
     public static SurvivorMasterScript Instance;
     public SpatialGrid Grid;
 
@@ -30,6 +34,10 @@ public class SurvivorMasterScript : MonoBehaviour {
     public static int GlobalGold;
     public bool isInsideGraveyard, isInvulnerable;
 
+    // Kill counts broken out by enemy tier — used by Necromancer ult weighted random.
+    public readonly Dictionary<EnemyBehavior, int> EliteTierKillCounts = new Dictionary<EnemyBehavior, int>();
+    public readonly Dictionary<EnemyBehavior, int> BossTierKillCounts  = new Dictionary<EnemyBehavior, int>();
+
     // ── POI modifier state (reset on run start; set/cleared by POIInstance) ──
     [HideInInspector] public float poiDamageMult    = 1f;  // Forge
     [HideInInspector] public float poiCooldownMult  = 1f;  // Mana Well
@@ -45,6 +53,8 @@ public class SurvivorMasterScript : MonoBehaviour {
     private float gameTime, ultTimer, ultCooldown = 60f;
     private float maxPlayerHP, _baseMaxPlayerHP;
     private float regenRate, regenInterval = 5f, regenTimer;
+    private float _statSnapshotTimer;
+    private const float StatSnapshotInterval = 5f;
     public float GameTime => gameTime;
     public float UltTimer => ultTimer;
     public void DrainUlt(float amt) => ultTimer = Mathf.Max(0f, ultTimer - amt);
@@ -101,6 +111,18 @@ public class SurvivorMasterScript : MonoBehaviour {
     void Update() {
         if (Time.timeScale <= 0) return;
         gameTime += Time.deltaTime;
+
+        // Biome time tracking
+        if (WorldGenerator.Instance != null)
+            RunStatistics.AddBiomeTime(WorldGenerator.Instance.CurrentBiomeName, Time.deltaTime);
+
+        // Damage snapshot for the graph (every 5 seconds)
+        _statSnapshotTimer += Time.deltaTime;
+        if (_statSnapshotTimer >= StatSnapshotInterval) {
+            RunStatistics.TakeSnapshot(gameTime);
+            _statSnapshotTimer = 0f;
+        }
+
         if (ultTimer < ultCooldown) {
             ultTimer += Time.deltaTime;
             if (ultFill != null) ultFill.value = ultTimer / ultCooldown;
@@ -118,6 +140,7 @@ public class SurvivorMasterScript : MonoBehaviour {
 
     void ExecuteUltimate() {
         ultTimer = 0;
+        RunStatistics.UltimateUses++;
         var targets = Grid.GetNearby(player.position);
         switch (currentClass) {
             case CharacterClass.Mage: foreach(var e in targets) e.transform.position = player.position; break;
@@ -125,9 +148,48 @@ public class SurvivorMasterScript : MonoBehaviour {
             case CharacterClass.Cryomancer: StartCoroutine(TimeStop(5f)); break;
             case CharacterClass.Vampire: Heal(targets.Count * 2f); break;
             case CharacterClass.Sniper: WeaponSystem.Instance.RapidFire(3f); break;
-            case CharacterClass.Cleric: Heal(maxPlayerHP); break;
+            case CharacterClass.Cleric: {
+                Heal(maxPlayerHP);
+                // Convert on-screen enemies: 50% of normals, 50% per elite, 10% per boss.
+                var all = Object.FindObjectsByType<EnemyEntity>(FindObjectsSortMode.None);
+                var normals = new List<EnemyEntity>();
+                foreach (var e in all) {
+                    if (e.isDead || e.isCharmed || e.isPermanentlyCharmed) continue;
+                    if (!IsOnScreen(e.transform.position)) continue;
+                    if      (e.tier == EnemyTier.Elite && Random.value < 0.5f) e.isPermanentlyCharmed = true;
+                    else if (e.tier == EnemyTier.Boss  && Random.value < 0.1f) e.isPermanentlyCharmed = true;
+                    else if (e.tier == EnemyTier.Normal) normals.Add(e);
+                }
+                // Shuffle normals then convert the first half.
+                for (int i = normals.Count - 1; i > 0; i--) { int j = Random.Range(0, i + 1); var t = normals[i]; normals[i] = normals[j]; normals[j] = t; }
+                int n = Mathf.CeilToInt(normals.Count * 0.5f);
+                for (int i = 0; i < n; i++) normals[i].isPermanentlyCharmed = true;
+                break;
+            }
             case CharacterClass.Bard: targets.ForEach(e => e.Stun(4f)); break;
             case CharacterClass.Merchant: GlobalGold += 100; break;
+            case CharacterClass.Necromancer: {
+                // 75%: spawn elite of any killed enemy type; 25%: spawn boss of a killed boss type.
+                bool spawnBoss = Random.value < 0.25f;
+                bool isB = false;
+                EnemyBehavior bt;
+                if (spawnBoss && BossTierKillCounts.Count > 0) {
+                    bt = WeaponSystem.WeightedRandom(BossTierKillCounts);
+                    isB = true;
+                } else if (BestiaryLookup.Count > 0) {
+                    bt = WeaponSystem.WeightedRandom(BestiaryLookup, totalEnemiesKilled);
+                } else {
+                    bt = EnemyBehavior.Chaser;
+                }
+                Vector3 sp = player.position + (Vector3)(Random.insideUnitCircle.normalized * 4f);
+                WeaponSystem.Instance?.SpawnNecroMinion(bt, sp, 30f, 1f, isElite: !isB, isBoss: isB);
+                break;
+            }
+            case CharacterClass.PuppetMaster: WeaponSystem.Instance?.SpawnUltimateClones(); break;
+            case CharacterClass.Chronomancer:
+                FloatingText.SpawnBanner("Chronometric Blitz", new Color(0.9f, 0.5f, 1f, 1f));
+                WeaponSystem.Instance?.ActivateAllTemporalEffects();
+                break;
             // Additional classes use target.TakeDamage(100) as default
             default: targets.ForEach(e => e.TakeDamage(100)); break;
         }
@@ -136,7 +198,7 @@ public class SurvivorMasterScript : MonoBehaviour {
     IEnumerator TimeStop(float d) { Time.timeScale = 0.2f; yield return new WaitForSecondsRealtime(d); Time.timeScale = 1; }
 
     public void GainXP(float amt) {
-        float actual = amt * PersistentUpgrades.XPRateMult * (1f + RunUpgrades.XPRateBonus);
+        float actual = amt * PersistentUpgrades.XPRateMult * (1f + RunUpgrades.XPRateBonus) * WeaponSystem.TemporalXPMult;
         xp += actual;
         totalXPGained += actual;
         while (xp >= xpMax) {
@@ -152,6 +214,10 @@ public class SurvivorMasterScript : MonoBehaviour {
     public void ResetRunStats() {
         totalDamageDealt = 0; totalDamageReceived = 0;
         totalXPGained = 0; totalGoldGained = 0; totalEnemiesKilled = 0;
+        EliteTierKillCounts.Clear();
+        BossTierKillCounts.Clear();
+        RunStatistics.Reset();
+        _statSnapshotTimer = 0f;
         playerLevel = 1; xp = 0; xpMax = 100;
         maxPlayerHP = _baseMaxPlayerHP;
         playerHP = maxPlayerHP;
@@ -195,6 +261,7 @@ public class SurvivorMasterScript : MonoBehaviour {
 
     public void RegisterKill(EnemyBehavior type) {
         totalEnemiesKilled++;
+        RunStatistics.RecordKill(type);
         if (!BestiaryLookup.TryGetValue(type, out var b)) {
             b = new BestiaryEntry { behavior = type };
             BestiaryLookup[type] = b;
@@ -203,9 +270,22 @@ public class SurvivorMasterScript : MonoBehaviour {
         b.kills++;
         if (b.kills >= 500) b.isHunterBonusUnlocked = true;
 
+        if (WeaponSystem.SlaughterTimeActive) ChargeUlt(0.01f);
+
         // Vampire: restore 3 HP every 5th kill
         if (currentClass == CharacterClass.Vampire && totalEnemiesKilled % 5 == 0)
             Heal(3f);
+    }
+
+    public void RegisterKill(EnemyBehavior type, EnemyTier tier) {
+        RegisterKill(type); // delegate to main method
+        if (tier == EnemyTier.Elite) {
+            if (!EliteTierKillCounts.ContainsKey(type)) EliteTierKillCounts[type] = 0;
+            EliteTierKillCounts[type]++;
+        } else if (tier == EnemyTier.Boss) {
+            if (!BossTierKillCounts.ContainsKey(type)) BossTierKillCounts[type] = 0;
+            BossTierKillCounts[type]++;
+        }
     }
 
     public void TakeDamage(float amt) {

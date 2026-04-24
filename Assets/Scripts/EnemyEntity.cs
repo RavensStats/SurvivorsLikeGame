@@ -107,6 +107,14 @@ public class EnemyEntity : MonoBehaviour {
     private float     _poisonDmgPerTick = 0f;
     private Coroutine _poisonCoroutine;
 
+    // ── Bleed (Beastmaster's Wolf Claws) ──────────────────────────────────────
+    private float     _bleedDmgPerSec = 0f;
+    private float     _bleedTimeLeft  = 0f;
+    private Coroutine _bleedCoroutine;
+
+    // ── Charm star marker (shown above all charmed enemies) ───────────────────
+    private GameObject _starMarkerObj;
+
     // Cached nearest Linker partner – re-queried only when it dies.
     private EnemyEntity _cachedLinkerPartner;
 
@@ -178,6 +186,7 @@ public class EnemyEntity : MonoBehaviour {
 
         Vector3 pPos = SurvivorMasterScript.Instance.player.position;
         Vector3 dir  = (pPos - transform.position).normalized;
+        if (WeaponSystem.EnemiesReversed) dir = -dir;
         float   dist = Vector3.Distance(transform.position, pPos);
 
         // Decay Commander aura bonus — if no Commander refreshes it within 4 s it fades out.
@@ -651,7 +660,7 @@ public class EnemyEntity : MonoBehaviour {
     public bool IsInvulnerable() => _ghostInvisible || _burrowed;
 
     public void Stun(float d) => stun = d;
-    public void TakeDamage(float d) {
+    public void TakeDamage(float d, bool isEcho = false, string weaponName = null) {
         if (isDead) return;
         if (IsInvulnerable()) return;
         var b = SurvivorMasterScript.Instance.BestiaryLookup.TryGetValue(behavior, out var entry) ? entry : null;
@@ -659,10 +668,18 @@ public class EnemyEntity : MonoBehaviour {
         d *= damageTakenMult;
         d = Mathf.Round(d);
         SurvivorMasterScript.Instance.RegisterDamageDealt(d);
+        RunStatistics.RecordDamage(weaponName ?? WeaponSystem.CurrentWeapon, d);
         FloatingText.SpawnEnemyDamage(transform.position, d);
         hp -= d;
         UpdateHealthBar();
+        if (!isEcho && WeaponSystem.TemporalEchoActive)
+            StartCoroutine(EchoDelayedDamage(d, weaponName));
         if (hp <= 0) Die();
+    }
+
+    IEnumerator EchoDelayedDamage(float d, string weaponName) {
+        yield return new WaitForSeconds(2f);
+        if (!isDead) TakeDamage(d, isEcho: true, weaponName: weaponName);
     }
 
     public void Heal(float amount) {
@@ -730,6 +747,24 @@ public class EnemyEntity : MonoBehaviour {
         _poisonCoroutine  = null;
     }
 
+    // Refreshes or applies a bleeding DoT. Subsequent hits take whichever is stronger/longer.
+    public void ApplyBleed(float dmgPerSec, float duration) {
+        _bleedDmgPerSec = Mathf.Max(_bleedDmgPerSec, dmgPerSec);
+        _bleedTimeLeft  = Mathf.Max(_bleedTimeLeft, duration);
+        if (_bleedCoroutine == null)
+            _bleedCoroutine = StartCoroutine(BleedRoutine());
+    }
+
+    IEnumerator BleedRoutine() {
+        while (_bleedTimeLeft > 0f && !isDead) {
+            yield return new WaitForSeconds(1f);
+            _bleedTimeLeft -= 1f;
+            if (!isDead) TakeDamage(_bleedDmgPerSec);
+        }
+        _bleedDmgPerSec = 0f;
+        _bleedCoroutine = null;
+    }
+
     public void ApplyCharm(float duration) {
         if (isCharmed || isPermanentlyCharmed) return;
         StartCoroutine(CharmRoutine(duration));
@@ -739,6 +774,8 @@ public class EnemyEntity : MonoBehaviour {
         isCharmed = true;
         // Clear Linker partnership so the beam drops immediately.
         if (behavior == EnemyBehavior.Linker) _cachedLinkerPartner = null;
+
+        EnsureStarMarker();
 
         // Lime silhouette: child sprite scaled 20% larger, drawn behind the enemy.
         _charmOutlineObj = new GameObject("CharmOutline");
@@ -755,6 +792,7 @@ public class EnemyEntity : MonoBehaviour {
 
         isCharmed = false;
         if (_charmOutlineObj != null) { Destroy(_charmOutlineObj); _charmOutlineObj = null; }
+        RemoveStarMarker();
     }
 
     void HandleCharmedBehavior() {
@@ -792,6 +830,7 @@ public class EnemyEntity : MonoBehaviour {
     // Allied behavior for permanently converted enemies.
     // On-screen: attack nearby hostile enemies. Off-screen OR no hostiles found: walk toward player.
     void HandlePermanentCharmBehavior() {
+        EnsureStarMarker();
         Vector3 pPos     = SurvivorMasterScript.Instance.player.position;
         bool    onScreen = SurvivorMasterScript.IsOnScreen(transform.position);
 
@@ -830,7 +869,7 @@ public class EnemyEntity : MonoBehaviour {
         isDead = true;
         if (isPermanentlyCharmed)
             ConversionCircleLogic.CharmedCount = Mathf.Max(0, ConversionCircleLogic.CharmedCount - 1);
-        SurvivorMasterScript.Instance.RegisterKill(behavior);
+        SurvivorMasterScript.Instance.RegisterKill(behavior, tier);
         SurvivorMasterScript.Instance.Grid.Remove(this);
 
         // Tank explodes on death
@@ -882,9 +921,32 @@ public class EnemyEntity : MonoBehaviour {
                 e.TakeDamage(6f);
     }
 
+    void EnsureStarMarker() {
+        if (_starMarkerObj != null) return;
+        _starMarkerObj = new GameObject("CharmStar");
+        _starMarkerObj.transform.SetParent(transform);
+        float topOffset = (_sr != null && _sr.sprite != null)
+            ? _sr.sprite.bounds.extents.y + 0.2f : 0.6f;
+        _starMarkerObj.transform.localPosition = new Vector3(0f, topOffset, 0f);
+        _starMarkerObj.transform.localScale    = Vector3.one * 0.12f;
+        var tm = _starMarkerObj.AddComponent<TextMesh>();
+        tm.text      = "*";
+        tm.fontSize  = 60;
+        tm.color     = Color.yellow;
+        tm.anchor    = TextAnchor.MiddleCenter;
+        tm.alignment = TextAlignment.Center;
+        var mr = _starMarkerObj.GetComponent<MeshRenderer>();
+        if (mr != null) { mr.sortingLayerName = "Default"; mr.sortingOrder = 15; }
+    }
+
+    void RemoveStarMarker() {
+        if (_starMarkerObj != null) { Destroy(_starMarkerObj); _starMarkerObj = null; }
+    }
+
     void OnDestroy() {
         OutlineManager.Instance?.Unregister(_sr);
-        if (_hpBarRoot != null) Destroy(_hpBarRoot);
+        if (_hpBarRoot    != null) Destroy(_hpBarRoot);
+        if (_starMarkerObj != null) Destroy(_starMarkerObj);
     }
 
     // ── Health bar ─────────────────────────────────────────────────────────────

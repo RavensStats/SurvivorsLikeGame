@@ -25,6 +25,7 @@ public class EnemyAttack : MonoBehaviour {
 
     void Update() {
         if (entity != null && entity.isDead) return;
+        if (entity != null && entity.stun > 0) return;
         timer += Time.deltaTime;
         float effectiveInterval = attackInterval * (entity != null ? entity.attackIntervalMult : 1f);
         if (timer >= effectiveInterval) {

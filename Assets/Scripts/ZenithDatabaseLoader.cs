@@ -64,7 +64,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
                     : cls == CharacterClass.Enchanter        ? "Binding Circle"
                     : cls == CharacterClass.Artificer        ? "Saw Blade"
                     : cls == CharacterClass.Ninja            ? "Shuriken"
-                    : cls == CharacterClass.ArcticScout      ? "Frost Bolt"
+                    : cls == CharacterClass.ArcticScout      ? "Blizzard"
                     : cls == CharacterClass.Dwarf            ? "War Hammer"
                     : cls == CharacterClass.Hydromancer      ? "Downpour"
                     : cls == CharacterClass.Hydrokineticist  ? "Tidal Wave"
@@ -75,6 +75,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
                     : cls == CharacterClass.Geomancer        ? "Meteor Strike"
                     : cls == CharacterClass.Hivemaster       ? "Insect Swarm"
                     : cls == CharacterClass.Psammomancer    ? "Sand Shield"
+                    : cls == CharacterClass.DimensionMaster ? "Teleportation"
                     : null;
         if (name == null) return;
 
@@ -82,6 +83,16 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         if (weapon == null) { Debug.LogWarning($"[ZenithDatabaseLoader] Starting weapon '{name}' not found in pool."); return; }
 
         ws.activeWeapons.Add(weapon);
+
+        // PuppetMaster: also starts with one random weapon from the pool in addition to Shadow Clone.
+        if (cls == CharacterClass.PuppetMaster) {
+            var bonusPool = new List<ItemData>();
+            foreach (var item in ws.cardPool)
+                if (item.isWeapon && item.itemName != "Shadow Clone" && !ws.activeWeapons.Contains(item))
+                    bonusPool.Add(item);
+            if (bonusPool.Count > 0)
+                ws.activeWeapons.Add(bonusPool[Random.Range(0, bonusPool.Count)]);
+        }
     }
 
     /// <summary>Restores the card pool to its initial state (re-adds any items removed by evolution).</summary>
@@ -113,7 +124,7 @@ public class ZenithDatabaseLoader : MonoBehaviour {
 
         // ── Batch 1: Rogue → Monk ────────────────────────────────────────────
         AddWeapon(ws, "Blowgun",        "Fires a fast dart at the nearest enemy.",                         Rarity.Common, 10f, 0.35f, 1, WeaponTrait.None,     new List<string>{"Physical","Ranged"},   fireMode: FireMode.NearestN,  range: 15f, spriteFolder: "Dart", scale: 10f);
-        AddWeapon(ws, "Summon Undead",       "Conjures a magical skull that hunts down nearby enemies.",        Rarity.Rare,   18f, 2.0f,  1, WeaponTrait.Explosive, new List<string>{"Magic","Necromancy"},       fireMode: FireMode.NearestN,  spriteFolder: "Summon");
+        AddWeapon(ws, "Summon Undead", "Raises fallen enemies as permanent allies — the more of a type you've killed, the more likely it is summoned.", Rarity.Rare, 18f, 10f, 0, WeaponTrait.None, new List<string>{"Magic","Necromancy"}, fireMode: FireMode.SummonUndead, spriteFolder: "Summon");
         AddWeapon(ws, "Sword of the Heavens", "A blessed arc swing that channels divine energy through enemies.", Rarity.Common, 22f, 1.8f,  2, WeaponTrait.None,      new List<string>{"Physical","Melee","Holy"}, fireMode: FireMode.HolySword, range: 15f, knockback: 6f, spriteFolder: "HolySword");
         AddWeapon(ws, "Sentry Gun",     "Deploys a turret that scans for enemies and fires cannonballs.", Rarity.Rare,   8f,  0.3f,  1, WeaponTrait.None,     new List<string>{"Physical","Ranged"},   fireMode: FireMode.SentryGun, range: 20f, knockback: 2f, spriteFolder: "SentryGun");
         AddWeapon(ws, "Acid Flask",     "Thrown flask that shatters, leaving lingering acid.",             Rarity.Common, 12f, 1.5f,  1, WeaponTrait.Explosive,new List<string>{"Poison","Ranged"},     fireMode: FireMode.PoisonPool, range: 18f, spriteFolder: "PoisonPool");
@@ -131,23 +142,23 @@ public class ZenithDatabaseLoader : MonoBehaviour {
 
         // ── Batch 2: Druid → PuppetMaster ────────────────────────────────────
         AddWeapon(ws, "Creeping Vines",  "Launches a vine at the nearest enemy; on hit it chains to the next closest, spreading across the battlefield.",            Rarity.Common, 11f, 8.0f,  1, WeaponTrait.None,     new List<string>{"Nature","Ranged"},     fireMode: FireMode.CreepingVines, spriteFolder: "Vines");
-        AddWeapon(ws, "Radial Laser",   "Fires beams of energy at up to N nearby enemies simultaneously.", Rarity.Rare,   13f, 0.9f,  4, WeaponTrait.None,     new List<string>{"Energy","Ranged"},    fireMode: FireMode.NearestN,  range: 14f, spriteFolder: "RadialLaser");
+        AddWeapon(ws, "Radial Laser",   "Spins around the player, striking any enemy it touches, then fires a piercing red laser at the closest enemy.", Rarity.Rare, 13f, 3.0f, 1, WeaponTrait.None, new List<string>{"Energy","Ranged"}, fireMode: FireMode.RadialLaser, spriteFolder: "RadialLaser");
         AddWeapon(ws, "Holy Staff",     "Pillar of light that damages enemies and briefly heals the player.", Rarity.Rare, 16f, 1.5f, 1, WeaponTrait.None,     new List<string>{"Holy","Magic"},        fireMode: FireMode.NearestN,  spriteFolder: "HolyStaff");
-        AddWeapon(ws, "Ice Shard",      "Slow-penetrating ice shard that reduces enemy movement speed.",   Rarity.Common, 10f, 1.2f,  2, WeaponTrait.Piercing, new List<string>{"Ice","Ranged"},        fireMode: FireMode.NearestN,  spriteFolder: "IceShard");
+        AddWeapon(ws, "Ice Shard",      "Hurls a shard at the nearest enemy — on impact it slows the target and fans 3 smaller shards behind it.", Rarity.Common, 10f, 7.0f, 1, WeaponTrait.None, new List<string>{"Ice","Ranged"}, fireMode: FireMode.IceShard, spriteFolder: "IceShard");
         AddWeapon(ws, "Chain Lightning","Arcing electricity that chains between nearby enemies.",           Rarity.Rare,   20f, 2.0f,  1, WeaponTrait.Explosive,new List<string>{"Electric","Magic"},   fireMode: FireMode.ChainLightning, range: 25f, spriteFolder: "ChainLightning");
         AddWeapon(ws, "Assassin Blade", "Stab twice then slash — each hit poisons the target for 50% damage per second.", Rarity.Rare, 14f, 1.0f, 1, WeaponTrait.None, new List<string>{"Physical","Melee"}, fireMode: FireMode.PoisonDagger, range: 3f, spriteFolder: "PoisonDagger");
         AddWeapon(ws, "Trident",        "Stabs nearby enemies in the densest direction, or hurls the trident to slow a distant foe.", Rarity.Rare, 18f, 2.5f, 1, WeaponTrait.None, new List<string>{"Physical","Melee"}, fireMode: FireMode.TridentStrike, range: 5f, spriteFolder: "Trident");
-        AddWeapon(ws, "Wolf Claws",     "Rapid three-bite flurry in a tight arc.",                         Rarity.Common, 9f,  0.3f,  1, WeaponTrait.None,     new List<string>{"Physical","Melee"},    fireMode: FireMode.ArcSwing, range: 3f,  spriteFolder: "WolfClaws");
-        AddWeapon(ws, "Time Manipulation", "Orbiting time shards that warp reality and slow nearby enemies.", Rarity.Rare, 6f, 3.5f, 99, WeaponTrait.Rotating, new List<string>{"Magic","Time"},        fireMode: FireMode.Orbit);
+        AddWeapon(ws, "Wolf Claws",     "Two rapid claw swipes at the nearest enemy — each swipe deals damage and inflicts bleeding.", Rarity.Common, 9f, 0.3f, 1, WeaponTrait.None, new List<string>{"Physical","Melee"}, fireMode: FireMode.WolfClaws, spriteFolder: "WolfClaws");
+        AddWeapon(ws, "Time Manipulation", "Conjures a clock face that spins to a random hour — each hour triggers a unique temporal effect.", Rarity.Rare, 0f, 8.0f, 1, WeaponTrait.None, new List<string>{"Magic","Time"}, fireMode: FireMode.TemporalManipulation, range: 5f);
         AddWeapon(ws, "Void Orb",       "Gravity-well projectile that pulls nearby enemies on impact.",    Rarity.Rare,   14f, 1.8f,  1, WeaponTrait.Explosive,new List<string>{"Dark","Magic"},        fireMode: FireMode.VoidOrb, spriteFolder: "VoidOrb");
         AddWeapon(ws, "Scythe",         "Massive scythe orbits the player clockwise — spawns a skeleton on every kill.", Rarity.Rare,   22f, 5.0f,  4, WeaponTrait.Piercing, new List<string>{"Physical","Melee"},    fireMode: FireMode.ScytheOrbit, range: 14f, spriteFolder: "Scythe");
         AddWeapon(ws, "Arcane Arrow",   "Arrows leave a magic dust trail dealing damage over time.",       Rarity.Rare,   10f, 1.0f,  2, WeaponTrait.Piercing, new List<string>{"Magic","Ranged"},      fireMode: FireMode.RandomInRange, range: 40f, spriteFolder: "ArcaneArrow");
         AddWeapon(ws, "Plague Canister","Lobs a canister in a rotating cardinal direction; the cloud lingers 5 s, dealing damage and causing enemies to miss 25% of attacks.", Rarity.Rare, 12f, 3.0f, 1, WeaponTrait.None, new List<string>{"Poison","Ranged"}, fireMode: FireMode.PoisonGasCloud, range: 10f, spriteFolder: "PoisonGas");
         AddWeapon(ws, "Dual Revolvers", "Fans cannonballs in a left-side arc, firing pairs in quick bursts.", Rarity.Common, 12f, 2.0f, 1, WeaponTrait.None, new List<string>{"Physical","Ranged"},   fireMode: FireMode.DualRevolvers, range: 25f);
         AddWeapon(ws, "Throwing Axe",   "Hurls a spinning axe at the nearest enemy, slowing them on impact.", Rarity.Common, 14f, 2.0f, 1, WeaponTrait.None, new List<string>{"Physical","Ranged"},   fireMode: FireMode.WoodcutterAxe, range: 20f, spriteFolder: "WoodcutterAxe");
-        AddWeapon(ws, "Scrap Maul",     "Heavy melee swing — chance to pop an extra XP gem on hit.",       Rarity.Common, 18f, 2.0f,  3, WeaponTrait.Piercing, new List<string>{"Physical","Melee"},    fireMode: FireMode.ArcSwing, range: 4f,  spriteFolder: "ScrapMaul");
+        AddWeapon(ws, "Scrap Maul",     "Heavy melee weapon — smashes both sides of the player on each swing.", Rarity.Common, 18f, 5.0f, 1, WeaponTrait.None, new List<string>{"Physical","Melee"}, fireMode: FireMode.ScrapMaul, range: 4f, spriteFolder: "ScrapMaul");
         AddWeapon(ws, "Oracle Beam",    "Beams of light strike random nearby foes simultaneously.",        Rarity.Rare,   14f, 1.2f,  1, WeaponTrait.None,     new List<string>{"Holy","Magic"},        fireMode: FireMode.OracleBeam, range: 28f, spriteFolder: "OracleBeam");
-        AddWeapon(ws, "Shadow Clone",   "Creates a mirror clone that mimics all weapon attacks.",          Rarity.Rare,   10f, 2.0f,  1, WeaponTrait.None,     new List<string>{"Dark","Magic"},        fireMode: FireMode.NearestN);
+        AddWeapon(ws, "Shadow Clone",   "Spawns a grey mirror clone that mimics all your weapon attacks — equipped with copies of every weapon you carry.", Rarity.Rare, 0f, 99f, 0, WeaponTrait.None, new List<string>{"Dark","Magic"}, fireMode: FireMode.ShadowClone);
 
         // ── Pool-only weapons ──────────────────────────────────────────────────
         AddWeapon(ws, "Spirit Aura",    "A swirling spiritual ring that orbits and burns nearby enemies.",    Rarity.Rare,   6f,  2.8f, 99, WeaponTrait.Rotating, new List<string>{"Magic","Spirit"},      fireMode: FireMode.MagicAura,     range: 6f,  spriteFolder: "Aura");
@@ -159,11 +170,12 @@ public class ZenithDatabaseLoader : MonoBehaviour {
         AddWeapon(ws, "Conversion Circle", "A holy circle that permanently converts normal enemies to allies after 5 seconds inside.", Rarity.Rare, 1f, 1.0f, 0, WeaponTrait.None, new List<string>{"Holy","Support"}, fireMode: FireMode.ConversionCircle, range: 5f, spriteFolder: "ConversionCircle");
         AddWeapon(ws, "Saw Blade",      "Launches a spinning saw blade that bounces at 45° off each enemy it hits until it leaves the screen.", Rarity.Common, 14f, 1.2f, 1, WeaponTrait.None, new List<string>{"Physical","Ranged"}, fireMode: FireMode.SawBlade, range: 30f, spriteFolder: "SawBlade");
         AddWeapon(ws, "Shuriken",       "Hurls a volley of spinning shuriken in a left-side arc; each despawns on first hit.", Rarity.Common, 8f, 1.5f, 1, WeaponTrait.None, new List<string>{"Physical","Ranged"}, fireMode: FireMode.ShurikenThrow, spriteFolder: "Shuriken");
-        AddWeapon(ws, "Frost Bolt",     "Fires a bolt of ice that slows enemies on impact.",                  Rarity.Common, 10f, 1.5f,  1, WeaponTrait.None,     new List<string>{"Ice","Ranged"},        fireMode: FireMode.NearestN,          range: 25f, spriteFolder: "Snowflake");
-        AddWeapon(ws, "War Hammer",     "Massive hammer swing that sends a shockwave through enemies.",       Rarity.Common, 20f, 2.0f,  2, WeaponTrait.None,     new List<string>{"Physical","Melee"},    fireMode: FireMode.ArcSwing,          range: 5f, knockback: 8f, spriteFolder: "WarHammer");
+        AddWeapon(ws, "Blizzard",        "Sweeps 20 wind-blown snowflakes across the screen, damaging and slowing every enemy they touch.", Rarity.Common, 10f, 15f, 1, WeaponTrait.None, new List<string>{"Ice","Ranged"}, fireMode: FireMode.Blizzard, spriteFolder: "Snowflake");
+        AddWeapon(ws, "War Hammer",     "Hurled high into the air, it craters on landing — damaging enemies in the impact zone and stunning all nearby for 1 second.", Rarity.Common, 20f, 2.0f, 1, WeaponTrait.None, new List<string>{"Physical","Melee"}, fireMode: FireMode.WarHammer, spriteFolder: "WarHammer");
         AddWeapon(ws, "Downpour",        "Calls forth a downpour — water droplets rain across the screen, dealing damage on contact.",  Rarity.Common, 9f,  5.0f,  1, WeaponTrait.None,     new List<string>{"Water","Ranged"},      fireMode: FireMode.Downpour,          spriteFolder: "WaterDroplet");
         AddWeapon(ws, "Tidal Wave",     "Summons a crashing wave that sweeps through enemy lines.",           Rarity.Rare,   15f, 2.5f,  5, WeaponTrait.Piercing, new List<string>{"Water","Ranged"},      fireMode: FireMode.TidalWave, range: 18f, spriteFolder: "Wave");
         AddWeapon(ws, "Psychic Blast",  "Unleashes a burst of psychic energy at nearby enemies.",             Rarity.Rare,   14f, 1.2f,  2, WeaponTrait.None,     new List<string>{"Magic","Ranged"},      fireMode: FireMode.AnimatedStrike, range: 18f, spriteFolder: "Psychic");
+        AddWeapon(ws, "Teleportation",  "Blinks through enemies one by one — each strike deals damage; other weapons fire from each strike position.", Rarity.Common, 18f, 8.0f, 1, WeaponTrait.None, new List<string>{"Magic","Melee"}, fireMode: FireMode.Teleportation, spriteFolder: "Teleportation");
 
         // --- 2. POPULATE EVOLUTION RECIPES ---
         AddRecipe(ws, "Magician's Wand", "Empty Tome", "Holy Scepter");

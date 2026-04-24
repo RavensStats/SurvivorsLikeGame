@@ -10,6 +10,7 @@ public class OrbLogic : MonoBehaviour {
     public float orbitSpeed  = 120f;   // degrees per second
     public float startAngle;           // initial angle in degrees
     public float damage;
+    public string weaponName;
 
     // Minimum seconds between hits on the same enemy (prevents per-frame overkill).
     private const float HitCooldown = 0.25f;
@@ -38,7 +39,8 @@ public class OrbLogic : MonoBehaviour {
 
         startAngle += orbitSpeed * Time.deltaTime;
         float rad = startAngle * Mathf.Deg2Rad;
-        transform.position = (Vector2)player.position
+        Vector3 center = WeaponSystem.TeleportCenter ?? player.position;
+        transform.position = (Vector2)center
             + new Vector2(Mathf.Cos(rad), Mathf.Sin(rad)) * orbitRadius;
     }
 
@@ -54,7 +56,7 @@ public class OrbLogic : MonoBehaviour {
 
         var entity = other.GetComponent<EnemyEntity>();
         if (entity == null || entity.isDead) return;
-        entity.TakeDamage(damage);
+        entity.TakeDamage(damage, weaponName: weaponName);
     }
 
     static Sprite MakeCircleSprite(int res) {

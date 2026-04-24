@@ -3,8 +3,8 @@ using UnityEngine;
 
 public enum Rarity { Common, Rare, Epic, Legendary }
 public enum WeaponTrait { None, Piercing, Bouncy, Explosive, Homing, Rotating }
-public enum FireMode { Default, NearestN, RandomInRange, ArcSwing, Orbit, RisingFist, ScytheOrbit, ChainLightning, VoidOrb, HolySword, AnimatedStrike, OracleBeam, SpectralBeam, TidalWave, MagicAura, BloodPool, RangerArrow, PoisonPool, SentryGun, CaltropThrow, KatanaSlash, DualRevolvers, SniperReticle, BalladWave, WoodcutterAxe, GravityWell, Windstorm, MeteorStrike, InsectSwarm, SawBlade, PoisonDagger, TridentStrike, ShurikenThrow, PoisonGasCloud, BindingCircle, SandShield, ConversionCircle, Downpour, BerserkerAxe, CreepingVines }
-public enum CharacterClass { Knight, Mage, Rogue, Necromancer, Paladin, Engineer, Alchemist, Merchant, Berserker, Ghost, Vampire, Samurai, Bard, Sniper, Monk, Druid, Cyborg, Cleric, Pyromancer, Cryomancer, Ranger, Warlock, Assassin, Gladiator, Tactician, Chronomancer, VoidCaller, Beastmaster, NecroKnight, ArcaneArcher, PlagueDoctor, Gunslinger, Viking, Junker, Oracle, PuppetMaster, Enchanter, Artificer, Ninja, ArcticScout, Dwarf, Hydromancer, Hydrokineticist, Battlemage, Psychomancer, GravityManipulator, Aeromancer, Geomancer, Hivemaster, Psammomancer }
+public enum FireMode { Default, NearestN, RandomInRange, ArcSwing, Orbit, RisingFist, ScytheOrbit, ChainLightning, VoidOrb, HolySword, AnimatedStrike, OracleBeam, SpectralBeam, TidalWave, MagicAura, BloodPool, RangerArrow, PoisonPool, SentryGun, CaltropThrow, KatanaSlash, DualRevolvers, SniperReticle, BalladWave, WoodcutterAxe, GravityWell, Windstorm, MeteorStrike, InsectSwarm, SawBlade, PoisonDagger, TridentStrike, ShurikenThrow, PoisonGasCloud, BindingCircle, SandShield, ConversionCircle, Downpour, BerserkerAxe, CreepingVines, RadialLaser, WarHammer, Blizzard, WolfClaws, IceShard, Teleportation, SummonUndead, ShadowClone, ScrapMaul, TemporalManipulation }
+public enum CharacterClass { Knight, Mage, Rogue, Necromancer, Paladin, Engineer, Alchemist, Merchant, Berserker, Ghost, Vampire, Samurai, Bard, Sniper, Monk, Druid, Cyborg, Cleric, Pyromancer, Cryomancer, Ranger, Warlock, Assassin, Gladiator, Tactician, Chronomancer, VoidCaller, Beastmaster, NecroKnight, ArcaneArcher, PlagueDoctor, Gunslinger, Viking, Junker, Oracle, PuppetMaster, Enchanter, Artificer, Ninja, ArcticScout, Dwarf, Hydromancer, Hydrokineticist, Battlemage, Psychomancer, GravityManipulator, Aeromancer, Geomancer, Hivemaster, Psammomancer, DimensionMaster }
 public enum POIType { Graveyard, Forge, HolyShrine, CursedAltar, ManaWell, MerchantCart, AncientLibrary, HealingSpring, ScrapHeap, VolcanicVent, FrozenObelisk, ThievesDen, Monolith, Jungle, RadarStation, ToxicPit, GoldenStatue, TimeRift, Overgrowth, Meteorite }
 public enum EnemyTier { Normal, Elite, Boss }
 public enum EnemyBehavior { Chaser, Charger, Ranged, Tank, Exploder, Shaman, Ghost, Freezer, Swarmer, ShieldBearer, Assassin, Necromancer, BlackHole, Wall, Thief, Commander, Mimic, Sniper, Linker, Vampire, Chrono, Reflector, Burrower, Parasite, Magnet, Puffer, Jockey, Mortar, Siren, Gambler, Webber, Mirror, Battery, Medic, SlimeQueen, WindSpirit, GoldGrit, Hive, Glitch, MimicChest, Sandworm, Silencer, Gravitron, SplitterCell, ParasiteSeed, FogWeaver, Alchemist, MirrorShield, LeadFoot, Finality, Orbit, MagnetRepel, ZigZagger, Bouncer, Anchor, SmokeBomb, Jammer, SniperElite, Flashbanger, Curver, RustAura, XPLeech, Coolant, WeightLifter, TaxCollector, Inverter, ScreenGlitch, Shadow, GhostWriter, LagSpirit, Cheerleader, Totem, Drummer, FlagBearer, Bridge, Landmine, SporeCloud, IceCube, TarPit, Meteor, Paradox, Collector, Reanimator, TimeLooper, MimicUI, Shapeshifter, Pacifist, Drunk, GlassCannon, Echo, Blackout, Puppeteer, Firewall, GreedyKing, Speedster, Juggernaut, SwarmLord, VampireBat, Nemesis, Dev }
@@ -48,6 +48,68 @@ public class RunRecord {
     public int    xpGained;
     public int    goldGained;
     public int    enemiesKilled;
+}
+
+// ── Per-run statistics (in-memory only; reset each run) ───────────────────────
+public class DamageSample {
+    public float         gameTime;
+    public List<string>  weaponNames  = new List<string>();
+    public List<float>   weaponDeltas = new List<float>();
+}
+
+public static class RunStatistics {
+    public static Dictionary<string, float>        DamageByWeapon   = new Dictionary<string, float>();
+    public static List<DamageSample>               DamageTimeline   = new List<DamageSample>();
+    public static Dictionary<EnemyBehavior, int>   KillsByType      = new Dictionary<EnemyBehavior, int>();
+    public static int                               UltimateUses     = 0;
+    public static Dictionary<string, float>        BiomeTime        = new Dictionary<string, float>();
+    public static Dictionary<string, float>        POITime          = new Dictionary<string, float>();
+
+    private static Dictionary<string, float> _lastSnapshot = new Dictionary<string, float>();
+
+    public static void RecordDamage(string weapon, float dmg) {
+        if (string.IsNullOrEmpty(weapon)) weapon = "Other";
+        if (!DamageByWeapon.ContainsKey(weapon)) DamageByWeapon[weapon] = 0f;
+        DamageByWeapon[weapon] += dmg;
+    }
+
+    public static void RecordKill(EnemyBehavior type) {
+        if (!KillsByType.ContainsKey(type)) KillsByType[type] = 0;
+        KillsByType[type]++;
+    }
+
+    public static void AddBiomeTime(string biome, float dt) {
+        if (string.IsNullOrEmpty(biome)) return;
+        if (!BiomeTime.ContainsKey(biome)) BiomeTime[biome] = 0f;
+        BiomeTime[biome] += dt;
+    }
+
+    public static void AddPOITime(string poi, float dt) {
+        if (string.IsNullOrEmpty(poi)) return;
+        if (!POITime.ContainsKey(poi)) POITime[poi] = 0f;
+        POITime[poi] += dt;
+    }
+
+    public static void TakeSnapshot(float gameTime) {
+        var s = new DamageSample { gameTime = gameTime };
+        foreach (var kvp in DamageByWeapon) {
+            float prev = _lastSnapshot.TryGetValue(kvp.Key, out float v) ? v : 0f;
+            s.weaponNames.Add(kvp.Key);
+            s.weaponDeltas.Add(kvp.Value - prev);
+            _lastSnapshot[kvp.Key] = kvp.Value;
+        }
+        DamageTimeline.Add(s);
+    }
+
+    public static void Reset() {
+        DamageByWeapon.Clear();
+        DamageTimeline.Clear();
+        KillsByType.Clear();
+        UltimateUses  = 0;
+        BiomeTime.Clear();
+        POITime.Clear();
+        _lastSnapshot.Clear();
+    }
 }
 
 [System.Serializable]

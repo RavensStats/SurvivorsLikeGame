@@ -4,6 +4,18 @@ public class EnemyBullet : MonoBehaviour {
     public float        damage;
     public EnemyEntity  owner; // set by EnemyAttack when the bullet is spawned
 
+    private Rigidbody2D _rb;
+    private Vector2     _baseVelocity;
+
+    void Start() {
+        _rb = GetComponent<Rigidbody2D>();
+        if (_rb != null) _baseVelocity = _rb.linearVelocity;
+    }
+
+    void FixedUpdate() {
+        if (_rb != null) _rb.linearVelocity = _baseVelocity * WeaponSystem.EnemyProjectileSpeedMult;
+    }
+
     void OnTriggerEnter2D(Collider2D other) {
         if (other.CompareTag("Player")) {
             if (WeaponSystem.SandShieldActive) {
