@@ -22,6 +22,8 @@ public class WeaponSystem : MonoBehaviour {
     // Shared shield state read by EnemyAttack and EnemyBullet to block/reflect damage.
     public static bool  SandShieldActive     = false;
     public static float SandShieldCounterDmg = 0f;
+    // Prevents enhancement effects from recursively triggering more enhancement effects.
+    public static int EnhancementDepth = 0;
 
     // ── Temporal Manipulation (Chronomancer weapon) state ───────────────────────
     public static bool  TemporalEchoActive       = false;  // echo every hit 2 s later
@@ -114,6 +116,7 @@ public class WeaponSystem : MonoBehaviour {
         TemporalXPMult           = 1f;
         EnemyProjectileSpeedMult = 1f;
         CurrentWeapon            = "Other";
+        EnhancementDepth         = 0;
     }
 
     void Update() {
@@ -179,7 +182,15 @@ public class WeaponSystem : MonoBehaviour {
             if (w.itemName == _disabledWeapon) continue; // Siren disable
             if (!cooldowns.ContainsKey(w.itemName)) cooldowns[w.itemName] = 0;
             cooldowns[w.itemName] -= Time.deltaTime * TemporalAttackSpeedMult / (PersistentUpgrades.CooldownMult * berserkerMult * poiCd);
-            if (cooldowns[w.itemName] <= 0) { Fire(w); cooldowns[w.itemName] = w.cooldown; }
+            if (cooldowns[w.itemName] <= 0) {
+                bool hasVicious  = w.enhancements != null && w.enhancements.Contains(WeaponEnhancement.Vicious);
+                bool hasAlacrity = w.enhancements != null && w.enhancements.Contains(WeaponEnhancement.Alacrity);
+                float origDmg = w.baseDamage;
+                if (hasVicious) w.baseDamage *= 1.25f;
+                Fire(w);
+                w.baseDamage = origDmg;
+                cooldowns[w.itemName] = w.cooldown * (hasAlacrity ? 0.75f : 1f);
+            }
         }
 
         // Shadow Clone weapon fire — fires all non-skipped weapons from the clone's position.

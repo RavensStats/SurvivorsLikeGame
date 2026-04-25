@@ -37,6 +37,8 @@ public class EnemyAttack : MonoBehaviour {
     void ExecuteAttack() {
         // 25% miss chance while inside a PoisonGas cloud.
         if (entity != null && entity.poisonGasStacks > 0 && Random.value < 0.25f) return;
+        // 50% miss chance while Blinded by a weapon enhancement.
+        if (entity != null && entity.isBlinded && Random.value < 0.50f) return;
 
         float dist = Vector3.Distance(transform.position, SurvivorMasterScript.Instance.player.position);
         float meleeRange = entity != null ? entity.attackRange : 1.5f;

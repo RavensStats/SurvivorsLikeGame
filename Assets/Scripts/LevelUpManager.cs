@@ -332,6 +332,85 @@ public class LevelUpManager : MonoBehaviour {
                     onSelect    = () => { captured.level++; WeaponSystem.Instance?.RefreshOrbitWeapon(captured); }
                 });
             }
+
+            // Combination weapons: every ordered pair (A, B) of owned weapons both at level 5.
+            // The combo uses A's sprite and B's attack logic. Order matters: A x B ≠ B x A.
+            bool isClericCombo = SurvivorMasterScript.Instance != null
+                              && SurvivorMasterScript.Instance.currentClass == CharacterClass.Cleric;
+            if (!isClericCombo && ws.activeWeapons.Count < 5) {
+                var maxed = ws.activeWeapons.FindAll(w => w.level >= 5 && !w.itemName.Contains(" x "));
+                for (int a = 0; a < maxed.Count; a++) {
+                    for (int b = 0; b < maxed.Count; b++) {
+                        if (a == b) continue;
+                        var wA = maxed[a]; var wB = maxed[b];
+                        string comboName = wA.itemName + " x " + wB.itemName;
+                        if (ws.activeWeapons.Exists(w => w.itemName == comboName)) continue;
+                        var capA = wA; var capB = wB;
+                        pool.Add(new UpgradeOption {
+                            id          = "combo_" + wA.itemName + "_x_" + wB.itemName,
+                            title       = comboName,
+                            description = $"The form of {wA.itemName}\nwith the power of {wB.itemName}.\n+50% damage.",
+                            icon        = LoadWeaponIcon(capA),
+                            iconLabel   = "A×B",
+                            iconColor   = new Color(1f, 0.8f, 0f),
+                            onSelect    = () => {
+                                var combo = new ItemData {
+                                    itemName         = comboName,
+                                    description      = $"{capA.itemName} × {capB.itemName}",
+                                    rarity           = Rarity.Legendary,
+                                    isWeapon         = true,
+                                    baseDamage       = capB.baseDamage * 1.5f,
+                                    cooldown         = capB.cooldown,
+                                    pierceCount      = capB.pierceCount,
+                                    trait            = capB.trait,
+                                    fireMode         = capB.fireMode,
+                                    level            = 1,
+                                    range            = capB.range,
+                                    knockback        = capB.knockback,
+                                    projectilePrefab = capB.projectilePrefab,
+                                    spriteFolder     = capA.spriteFolder,
+                                    projectileScale  = capB.projectileScale,
+                                    tags             = capB.tags != null ? new List<string>(capB.tags) : new List<string>()
+                                };
+                                // Inherit enhancements from both parents (deduplicated).
+                                if (capA.enhancements != null)
+                                    foreach (var e in capA.enhancements)
+                                        if (!combo.enhancements.Contains(e)) combo.enhancements.Add(e);
+                                if (capB.enhancements != null)
+                                    foreach (var e in capB.enhancements)
+                                        if (!combo.enhancements.Contains(e)) combo.enhancements.Add(e);
+                                WeaponSystem.Instance?.activeWeapons.Add(combo);
+                                WeaponSystem.Instance?.CheckSynergies();
+                            }
+                        });
+                    }
+                }
+            }
+
+            // Enhancement cards: for each level-5 weapon the player owns, offer every
+            // enhancement it doesn't yet have.  Added to the general (non-guaranteed) pool.
+            foreach (var owned in ws.activeWeapons) {
+                if (owned.level < 5) continue;
+                if (owned.enhancements == null) owned.enhancements = new List<WeaponEnhancement>();
+                foreach (WeaponEnhancement enh in System.Enum.GetValues(typeof(WeaponEnhancement))) {
+                    if (owned.enhancements.Contains(enh)) continue;
+                    var capWeapon = owned;
+                    var capEnh   = enh;
+                    pool.Add(new UpgradeOption {
+                        id          = $"enhance_{owned.itemName}_{enh}",
+                        title       = EnhancementName(enh) + ": " + owned.itemName,
+                        description = EnhancementDesc(enh),
+                        icon        = LoadWeaponIcon(owned),
+                        iconLabel   = EnhancementLabel(enh),
+                        iconColor   = EnhancementColor(enh),
+                        onSelect    = () => {
+                            if (capWeapon.enhancements == null)
+                                capWeapon.enhancements = new List<WeaponEnhancement>();
+                            capWeapon.enhancements.Add(capEnh);
+                        }
+                    });
+                }
+            }
         }
 
         // Separate owned-item level-up cards so we can guarantee one slot for them.
@@ -369,6 +448,74 @@ public class LevelUpManager : MonoBehaviour {
         if (frames != null && frames.Length > 0) return frames[0];
         return Resources.Load<Sprite>($"Sprites/Weapons/{item.spriteFolder}/East");
     }
+
+    static string EnhancementName(WeaponEnhancement e) => e switch {
+        WeaponEnhancement.Poison      => "Poison",
+        WeaponEnhancement.Burning     => "Burning",
+        WeaponEnhancement.Vampiric    => "Vampiric",
+        WeaponEnhancement.Stunned     => "Stunning",
+        WeaponEnhancement.Slowed      => "Slowing",
+        WeaponEnhancement.Frozen      => "Frozen",
+        WeaponEnhancement.Electric    => "Electric",
+        WeaponEnhancement.Magmatic    => "Magmatic",
+        WeaponEnhancement.Gravitonian => "Gravitonian",
+        WeaponEnhancement.Bleeding    => "Bleeding",
+        WeaponEnhancement.Blinding    => "Blinding",
+        WeaponEnhancement.Alacrity    => "Alacrity",
+        WeaponEnhancement.Vicious     => "Vicious",
+        _                             => e.ToString()
+    };
+
+    static string EnhancementDesc(WeaponEnhancement e) => e switch {
+        WeaponEnhancement.Poison      => "On hit: poison for 50% weapon damage/s\nfor 2 seconds.",
+        WeaponEnhancement.Burning     => "On hit: burn dealing 0.85% of enemy HP\nevery 0.5s for 5 seconds.",
+        WeaponEnhancement.Vampiric    => "On hit: heal 10% of damage dealt.",
+        WeaponEnhancement.Stunned     => "On hit: stun enemy for 1 second.",
+        WeaponEnhancement.Slowed      => "On hit: reduce enemy speed by 25%\nfor 3 seconds.",
+        WeaponEnhancement.Frozen      => "On hit: reduce enemy speed by 10%\nfor 5s. At 100% reduction: shatter.",
+        WeaponEnhancement.Electric    => "On hit: arc electricity to all enemies\nwithin 3 units (50% weapon damage).",
+        WeaponEnhancement.Magmatic    => "On hit: spawn lava pool dealing\n50% weapon damage/s for 10 seconds.",
+        WeaponEnhancement.Gravitonian => "On hit: pull nearby enemies toward\nthe target for 2 seconds.",
+        WeaponEnhancement.Bleeding    => "On hit: bleed for 0.25% of max HP/s\nfor 10 seconds.",
+        WeaponEnhancement.Blinding    => "On hit: 50% chance to miss attacks\nfor 3 seconds.",
+        WeaponEnhancement.Alacrity    => "+25% attack speed for this weapon.",
+        WeaponEnhancement.Vicious     => "+25% damage for this weapon.",
+        _                             => ""
+    };
+
+    static string EnhancementLabel(WeaponEnhancement e) => e switch {
+        WeaponEnhancement.Poison      => "PSN",
+        WeaponEnhancement.Burning     => "BURN",
+        WeaponEnhancement.Vampiric    => "VMP",
+        WeaponEnhancement.Stunned     => "STN",
+        WeaponEnhancement.Slowed      => "SLW",
+        WeaponEnhancement.Frozen      => "FRZ",
+        WeaponEnhancement.Electric    => "ELC",
+        WeaponEnhancement.Magmatic    => "LAV",
+        WeaponEnhancement.Gravitonian => "GRV",
+        WeaponEnhancement.Bleeding    => "BLD",
+        WeaponEnhancement.Blinding    => "BLN",
+        WeaponEnhancement.Alacrity    => "ALC",
+        WeaponEnhancement.Vicious     => "VCS",
+        _                             => "ENH"
+    };
+
+    static Color EnhancementColor(WeaponEnhancement e) => e switch {
+        WeaponEnhancement.Poison      => new Color(0.30f, 0.85f, 0.20f),
+        WeaponEnhancement.Burning     => new Color(1.00f, 0.40f, 0.10f),
+        WeaponEnhancement.Vampiric    => new Color(0.80f, 0.10f, 0.10f),
+        WeaponEnhancement.Stunned     => new Color(1.00f, 0.90f, 0.10f),
+        WeaponEnhancement.Slowed      => new Color(0.50f, 0.80f, 1.00f),
+        WeaponEnhancement.Frozen      => new Color(0.60f, 0.90f, 1.00f),
+        WeaponEnhancement.Electric    => new Color(0.90f, 0.90f, 0.20f),
+        WeaponEnhancement.Magmatic    => new Color(1.00f, 0.55f, 0.10f),
+        WeaponEnhancement.Gravitonian => new Color(0.55f, 0.30f, 0.90f),
+        WeaponEnhancement.Bleeding    => new Color(0.85f, 0.10f, 0.20f),
+        WeaponEnhancement.Blinding    => new Color(1.00f, 1.00f, 0.55f),
+        WeaponEnhancement.Alacrity    => new Color(0.20f, 1.00f, 0.70f),
+        WeaponEnhancement.Vicious     => new Color(1.00f, 0.45f, 0.45f),
+        _                             => Color.white
+    };
 
     Text MakeText(Transform parent, string content, int size, FontStyle style,
                   Color color, TextAnchor align, Vector2 anchorMin, Vector2 anchorMax) {

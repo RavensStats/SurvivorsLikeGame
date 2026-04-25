@@ -3,6 +3,7 @@ using UnityEngine;
 
 public enum Rarity { Common, Rare, Epic, Legendary }
 public enum WeaponTrait { None, Piercing, Bouncy, Explosive, Homing, Rotating }
+public enum WeaponEnhancement { Poison, Burning, Vampiric, Stunned, Slowed, Frozen, Electric, Magmatic, Gravitonian, Bleeding, Blinding, Alacrity, Vicious }
 public enum FireMode { Default, NearestN, RandomInRange, ArcSwing, Orbit, RisingFist, ScytheOrbit, ChainLightning, VoidOrb, HolySword, AnimatedStrike, OracleBeam, SpectralBeam, TidalWave, MagicAura, BloodPool, RangerArrow, PoisonPool, SentryGun, CaltropThrow, KatanaSlash, DualRevolvers, SniperReticle, BalladWave, WoodcutterAxe, GravityWell, Windstorm, MeteorStrike, InsectSwarm, SawBlade, PoisonDagger, TridentStrike, ShurikenThrow, PoisonGasCloud, BindingCircle, SandShield, ConversionCircle, Downpour, BerserkerAxe, CreepingVines, RadialLaser, WarHammer, Blizzard, WolfClaws, IceShard, Teleportation, SummonUndead, ShadowClone, ScrapMaul, TemporalManipulation }
 public enum CharacterClass { Knight, Mage, Rogue, Necromancer, Paladin, Engineer, Alchemist, Merchant, Berserker, Ghost, Vampire, Samurai, Bard, Sniper, Monk, Druid, Cyborg, Cleric, Pyromancer, Cryomancer, Ranger, Warlock, Assassin, Gladiator, Tactician, Chronomancer, VoidCaller, Beastmaster, NecroKnight, ArcaneArcher, PlagueDoctor, Gunslinger, Viking, Junker, Oracle, PuppetMaster, Enchanter, Artificer, Ninja, ArcticScout, Dwarf, Hydromancer, Hydrokineticist, Battlemage, Psychomancer, GravityManipulator, Aeromancer, Geomancer, Hivemaster, Psammomancer, DimensionMaster }
 public enum POIType { Graveyard, Forge, HolyShrine, CursedAltar, ManaWell, MerchantCart, AncientLibrary, HealingSpring, ScrapHeap, VolcanicVent, FrozenObelisk, ThievesDen, Monolith, Jungle, RadarStation, ToxicPit, GoldenStatue, TimeRift, Overgrowth, Meteorite }
@@ -28,6 +29,7 @@ public class ItemData {
     public string spriteFolder;
     // World-space scale for runtime-built projectile sprites (5 = 400% larger than natural size).
     public float projectileScale = 5f;
+    public List<WeaponEnhancement> enhancements = new List<WeaponEnhancement>();
 }
 
 [System.Serializable]

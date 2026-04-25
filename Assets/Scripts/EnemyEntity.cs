@@ -112,6 +112,18 @@ public class EnemyEntity : MonoBehaviour {
     private float     _bleedTimeLeft  = 0f;
     private Coroutine _bleedCoroutine;
 
+    // ── Enhancement: Burning ───────────────────────────────────────────────────
+    private float     _burnPercentHP = 0f;
+    private Coroutine _burnCoroutine;
+
+    // ── Enhancement: Frozen ────────────────────────────────────────────────────
+    private int   _frozenStacks = 0;
+    private float _frozenExpiry = 0f;
+
+    // ── Enhancement: Blinding ──────────────────────────────────────────────────
+    [System.NonSerialized] public bool isBlinded    = false;
+    private Coroutine                  _blindCoroutine;
+
     // ── Charm star marker (shown above all charmed enemies) ───────────────────
     private GameObject _starMarkerObj;
 
@@ -175,6 +187,10 @@ public class EnemyEntity : MonoBehaviour {
 
     void Update() {
         if (isDead) return;
+        if (_frozenStacks > 0 && Time.time > _frozenExpiry) {
+            _frozenStacks = 0;
+            UpdateFrozenSpeed();
+        }
         if (stun > 0) { stun -= Time.deltaTime; return; }
         SurvivorMasterScript.Instance.Grid.UpdateEntity(this, transform.position);
 
@@ -671,6 +687,14 @@ public class EnemyEntity : MonoBehaviour {
         RunStatistics.RecordDamage(weaponName ?? WeaponSystem.CurrentWeapon, d);
         FloatingText.SpawnEnemyDamage(transform.position, d);
         hp -= d;
+        // Enhancement on-hit effects — only for direct weapon hits, never for recursive enhancement damage.
+        if (!isEcho && WeaponSystem.EnhancementDepth == 0 && WeaponSystem.CurrentWeapon != "Other") {
+            var _ws = WeaponSystem.Instance;
+            if (_ws != null) {
+                var _wpn = _ws.activeWeapons.Find(w => w.itemName == WeaponSystem.CurrentWeapon);
+                if (_wpn?.enhancements?.Count > 0) ApplyEnhancementsFrom(_wpn, d);
+            }
+        }
         UpdateHealthBar();
         if (!isEcho && WeaponSystem.TemporalEchoActive)
             StartCoroutine(EchoDelayedDamage(d, weaponName));
@@ -763,6 +787,144 @@ public class EnemyEntity : MonoBehaviour {
         }
         _bleedDmgPerSec = 0f;
         _bleedCoroutine = null;
+    }
+
+    // ── Enhancement status effects ─────────────────────────────────────────────
+
+    public void ApplyBurn(float percentHP, float intervalSecs) {
+        _burnPercentHP = Mathf.Max(_burnPercentHP, percentHP);
+        if (_burnCoroutine == null)
+            _burnCoroutine = StartCoroutine(BurnRoutine(intervalSecs));
+    }
+
+    IEnumerator BurnRoutine(float interval) {
+        float elapsed = 0f;
+        while (elapsed < 5f && !isDead) {
+            yield return new WaitForSeconds(interval);
+            elapsed += interval;
+            if (!isDead) {
+                WeaponSystem.EnhancementDepth++;
+                TakeDamage(hp * _burnPercentHP);
+                WeaponSystem.EnhancementDepth--;
+            }
+        }
+        _burnPercentHP = 0f;
+        _burnCoroutine = null;
+    }
+
+    public void ApplyFrozen() {
+        _frozenStacks++;
+        _frozenExpiry = Time.time + 5f;
+        UpdateFrozenSpeed();
+        if (_frozenStacks >= 10) {
+            float shatterDmg = Mathf.Min(hp * 0.1f, 10f);
+            _frozenStacks = 0;
+            UpdateFrozenSpeed();
+            StartCoroutine(ShatterVisual());
+            WeaponSystem.EnhancementDepth++;
+            TakeDamage(shatterDmg);
+            WeaponSystem.EnhancementDepth--;
+        }
+    }
+
+    void UpdateFrozenSpeed() {
+        float reduction = Mathf.Min(_frozenStacks * 0.1f, 1f);
+        moveSpeed = _originalMoveSpeed * (1f - reduction);
+    }
+
+    IEnumerator ShatterVisual() {
+        if (_sr == null) yield break;
+        Color orig = _sr.color;
+        _sr.color = new Color(0.55f, 0.88f, 1f, 1f);
+        yield return new WaitForSeconds(0.25f);
+        if (_sr != null) _sr.color = orig;
+    }
+
+    public void ApplyBlind(float duration) {
+        if (_blindCoroutine != null) StopCoroutine(_blindCoroutine);
+        _blindCoroutine = StartCoroutine(BlindRoutine(duration));
+    }
+
+    IEnumerator BlindRoutine(float duration) {
+        isBlinded = true;
+        yield return new WaitForSeconds(duration);
+        isBlinded = false;
+        _blindCoroutine = null;
+    }
+
+    public static void SpawnElectricAoE(Vector3 center, float radius, float damage) {
+        var nearby = SurvivorMasterScript.Instance?.Grid.GetNearby(center);
+        if (nearby == null) return;
+        WeaponSystem.EnhancementDepth++;
+        foreach (var e in nearby) {
+            if (e == null || e.isDead) continue;
+            if (Vector3.Distance(e.transform.position, center) <= radius)
+                e.TakeDamage(damage);
+        }
+        WeaponSystem.EnhancementDepth--;
+    }
+
+    public void StartGravitationalPull(float duration, float strength) {
+        StartCoroutine(GravitationalPull(duration, strength));
+    }
+
+    IEnumerator GravitationalPull(float duration, float strength) {
+        float elapsed = 0f;
+        while (elapsed < duration && !isDead) {
+            var nearby = SurvivorMasterScript.Instance?.Grid.GetNearby(transform.position);
+            if (nearby != null) {
+                foreach (var e in nearby) {
+                    if (e == null || e.isDead || e == this) continue;
+                    float dist = Vector3.Distance(e.transform.position, transform.position);
+                    if (dist < 8f && dist > 0.1f) {
+                        Vector3 pullDir = (transform.position - e.transform.position).normalized;
+                        e.transform.position += pullDir * strength * Time.deltaTime;
+                    }
+                }
+            }
+            elapsed += Time.deltaTime;
+            yield return null;
+        }
+    }
+
+    void ApplyEnhancementsFrom(ItemData weapon, float damageDealt) {
+        foreach (var enh in weapon.enhancements) {
+            switch (enh) {
+                case WeaponEnhancement.Poison:
+                    ApplyPoison(weapon.baseDamage * 0.5f);
+                    break;
+                case WeaponEnhancement.Burning:
+                    ApplyBurn(0.0085f, 0.5f);
+                    break;
+                case WeaponEnhancement.Vampiric:
+                    SurvivorMasterScript.Instance?.Heal(damageDealt * 0.1f);
+                    break;
+                case WeaponEnhancement.Stunned:
+                    Stun(1f);
+                    break;
+                case WeaponEnhancement.Slowed:
+                    ApplySlow(0.75f, 3f);
+                    break;
+                case WeaponEnhancement.Frozen:
+                    ApplyFrozen();
+                    break;
+                case WeaponEnhancement.Electric:
+                    SpawnElectricAoE(transform.position, 3f, weapon.baseDamage * 0.5f);
+                    break;
+                case WeaponEnhancement.Magmatic:
+                    LavaPoolHazard.Spawn(transform.position, weapon.baseDamage * 0.5f, 10f);
+                    break;
+                case WeaponEnhancement.Gravitonian:
+                    StartGravitationalPull(2f, 3f);
+                    break;
+                case WeaponEnhancement.Bleeding:
+                    ApplyBleed(hp * 0.0025f, 10f);
+                    break;
+                case WeaponEnhancement.Blinding:
+                    ApplyBlind(3f);
+                    break;
+            }
+        }
     }
 
     public void ApplyCharm(float duration) {
